@@ -12,7 +12,6 @@ import time
 import random
 import json
 import math
-
 # Import our custom engines
 from advanced_prediction_engine import predict_future_values_72h, get_prediction_summary
 from intervention_engine import InterventionEngine
