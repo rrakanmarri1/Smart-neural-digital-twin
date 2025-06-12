@@ -1,0 +1,894 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import datetime
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import joblib
+from sklearn.ensemble import IsolationForest
+import time
+import random
+import json
+import math
+
+# Import our custom engines
+from advanced_prediction_engine import predict_future_values_72h, get_prediction_summary
+from intervention_engine import InterventionEngine
+
+# Configure page
+st.set_page_config(
+    page_title="🛢️ Ultimate Digital Twin",
+    page_icon="🛢️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Ultra-advanced CSS for stunning UI
+st.markdown("""
+<style>
+    @import url(\'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap\');
+    
+    .stApp {
+        background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        color: white;
+    }
+    
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        padding: 3rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .main-header::before {
+        content: \'\';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+        animation: shine 4s infinite;
+    }
+    
+    @keyframes shine {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    @keyframes glow {
+        0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.5); }
+        50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.8); }
+    }
+    
+    .main-header h1 {
+        font-family: \'Orbitron\', monospace;
+        font-weight: 900;
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+        background: linear-gradient(45deg, #fff, #f0f0f0, #fff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .metric-card {
+        background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+        transition: all 0.4s ease;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 25px 50px rgba(102, 126, 234, 0.3);
+        border-color: rgba(102, 126, 234, 0.5);
+    }
+    
+    .metric-card::before {
+        content: \'\';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .metric-card:hover::before {
+        opacity: 1;
+    }
+    
+    .alert-critical {
+        background: linear-gradient(135deg, #ff416c 0%, #ff4757 50%, #ff3742 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1.5rem 0;
+        box-shadow: 0 15px 40px rgba(255, 65, 108, 0.4);
+        animation: pulse-critical 2s infinite;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .alert-warning {
+        background: linear-gradient(135deg, #ffa726 0%, #ffb74d 50%, #ffc947 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1.5rem 0;
+        box-shadow: 0 15px 40px rgba(255, 167, 38, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .alert-success {
+        background: linear-gradient(135deg, #66bb6a 0%, #81c784 50%, #4caf50 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1.5rem 0;
+        box-shadow: 0 15px 40px rgba(102, 187, 106, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    @keyframes pulse-critical {
+        0% { 
+            box-shadow: 0 15px 40px rgba(255, 65, 108, 0.4);
+            transform: scale(1);
+        }
+        50% { 
+            box-shadow: 0 20px 60px rgba(255, 65, 108, 0.7);
+            transform: scale(1.02);
+        }
+        100% { 
+            box-shadow: 0 15px 40px rgba(255, 65, 108, 0.4);
+            transform: scale(1);
+        }
+    }
+    
+    .prediction-card {
+        background: linear-gradient(145deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1.5rem 0;
+        border: 1px solid rgba(33, 150, 243, 0.3);
+        box-shadow: 0 10px 30px rgba(33, 150, 243, 0.2);
+        backdrop-filter: blur(10px);
+    }
+    
+    .intervention-card {
+        background: linear-gradient(145deg, rgba(156, 39, 176, 0.1) 0%, rgba(156, 39, 176, 0.05) 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1.5rem 0;
+        border: 1px solid rgba(156, 39, 176, 0.3);
+        box-shadow: 0 10px 30px rgba(156, 39, 176, 0.2);
+        transition: all 0.4s ease;
+        backdrop-filter: blur(10px);
+    }
+    
+    .intervention-card:hover {
+        transform: scale(1.03);
+        box-shadow: 0 15px 40px rgba(156, 39, 176, 0.4);
+        border-color: rgba(156, 39, 176, 0.6);
+    }
+    
+    .sidebar .sidebar-content {
+        background: linear-gradient(180deg, rgba(26, 26, 46, 0.9) 0%, rgba(22, 33, 62, 0.9) 100%);
+        backdrop-filter: blur(10px);
+    }
+    
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 15px;
+        padding: 0.8rem 1.5rem;
+        font-weight: 600;
+        font-family: \'Inter\', sans-serif;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    .future-timeline {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        height: 6px;
+        border-radius: 3px;
+        margin: 2rem 0;
+        position: relative;
+        box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: white;
+        border-radius: 50%;
+        top: -5px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border: 2px solid #667eea;
+    }
+    
+    .section-header {
+        font-family: \'Orbitron\', monospace;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 2rem 0 1rem 0;
+        background: linear-gradient(45deg, #667eea, #764ba2, #f093fb);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-align: center;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .stat-item {
+        background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,0.1);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+    }
+    
+    .confidence-bar {
+        width: 100%;
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    
+    .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #8bc34a, #cddc39);
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Load models and engines
+@st.cache_resource
+def load_models():
+    try:
+        anomaly_model = joblib.load("isolation_forest_model.pkl")
+        advanced_prediction_models = joblib.load("advanced_prediction_models.pkl")
+        return anomaly_model, advanced_prediction_models
+    except:
+        # If models don\'t exist, create simple ones
+        anomaly_model = IsolationForest(random_state=42, contamination=0.05)
+        dummy_data = np.random.normal(0, 1, (100, 5))
+        anomaly_model.fit(dummy_data)
+        return anomaly_model, None
+
+@st.cache_resource
+def load_intervention_engine():
+    return InterventionEngine()
+
+# Load historical data
+@st.cache_data
+def load_historical_data():
+    df = pd.read_csv("sensor_data_simulated.csv")
+    df["Time"] = pd.to_datetime(df["Time"])
+    return df
+
+# Generate advanced real-time data with more sophisticated patterns
+@st.cache_data(ttl=2)
+def generate_realtime_data():
+    current_time = datetime.datetime.now()
+    
+    # More sophisticated base values with daily and hourly patterns
+    hour = current_time.hour
+    day_factor = 1 + 0.1 * np.sin(2 * np.pi * current_time.day / 30)  # Monthly cycle
+    hour_factor = 1 + 0.05 * np.sin(2 * np.pi * hour / 24)  # Daily cycle
+    
+    base_temp = (75 + 5 * np.sin(2 * np.pi * hour / 24)) * day_factor + np.random.normal(0, 2)
+    base_pressure = (200 + 10 * np.cos(2 * np.pi * hour / 24)) * day_factor + np.random.normal(0, 8)
+    base_methane = (2.5 + 0.5 * np.sin(2 * np.pi * hour / 12)) * day_factor + np.random.normal(0, 0.6)
+    base_h2s = (0.4 + 0.1 * np.cos(2 * np.pi * hour / 24)) * day_factor + np.random.normal(0, 0.12)
+    base_vibration = (0.5 + 0.1 * np.sin(2 * np.pi * hour / 8)) * hour_factor + np.random.normal(0, 0.08)
+    
+    # Simulate anomalies with different probabilities based on time
+    anomaly_prob = 0.1 + 0.05 * np.sin(2 * np.pi * hour / 24)  # Higher probability at certain hours
+    
+    if random.random() < anomaly_prob:
+        anomaly_type = random.choice([\'temperature\', \'pressure\', \'gas_leak\', \'vibration\'])
+        if anomaly_type == \'temperature\':
+            base_temp += random.uniform(25, 40)
+        elif anomaly_type == \'pressure\':
+            base_pressure += random.uniform(40, 60)
+        elif anomaly_type == \'gas_leak\':
+            base_methane += random.uniform(12, 25)
+            base_h2s += random.uniform(3, 6)
+        else:  # vibration
+            base_vibration += random.uniform(0.5, 1.0)
+    
+    return {
+        \'timestamp\': current_time,
+        \'temperature\': max(0, base_temp),
+        \'pressure\': max(0, base_pressure),
+        \'methane\': max(0, base_methane),
+        \'H2S\': max(0, base_h2s),
+        \'vibration\': max(0, base_vibration)
+    }
+
+# Enhanced risk calculation with more sophisticated logic
+def calculate_advanced_risk(data, anomaly_model):
+    features = np.array([[data[\'temperature\'], data[\'pressure\'], data[\'methane\'], data[\'H2S\'], data[\'vibration\']]])
+    
+    # Get anomaly score
+    try:
+        anomaly_score = anomaly_model.decision_function(features)[0]
+        is_anomaly = anomaly_model.predict(features)[0] == -1
+    except:
+        anomaly_score = 0
+        is_anomaly = False
+    
+    # Enhanced risk calculation with non-linear scaling
+    temp_risk = max(0, min(1, ((data[\'temperature\'] - 80) / 25) ** 1.5))
+    pressure_risk = max(0, min(1, ((data[\'pressure\'] - 220) / 40) ** 1.2))
+    methane_risk = max(0, min(1, ((data[\'methane\'] - 5) / 20) ** 1.3))
+    h2s_risk = max(0, min(1, ((data[\'H2S\'] - 1) / 5) ** 1.4))
+    vibration_risk = max(0, min(1, ((data[\'vibration\'] - 0.7) / 0.8) ** 1.1))
+    
+    # Dynamic weights based on current conditions
+    weights = {
+        \'temp\': 0.25 + (0.1 if data[\'temperature\'] > 90 else 0),
+        \'pressure\': 0.25 + (0.1 if data[\'pressure\'] > 240 else 0),
+        \'methane\': 0.2 + (0.15 if data[\'methane\'] > 10 else 0),
+        \'h2s\': 0.15 + (0.1 if data[\'H2S\'] > 2 else 0),
+        \'vibration\': 0.15 + (0.05 if data[\'vibration\'] > 0.8 else 0)
+    }
+    
+    # Normalize weights
+    total_weight = sum(weights.values())
+    weights = {k: v/total_weight for k, v in weights.items()}
+    
+    base_risk = (temp_risk * weights[\'temp\'] + 
+                 pressure_risk * weights[\'pressure\'] + 
+                 methane_risk * weights[\'methane\'] + 
+                 h2s_risk * weights[\'h2s\'] + 
+                 vibration_risk * weights[\'vibration\'])
+    
+    # Apply anomaly factor with exponential scaling
+    anomaly_factor = 1.0 + (1.5 if is_anomaly else 0) + max(0, -anomaly_score * 0.3)
+    total_risk = min(1.0, base_risk * anomaly_factor)
+    
+    return {
+        \'total_risk\': total_risk,
+        \'anomaly_score\': anomaly_score,
+        \'is_anomaly\': is_anomaly,
+        \'components\': {
+            \'temperature\': temp_risk,
+            \'pressure\': pressure_risk,
+            \'methane\': methane_risk,
+            \'H2S\': h2s_risk,
+            \'vibration\': vibration_risk
+        },
+        \'weights\': weights
+    }
+
+# Create ultra-advanced 3D facility visualization
+def create_ultra_3d_facility_view(current_data, risk_analysis, predictions=None):
+    """Create an ultra-advanced 3D visualization of the oil facility"""
+    
+    # Enhanced facility layout with more realistic positioning
+    facility_components = {
+        \'wells\': [
+            {\'pos\': (0, 0, 0), \'name\': \'بئر الإنتاج الرئيسي\', \'capacity\': 1000},
+            {\'pos\': (3, 2, 0), \'name\': \'بئر الإنتاج الثانوي\', \'capacity\': 800},
+            {\'pos\': (1, 4, 0), \'name\': \'بئر المراقبة\', \'capacity\': 600},
+            {\'pos\': (-2, 3, 0), \'name\': \'بئر الاحتياط\', \'capacity\': 700}
+        ],
+        \'processing_units\': [
+            {\'pos\': (0, 0, 3), \'name\': \'وحدة المعالجة الأولية\', \'status\': \'active\'},
+            {\'pos\': (2, 1, 2), \'name\': \'وحدة التكرير\', \'status\': \'active\'}
+        ],
+        \'storage_tanks\': [
+            {\'pos\': (4, 0, 1), \'name\': \'خزان التخزين الرئيسي\', \'capacity\': 5000},
+            {\'pos\': (-3, 4, 1), \'name\': \'خزان الطوارئ\', \'capacity\': 2000},
+            {\'pos\': (1, -2, 1), \'name\': \'خزان المعالجة\', \'capacity\': 3000}
+        ],
+        \'sensors\': [
+            {\'pos\': (0.5, 0.5, 0.5), \'type\': \'temperature\', \'value\': current_data[\'temperature\']},
+            {\'pos\': (2.5, 1.5, 0.5), \'type\': \'pressure\', \'value\': current_data[\'pressure\']},
+            {\'pos\': (1.5, 3.5, 0.5), \'type\': \'gas\', \'value\': current_data[\'methane\']},
+            {\'pos\': (-1.5, 2.5, 0.5), \'type\': \'vibration\', \'value\': current_data[\'vibration\']}
+        ]
+    }
+    
+    fig = go.Figure()
+    
+    # Add wells with enhanced visualization
+    for i, well in enumerate(facility_components[\'wells\']):
+        x, y, z = well[\'pos\']
+        risk_level = risk_analysis[\'total_risk\']
+        
+        # Color based on risk and capacity
+        if risk_level > 0.7:
+            color = \'red\'
+            size = 20 + well[\'capacity\'] / 100
+        elif risk_level > 0.3:
+            color = \'orange\'
+            size = 18 + well[\'capacity\'] / 100
+        else:
+            color = \'green\'
+            size = 15 + well[\'capacity\'] / 100
+        
+        fig.add_trace(go.Scatter3d(
+            x=[x], y=[y], z=[z],
+            mode=\'markers\',
+            marker=dict(
+                size=size,
+                color=color,
+                opacity=0.8,
+                symbol=\'diamond\',
+                line=dict(width=2, color=\'white\')
+            ),
+            name=well[\'name\'],
+            hovertemplate=f"<b>{well[\'name\']}</b><br>" +
+                         f"السعة: {well[\'capacity\']} برميل/يوم<br>" +
+                         f"مستوى المخاطر: {risk_level:.2f}"
+        ))
+        
+        # Add labels for wells
+        fig.add_trace(go.Scatter3d(
+            x=[x], y=[y], z=[z+0.5],  # Slightly above the marker
+            mode=\'text\',
+            text=[well[\'name\']],
+            textfont=dict(color=\'white\', size=10),
+            showlegend=False
+        ))
+
+    # Add processing units
+    for unit in facility_components[\'processing_units\']:
+        x, y, z = unit[\'pos\']
+        fig.add_trace(go.Mesh3d(
+            x=[x-0.5, x+0.5, x+0.5, x-0.5, x-0.5, x+0.5, x+0.5, x-0.5],
+            y=[y-0.5, y-0.5, y+0.5, y+0.5, y-0.5, y-0.5, y+0.5, y+0.5],
+            z=[z, z, z, z, z+1, z+1, z+1, z+1],
+            i=[7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
+            j=[3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
+            k=[0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+            opacity=0.6,
+            color=\'lightblue\',
+            name=unit[\'name\'],
+            hovertemplate=f"<b>{unit[\'name\']}</b><br>الحالة: {unit[\'status\']}"
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=[x], y=[y], z=[z+1.5],  # Slightly above the unit
+            mode=\'text\',
+            text=[unit[\'name\']],
+            textfont=dict(color=\'white\', size=10),
+            showlegend=False
+        ))
+
+    # Add storage tanks (cylinders)
+    for tank in facility_components[\'storage_tanks\']:
+        x_c, y_c, z_c = tank[\'pos\']
+        radius = 0.8
+        height = 1.5
+        num_points = 50
+        theta = np.linspace(0, 2*np.pi, num_points)
+        x_cyl = x_c + radius * np.cos(theta)
+        y_cyl = y_c + radius * np.sin(theta)
+        z_cyl_bottom = np.full(num_points, z_c)
+        z_cyl_top = np.full(num_points, z_c + height)
+
+        # Sides of the cylinder
+        for i in range(num_points - 1):
+            fig.add_trace(go.Mesh3d(
+                x=[x_cyl[i], x_cyl[i+1], x_cyl[i+1], x_cyl[i]],
+                y=[y_cyl[i], y_cyl[i+1], y_cyl[i+1], y_cyl[i]],
+                z=[z_cyl_bottom[i], z_cyl_bottom[i+1], z_cyl_top[i+1], z_cyl_top[i]],
+                opacity=0.5,
+                color=\'gray\',
+                showlegend=False
+            ))
+        # Top and bottom caps
+        fig.add_trace(go.Mesh3d(
+            x=x_cyl, y=y_cyl, z=z_cyl_bottom,
+            opacity=0.5,
+            color=\'gray\',
+            showlegend=False
+        ))
+        fig.add_trace(go.Mesh3d(
+            x=x_cyl, y=y_cyl, z=z_cyl_top,
+            opacity=0.5,
+            color=\'gray\',
+            showlegend=False
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=[x_c], y=[y_c], z=[z_c+height+0.5],  # Slightly above the tank
+            mode=\'text\',
+            text=[tank[\'name\']],
+            textfont=dict(color=\'white\', size=10),
+            showlegend=False
+        ))
+
+    # Add sensors with dynamic color based on risk components
+    for sensor in facility_components[\'sensors\']:
+        x, y, z = sensor[\'pos\']
+        sensor_type = sensor[\'type\']
+        
+        # Get risk for this specific sensor type
+        component_risk = risk_analysis[\'components\'].get(sensor_type, 0)
+        
+        if component_risk > 0.7:
+            color = \'red\'
+        elif component_risk > 0.3:
+            color = \'orange\'
+        else:
+            color = \'green\'
+            
+        fig.add_trace(go.Scatter3d(
+            x=[x], y=[y], z=[z],
+            mode=\'markers\',
+            marker=dict(
+                size=10,
+                color=color,
+                opacity=0.9,
+                symbol=\'circle\',
+                line=dict(width=2, color=\'white\')
+            ),
+            name=f"مستشعر {sensor_type}",
+            hovertemplate=f"<b>مستشعر {sensor_type}</b><br>القيمة: {sensor[\'value\']:.2f}<br>مخاطر المكون: {component_risk:.2f}"
+        ))
+        fig.add_trace(go.Scatter3d(
+            x=[x], y=[y], z=[z+0.3],  # Slightly above the sensor
+            mode=\'text\',
+            text=[f"مستشعر {sensor_type}"],
+            textfont=dict(color=\'white\', size=8),
+            showlegend=False
+        ))
+
+    # Add pipelines (simplified for visualization)
+    pipelines = [
+        ((0,0,0), (0,0,3)),  # Well to processing unit
+        ((3,2,0), (2,1,2)),  # Well to processing unit
+        ((0,0,3), (4,0,1)),  # Processing unit to storage
+        ((2,1,2), (1,-2,1))   # Processing unit to storage
+    ]
+    
+    for p_start, p_end in pipelines:
+        fig.add_trace(go.Scatter3d(
+            x=[p_start[0], p_end[0]],
+            y=[p_start[1], p_end[1]],
+            z=[p_start[2], p_end[2]],
+            mode=\'lines\',
+            line=dict(color=\'#888\', width=5),
+            showlegend=False
+        ))
+
+    fig.update_layout(
+        scene=dict(
+            xaxis=dict(showbackground=False, showticklabels=False, showgrid=False, zeroline=False),
+            yaxis=dict(showbackground=False, showticklabels=False, showgrid=False, zeroline=False),
+            zaxis=dict(showbackground=False, showticklabels=False, showgrid=False, zeroline=False),
+            aspectmode=\'data\', # Keep aspect ratio for realistic shapes
+            camera=dict(
+                eye=dict(x=1.8, y=1.8, z=1.8) # Adjust camera angle for better view
+            )
+        ),
+        height=500,
+        margin=dict(l=0, r=0, b=0, t=0),
+        paper_bgcolor=\'rgba(0,0,0,0)\',
+        plot_bgcolor=\'rgba(0,0,0,0)\',
+        showlegend=True,
+        legend=dict(x=0, y=1, font=dict(color=\'white\'))
+    )
+    
+    return fig
+
+# Function to create a sleek gauge chart
+def create_gauge_chart(value, title, max_value, critical_threshold, warning_threshold):
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = value,
+        domain = {\'x\': [0, 1], \'y\': [0, 1]},
+        title = {\'text\': title, \'font\': {\'size\': 18, \'color\': \'white\'}},
+        gauge = {
+            \'axis\': {\'range\': [None, max_value], \'tickwidth\': 1, \'tickcolor\': \'darkblue\', \'tickfont\': {\'color\': \'white\'}},
+            \'bar\': {\'color\': "#667eea"},
+            \'bgcolor\': "#1a1a2e",
+            \'borderwidth\': 2,
+            \'bordercolor\': "gray",
+            \'steps\': [
+                {\'range\': [0, warning_threshold], \'color\': \'#4CAF50\'}, # Green
+                {\'range\': [warning_threshold, critical_threshold], \'color\': \'#FFC107\'}, # Yellow
+                {\'range\': [critical_threshold, max_value], \'color\': \'#F44336\'}  # Red
+            ],
+            \'threshold\': {
+                \'line\': {\'color\': "red", \'width\': 4},
+                \'thickness\': 0.75,
+                \'value\': value
+            }
+        }
+    ))
+    fig.update_layout(height=250, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor=\'rgba(0,0,0,0)\', plot_bgcolor=\'rgba(0,0,0,0)\')
+    return fig
+
+# Function to display risk components as a bar chart
+def create_risk_components_chart(components, weights):
+    labels = list(components.keys())
+    values = [components[k] * weights[k] for k in labels]
+    
+    fig = px.bar(
+        x=labels, y=values,
+        title=\'مساهمة المكونات في المخاطر الكلية\',
+        labels={\'x\': \'المكون\', \'y\': \'مساهمة المخاطر\'}, 
+        color=values, 
+        color_continuous_scale=px.colors.sequential.Plasma
+    )
+    fig.update_layout(
+        paper_bgcolor=\'rgba(0,0,0,0)\',
+        plot_bgcolor=\'rgba(0,0,0,0)\',
+        font_color=\'white\',
+        xaxis_title=\'\',
+        yaxis_title=\'\',
+        title_font_size=16,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(showgrid=False)
+    return fig
+
+# Main Streamlit App
+def main():
+    st.markdown("""
+    <div class="main-header">
+        <h1>🛢️ Ultimate Digital Twin</h1>
+        <p>التوأم الرقمي النهائي للتنبؤ بالكوارث والوقاية منها</p>
+        <p><b>Powered by Advanced AI, 72-Hour Predictive Analytics & Ultra-Interactive Simulation</b></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    anomaly_model, advanced_prediction_models = load_models()
+    intervention_engine = load_intervention_engine()
+    historical_df = load_historical_data()
+
+    # Sidebar for controls
+    st.sidebar.header("🎛️ مركز التحكم المتقدم")
+    
+    auto_refresh = st.sidebar.checkbox("🔄 التحديث التلقائي", value=True)
+    refresh_rate = st.sidebar.slider("معدل التحديث (ثواني)", 1, 10, 2)
+    
+    st.sidebar.markdown("--- ")
+    st.sidebar.subheader("⚙️ محاكاة التدخلات")
+    intervention_options = {
+        "لا يوجد": "لا يتم تطبيق أي تدخل.",
+        "إغلاق صمام": "يقلل ضغط الأنابيب ويقلل من خطر التسرب.",
+        "تفعيل نظام التبريد": "يخفض درجة الحرارة ويقلل من خطر الانفجار.",
+        "فحص تسرب الغاز": "يقلل من تركيز الغازات الخطرة.",
+        "تثبيت اهتزازات": "يقلل من الاهتزازات الميكانيكية.",
+        "إخلاء جزئي": "يقلل من تأثير الكارثة على الأفراد."
+    }
+    selected_intervention = st.sidebar.selectbox(
+        "اختر إجراء وقائي للمحاكاة:",
+        list(intervention_options.keys())
+    )
+    st.sidebar.info(intervention_options[selected_intervention])
+    
+    # Main content area
+    
+    # Real-time data and risk assessment
+    st.markdown("<h2 class=\'section-header\'>📊 البيانات الحية وتقييم المخاطر</h2>", unsafe_allow_html=True)
+    
+    current_data = generate_realtime_data()
+    risk_analysis = calculate_advanced_risk(current_data, anomaly_model)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>درجة الحرارة</h3>
+            <p style="font-size: 2.5rem; font-weight: bold; color: #f093fb;">{current_data['temperature']:.2f} °C</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>الضغط</h3>
+            <p style="font-size: 2.5rem; font-weight: bold; color: #667eea;">{current_data['pressure']:.2f} PSI</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>الميثان</h3>
+            <p style="font-size: 2.5rem; font-weight: bold; color: #764ba2;">{current_data['methane']:.2f} ppm</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    col_h2s, col_vib, col_empty = st.columns(3)
+    with col_h2s:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>كبريتيد الهيدروجين (H2S)</h3>
+            <p style="font-size: 2.5rem; font-weight: bold; color: #ffa726;">{current_data['H2S']:.2f} ppm</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_vib:
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>الاهتزاز</h3>
+            <p style="font-size: 2.5rem; font-weight: bold; color: #4caf50;">{current_data['vibration']:.2f} mm/s</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_empty:
+        pass
+
+    # Risk Alert
+    if risk_analysis['total_risk'] > 0.7:
+        st.markdown(f"""
+        <div class="alert-critical">
+            <h2>🚨 خطر حرج!</h2>
+            <p>مستوى المخاطر الكلي: <span style="font-size: 1.5rem; font-weight: bold;">{risk_analysis['total_risk']:.2f}</span></p>
+            <p>تم اكتشاف شذوذ في البيانات. يرجى اتخاذ إجراء فوري!</p>
+        </div>
+        """, unsafe_allow_html=True)
+    elif risk_analysis['total_risk'] > 0.3:
+        st.markdown(f"""
+        <div class="alert-warning">
+            <h2>⚠️ تحذير!</h2>
+            <p>مستوى المخاطر الكلي: <span style="font-size: 1.5rem; font-weight: bold;">{risk_analysis['total_risk']:.2f}</span></p>
+            <p>تم رصد قيم غير طبيعية. يرجى المراقبة واتخاذ إجراءات وقائية.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="alert-success">
+            <h2>✅ الوضع آمن</h2>
+            <p>مستوى المخاطر الكلي: <span style="font-size: 1.5rem; font-weight: bold;">{risk_analysis['total_risk']:.2f}</span></p>
+            <p>جميع الأنظمة تعمل بشكل طبيعي.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    col_risk_gauge, col_risk_components = st.columns([1, 2])
+    with col_risk_gauge:
+        st.plotly_chart(create_gauge_chart(risk_analysis['total_risk'], "مستوى المخاطر الكلي", 1.0, 0.7, 0.3), use_container_width=True)
+    with col_risk_components:
+        st.plotly_chart(create_risk_components_chart(risk_analysis['components'], risk_analysis['weights']), use_container_width=True)
+
+    # 3D Facility Visualization
+    st.markdown("<h2 class=\'section-header\'>🌐 تصور المنشأة ثلاثي الأبعاد</h2>", unsafe_allow_html=True)
+    st.plotly_chart(create_ultra_3d_facility_view(current_data, risk_analysis), use_container_width=True)
+
+    # 72-Hour Prediction and Intervention Simulation
+    st.markdown("<h2 class=\'section-header\'>🔮 التنبؤ لـ 72 ساعة ومحاكاة التدخلات</h2>", unsafe_allow_html=True)
+    
+    if advanced_prediction_models:
+        # Get predictions for the next 72 hours
+        future_predictions_df = predict_future_values_72h(historical_df, advanced_prediction_models)
+        
+        # Apply selected intervention to predictions
+        if selected_intervention != "لا يوجد":
+            st.info(f"محاكاة تأثير: **{selected_intervention}**")
+            future_predictions_df = intervention_engine.apply_intervention(
+                future_predictions_df, selected_intervention
+            )
+            
+        # Calculate future risks based on predictions
+        future_risks = []
+        for index, row in future_predictions_df.iterrows():
+            future_risk_data = {
+                \'temperature\': row[\'temperature\'],
+                \'pressure\': row[\'pressure\'],
+                \'methane\': row[\'methane\'],
+                \'H2S\': row[\'H2S\'],
+                \'vibration\': row[\'vibration\']
+            }
+            future_risks.append(calculate_advanced_risk(future_risk_data, anomaly_model)[\'total_risk\'])
+        future_predictions_df[\'total_risk\'] = future_risks
+
+        # Plot future predictions
+        fig_pred = make_subplots(rows=len(historical_df.columns[1:]) + 1, cols=1, 
+                                 shared_xaxes=True, 
+                                 vertical_spacing=0.05,
+                                 subplot_titles=[
+                                     "درجة الحرارة", "الضغط", "الميثان", "كبريتيد الهيدروجين (H2S)", "الاهتزاز", "مستوى المخاطر الكلي"
+                                 ])
+        
+        # Add historical data to plots
+        for i, col in enumerate(historical_df.columns[1:]):
+            fig_pred.add_trace(go.Scatter(
+                x=historical_df[\'Time\'], y=historical_df[col],
+                mode=\'lines\', name=f\'البيانات التاريخية {col}\'
+            ), row=i+1, col=1)
+        
+        # Add future predictions to plots
+        for i, col in enumerate(future_predictions_df.columns[1:-1]): # Exclude Time and total_risk
+            fig_pred.add_trace(go.Scatter(
+                x=future_predictions_df[\'Time\'], y=future_predictions_df[col],
+                mode=\'lines\', name=f\'التنبؤ المستقبلي {col}\'
+            ), row=i+1, col=1)
+            
+        # Add total risk prediction
+        fig_pred.add_trace(go.Scatter(
+            x=future_predictions_df[\'Time\'], y=future_predictions_df[\'total_risk\'],
+            mode=\'lines\', name=\'التنبؤ بالمخاطر الكلية\', line=dict(color=\'purple\', width=2)
+        ), row=len(historical_df.columns[1:]) + 1, col=1)
+        
+        # Add risk thresholds to total risk plot
+        fig_pred.add_hline(y=0.3, line_dash="dot", line_color="yellow", annotation_text="تحذير", annotation_position="top left", row=len(historical_df.columns[1:]) + 1, col=1)
+        fig_pred.add_hline(y=0.7, line_dash="dot", line_color="red", annotation_text="حرج", annotation_position="top left", row=len(historical_df.columns[1:]) + 1, col=1)
+
+        fig_pred.update_layout(
+            height=1000,
+            title_text="التنبؤات المستقبلية لسلوك المستشعرات والمخاطر",
+            paper_bgcolor=\'rgba(0,0,0,0)\',
+            plot_bgcolor=\'rgba(0,0,0,0)\',
+            font_color=\'white\',
+            hovermode=\'x unified\'
+        )
+        st.plotly_chart(fig_pred, use_container_width=True)
+        
+        # Display prediction summary
+        st.markdown("<h3 style=\'color: #f093fb;\'>ملخص التنبؤات والمخاطر المستقبلية:</h3>", unsafe_allow_html=True)
+        prediction_summary = get_prediction_summary(future_predictions_df)
+        st.write(prediction_summary)
+
+    else:
+        st.warning("نماذج التنبؤ غير متوفرة. يرجى التأكد من تدريبها وحفظها بشكل صحيح.")
+
+    # Download Reports
+    st.markdown("<h2 class=\'section-header\'>📥 تقارير وبيانات</h2>", unsafe_allow_html=True)
+    col_download1, col_download2 = st.columns(2)
+    with col_download1:
+        st.download_button(
+            label="تنزيل البيانات التاريخية (CSV)",
+            data=historical_df.to_csv(index=False).encode(\'utf-8\'),
+            file_name="historical_sensor_data.csv",
+            mime="text/csv",
+        )
+    with col_download2:
+        if advanced_prediction_models:
+            st.download_button(
+                label="تنزيل التنبؤات المستقبلية (CSV)",
+                data=future_predictions_df.to_csv(index=False).encode(\'utf-8\'),
+                file_name="future_predictions.csv",
+                mime="text/csv",
+            )
+
+    # Auto-refresh logic
+    if auto_refresh:
+        time.sleep(refresh_rate)
+        st.experimental_rerun()
+
+if __name__ == "__main__":
+    main()
