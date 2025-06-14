@@ -1,52 +1,25 @@
-# Smart Neural Digital Twin
+# Smart Neural Digital Twin - Industrial Monitoring System
 
-## نظرة عامة
-هذا المشروع عبارة عن نموذج أولي لـ **التوأم الرقمي العصبي الذكي لسلامة حقول النفط**. يتصل بأجهزة الاستشعار الموجودة، ويكتشف الشذوذ، ويوفر رؤى تنبؤية باستخدام تقنيات الذكاء الاصطناعي والتعلم الآلي.
+## Overview
+An advanced neural digital twin solution for industrial equipment monitoring, featuring real-time analytics, AI-powered anomaly detection, and predictive maintenance capabilities.
 
-## الميزات الرئيسية
-* لوحة معلومات بيانات المستشعرات في الوقت الفعلي مع تصور تفاعلي
-* اكتشاف الشذوذ باستخدام خوارزمية Isolation Forest
-* تنبؤات مستقبلية لمدة تصل إلى 72 ساعة مع فواصل الثقة
-* توصيات ذكية بناءً على تحليلات البيانات المباشرة
-* واجهة ويب سهلة الاستخدام مدعومة بـ Streamlit
-* وضع الليل/النهار للراحة البصرية
+## 🌟 Key Features
+- **Real-time Monitoring**: Live sensor data visualization with interactive charts
+- **AI Anomaly Detection**: Automatic detection of abnormal equipment behavior
+- **Predictive Maintenance**: Advanced analytics for equipment health assessment
+- **3D Equipment Visualization**: Interactive 3D model of industrial equipment
+- **Bilingual Support**: English/Arabic interface
+- **Dark Mode**: Optimized for extended monitoring sessions
 
-## المتطلبات
-* Python 3.8+
-* Streamlit
-* scikit-learn
-* pandas
-* numpy
-* plotly
+## 🚀 Quick Start
 
-## التثبيت والتشغيل
+### Prerequisites
+- Python 3.8+
+### Installation
 ```bash
-git clone https://github.com/rrakanmarri1/Smart-neural-digital-twin.git
+# Clone the repository
+git clone [https://github.com/rrakanmarri1/Smart-neural-digital-twin.git](https://github.com/rrakanmarri1/Smart-neural-digital-twin.git)
 cd Smart-neural-digital-twin
+
+# Install dependencies
 pip install -r requirements.txt
-streamlit run app.py
-```
-
-## هيكل المشروع
-- `app.py`: التطبيق الرئيسي لـ Streamlit
-- `requirements.txt`: قائمة بالمكتبات المطلوبة
-- `generate_sensor_data.py`: سكريبت لتوليد بيانات المستشعرات المحاكاة
-- `train_anomaly_model.py`: سكريبت لتدريب نموذج اكتشاف الشذوذ
-- `train_lstm_model.py`: سكريبت لتدريب نموذج التنبؤ
-
-## الاستخدام
-بعد تشغيل التطبيق، يمكنك:
-1. عرض بيانات المستشعرات في الوقت الفعلي في لوحة المعلومات
-2. الاطلاع على التنبؤات المستقبلية في صفحة "التحليلات التنبؤية"
-3. الحصول على توصيات ذكية في صفحة "التوصيات الذكية"
-4. تغيير إعدادات التطبيق في صفحة "الإعدادات"
-
-## الرؤية
-تثوير سلامة المنشآت الصناعية من خلال تحويل البيانات الخام إلى رؤى قابلة للتنفيذ، مما يضمن بيئة تشغيلية أكثر أماناً وكفاءة.
-
-## المساهمة
-نرحب بالمساهمات! يرجى إرسال طلبات السحب أو فتح مشكلة لمناقشة التغييرات المقترحة.
-
-## الترخيص
-هذا المشروع مرخص بموجب رخصة MIT.
-
