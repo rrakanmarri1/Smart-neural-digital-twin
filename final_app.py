@@ -183,7 +183,7 @@ elif menu.startswith('🎛️'):
     sim['gas']=st.slider('Gas (ppm)' if language=='en' else 'الغاز (ppm)',0.0,10.0,float(current['gas']),0.1)
     st.table(pd.DataFrame([sim]).T)
 
-# Predictive
+# Predictive Analysis
 elif menu.startswith('📈'):
     st.markdown("<div class='main-title'>📈 Predictive Analysis</div>", unsafe_allow_html=True)
     model=train_model(history,'temp')
@@ -197,7 +197,7 @@ elif menu.startswith('📈'):
         pf.update_layout(paper_bgcolor='#121212', plot_bgcolor='#121212', font_color='#E0E0E0', title='Forecast' if language=='en' else 'التوقع')
         st.plotly_chart(pf, use_container_width=True)
 
-# Solutions
+# Smart solutions
 elif menu.startswith('🛠️'):
     st.markdown("<div class='main-title'>🛠️ Smart Solutions</div>", unsafe_allow_html=True)
     if st.button('Generate Solution' if language=='en' else 'توليد الحل'):
@@ -205,7 +205,7 @@ elif menu.startswith('🛠️'):
         df_sol=pd.DataFrame(sol, index=[0]).T
         st.table(df_sol)
 
-# About
+# About our project
 elif menu.startswith('ℹ️'):
     st.markdown("<div class='main-title'>ℹ️ About / حول</div>", unsafe_allow_html=True)
     if language=='en':
