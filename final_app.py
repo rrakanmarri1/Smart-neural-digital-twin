@@ -40,8 +40,7 @@ st.markdown("""
 
 # 🧠 Title & Description
 st.markdown("<div class='header'>🧠 Smart Neural Digital Twin</div>", unsafe_allow_html=True)
-st.markdown("🚨 **Disasters don't wait.. and neither do we.**  
-🔮 Predict • 🛡️ Prevent • 🧯 Protect", unsafe_allow_html=True)
+st.markdown("🚨 **Disasters don't wait.. and neither do we.** 🔮 Predict • 🛡️ Prevent • 🧯 Protect", unsafe_allow_html=True)
 st.markdown("---")
 
 # 📊 Simulated Sensor Data
