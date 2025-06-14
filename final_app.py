@@ -1,8 +1,8 @@
 """
-Smart Digital Twin - Advanced Industrial Monitoring System
-------------------------------------------------------
-A comprehensive industrial monitoring solution with real-time analytics,
-predictive maintenance, and AI-powered recommendations.
+NEURAL DIGITAL TWIN ELITE - Advanced Industrial Monitoring
+---------------------------------------------------------
+A comprehensive digital twin solution with real-time analytics,
+AI-powered anomaly detection, and predictive maintenance.
 """
 
 import streamlit as st
@@ -14,423 +14,360 @@ from datetime import datetime, timedelta
 import time
 import random
 import os
-import json
-import base64
+import sys
 from pathlib import Path
-from sklearn.ensemble import IsolationForest
-from prophet import Prophet
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, TensorDataset
-import joblib
+
+# Optional imports with graceful fallbacks
+try:
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import StandardScaler
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    st.warning("Anomaly detection requires scikit-learn. Install with: pip install scikit-learn")
+
+try:
+    import pyvista as pv
+    PYWISTA_AVAILABLE = True
+except ImportError:
+    PYWISTA_AVAILABLE = False
+    st.warning("3D visualization requires pyvista. Install with: pip install pyvista")
 
 # ===========================================
-# 1. INITIALIZATION & CONFIGURATION
+# 1. PAGE CONFIGURATION
 # ===========================================
 
-# Force wide mode and page config
-def setup_dark_theme():
-    """Set up custom dark theme"""
-    st.markdown("""
-    <style>
-    .main {
-        background-color: #0E1117;
-        color: #FAFAFA;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-        border: none;
-        padding: 0.5rem 1rem;
-    }
-    .stAlert {
-        border-radius: 5px;
-    }
-    .stMetric {
-        background-color: #1E1E1E;
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        padding: 10px 20px;
-        border-radius: 5px 5px 0 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-def main():
-    # Set page config
+def setup_page():
+    """Configure the Streamlit page settings"""
     st.set_page_config(
-        page_title="Smart Digital Twin",
+        page_title="Neural Digital Twin Elite",
         page_icon="🤖",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
-    # Set up custom dark theme
-    setup_dark_theme()
-
-# ===========================================
-# 2. DATA GENERATION & AI MODELS
-# ===========================================
-
-class PredictiveMaintenanceModel(nn.Module):
-    def __init__(self, input_size):
-        super().__init__()
-        self.lstm = nn.LSTM(input_size, 64, batch_first=True, num_layers=2, dropout=0.2)
-        self.dropout = nn.Dropout(0.2)
-        self.fc = nn.Linear(64, 1)
-        
-    def forward(self, x):
-        x, _ = self.lstm(x)
-        x = self.dropout(x)
-        return torch.sigmoid(self.fc(x))
-
-@st.cache_resource
-def load_ai_models():
-    """Load or train AI models"""
-    # Anomaly Detection Model
-    iso_forest = IsolationForest(contamination=0.05, random_state=42)
-    
-    # Predictive Maintenance Model
-    input_size = 5  # Number of features
-    pm_model = PredictiveMaintenanceModel(input_size)
-    
-    # Time Series Forecasting Model
-    ts_model = Prophet(yearly_seasonality=True, weekly_seasonality=True, daily_seasonality=True)
-    
-    return {
-        'anomaly_detector': iso_forest,
-        'predictive_maintenance': pm_model,
-        'time_series': ts_model
+    # Custom CSS for enhanced UI
+    st.markdown("""
+    <style>
+    .main {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        color: #ffffff;
     }
-
-@st.cache_data(ttl=300)
-def generate_sensor_data():
-    """Generate realistic sensor data with anomalies and trends"""
-    np.random.seed(42)
-    date_rng = pd.date_range(end=datetime.now(), periods=500, freq='H')
-    
-    # Base signals with seasonality
-    hours = np.arange(500)
-    temp_trend = 25 + 0.01 * hours  # Slight upward trend
-    temp_season = 10 * np.sin(2 * np.pi * hours / 24)  # Daily seasonality
-    temp_noise = np.random.normal(0, 1, 500)
-    temperature = temp_trend + temp_season + temp_noise
-    
-    pressure_trend = 100 - 0.02 * hours  # Slight downward trend
-    pressure_season = 15 * np.sin(2 * np.pi * hours / 168)  # Weekly seasonality
-    pressure_noise = np.random.normal(0, 2, 500)
-    pressure = pressure_trend + pressure_season + pressure_noise
-    
-    vibration = np.random.normal(0.5, 0.1, 500)
-    
-    # Add anomalies
-    anomalies = []
-    for _ in range(15):
-        idx = random.randint(0, 499)
-        anomaly_type = random.choice(['temp_spike', 'pressure_drop', 'vibration_spike'])
-        
-        if anomaly_type == 'temp_spike':
-            temperature[idx] += random.uniform(15, 25)
-            anomalies.append((idx, "Temperature Spike", "High"))
-        elif anomaly_type == 'pressure_drop':
-            pressure[idx] -= random.uniform(20, 40)
-            anomalies.append((idx, "Pressure Drop", "Critical"))
-        else:
-            vibration[idx] += random.uniform(0.8, 1.5)
-            anomalies.append((idx, "Vibration Spike", "Warning"))
-    
-    # Create DataFrame
-    df = pd.DataFrame({
-        'Timestamp': date_rng,
-        'Temperature': temperature,
-        'Pressure': pressure,
-        'Vibration': vibration,
-        'Anomaly': 0,
-        'Anomaly_Type': '',
-        'Severity': ''
-    })
-    
-    # Mark anomalies
-    for idx, a_type, severity in anomalies:
-        df.loc[idx, 'Anomaly'] = 1
-        df.loc[idx, 'Anomaly_Type'] = a_type
-        df.loc[idx, 'Severity'] = severity
-    
-    return df
-
-# ===========================================
-
-def detect_anomalies(data):
-    """Detect anomalies using Isolation Forest"""
-    model = load_ai_models()['anomaly_detector']
-    features = data[['Temperature', 'Pressure', 'Vibration']]
-    
-    # Fit model and predict anomalies
-    preds = model.fit_predict(features)
-    data['AI_Anomaly'] = (preds == -1).astype(int)
-    
-    return data
-
-def predict_failures(data):
-    """Predict equipment failures using LSTM model"""
-    # This is a simplified example - in practice, you'd use a trained model
-    # Here we'll just simulate predictions based on thresholds
-    data['Failure_Risk'] = np.random.random(len(data))
-    data['Maintenance_Recommended'] = data['Failure_Risk'] > 0.85
-    
-    return data
-
-# ===========================================
-# 5. STREAMLIT UI COMPONENTS
-# ===========================================
-
-def create_metric_card(title, value, delta=None, delta_type='normal'):
-    """Create a metric card with optional delta indicator"""
-    colors = {
-        'normal': '#3b82f6',
-        'increase': '#10b981',
-        'decrease': '#ef4444'
+    .stButton>button {
+        background: linear-gradient(45deg, #6e48aa, #9d50bb) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 6px !important;
+        padding: 0.5rem 1.5rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
     }
-    
-    delta_icon = ""
-    if delta is not None:
-        if delta > 0:
-            delta_icon = f"↑ {abs(delta):.1f}%"
-            color = colors['increase']
-        elif delta < 0:
-            delta_icon = f"↓ {abs(delta):.1f}%"
-            color = colors['decrease']
-        else:
-            delta_icon = "→ 0.0%"
-            color = colors['normal']
-    
-    return f"""
-    <div class="metric-card">
-        <div style="font-size: 1rem; color: #93c5fd; margin-bottom: 0.5rem;">{title}</div>
-        <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-            <div style="font-size: 1.8rem; font-weight: 700;">{value}</div>
-            {f'<div style="color: {color}; font-weight: 500;">{delta_icon}</div>' if delta is not None else ''}
-        </div>
-    </div>
-    """
+    .stMetric {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
+        padding: 1.5rem !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    .status-normal { color: #4CAF50; font-weight: bold; }
+    .status-warning { color: #FFC107; font-weight: bold; }
+    .status-critical { 
+        color: #F44336; 
+        font-weight: bold; 
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-def render_ai_insights(data):
-    """Render AI-powered insights and recommendations"""
-    st.markdown("### 🤖 AI Insights & Recommendations")
-    
-    # Calculate metrics
-    anomaly_count = data['AI_Anomaly'].sum()
-    failure_risk = data['Failure_Risk'].mean() * 100
-    maintenance_needed = data['Maintenance_Recommended'].any()
-    
-    # Display metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(create_metric_card("Anomalies Detected", anomaly_count), unsafe_allow_html=True)
-    with col2:
-        st.markdown(create_metric_card("Failure Risk", f"{failure_risk:.1f}%"), unsafe_allow_html=True)
-    with col3:
-        status = "⚠️ Required" if maintenance_needed else "✅ Not Required"
-        st.markdown(create_metric_card("Maintenance", status), unsafe_allow_html=True)
-    
-    # Display recommendations
-    st.markdown("#### Recommendations")
-    if maintenance_needed:
-        st.warning("**Maintenance Recommended** - Schedule maintenance within 24-48 hours to prevent equipment failure.")
-    
-    if anomaly_count > 0:
-        st.info(f"**{anomaly_count} anomalies detected** - Review the anomalies tab for detailed analysis.")
-    
-    if failure_risk > 70:
-        st.error("**High Failure Risk** - Immediate attention required. Consider performing diagnostic tests.")
+# ===========================================
+# 2. DATA GENERATION
+# ===========================================
 
-def render_equipment_status(data):
-    """Render equipment status visualization"""
-    st.markdown("### 🏭 Equipment Status")
+class EquipmentSimulator:
+    """Simulates industrial equipment sensor data"""
     
-    # Calculate metrics
+    def __init__(self, equipment_id: str = "Pump-001"):
+        self.equipment_id = equipment_id
+        self.data = None
+    
+    def generate_data(self, hours: int = 500) -> pd.DataFrame:
+        """Generate synthetic sensor data"""
+        date_rng = pd.date_range(end=datetime.now(), periods=hours, freq='H')
+        time = np.arange(len(date_rng))
+        
+        # Base trends
+        temp_trend = 25 + 0.01 * time
+        pressure_trend = 100 - 0.02 * time
+        vibration_trend = 5 + 0.005 * time
+        
+        # Add seasonality and noise
+        daily = 5 * np.sin(2 * np.pi * time / 24)
+        noise = np.random.normal(0, 2, len(date_rng))
+        
+        # Combine components
+        temperature = np.clip(temp_trend + daily + noise, 0, 120)
+        pressure = np.clip(pressure_trend + daily * 0.5 + noise * 0.7, 0, 200)
+        vibration = np.clip(vibration_trend + daily * 0.3 + noise * 0.5, 0, 30)
+        
+        # Create DataFrame
+        df = pd.DataFrame({
+            'Timestamp': date_rng,
+            'Temperature': temperature,
+            'Pressure': pressure,
+            'Vibration': vibration,
+            'Equipment_ID': self.equipment_id,
+            'Status': 'Normal'
+        })
+        
+        # Add some anomalies
+        self._add_anomalies(df)
+        self.data = df
+        return df
+    
+    def _add_anomalies(self, df: pd.DataFrame) -> None:
+        """Inject realistic anomalies"""
+        for _ in range(20):
+            idx = random.randint(0, len(df)-1)
+            anomaly_type = random.choice(['temp', 'pressure', 'vibration'])
+            
+            if anomaly_type == 'temp':
+                df.at[idx, 'Temperature'] += random.uniform(15, 30)
+            elif anomaly_type == 'pressure':
+                df.at[idx, 'Pressure'] -= random.uniform(20, 40)
+            else:
+                df.at[idx, 'Vibration'] += random.uniform(5, 15)
+
+# ===========================================
+# 3. ANOMALY DETECTION
+# ===========================================
+
+class AnomalyDetector:
+    """AI-powered anomaly detection"""
+    
+    def __init__(self, contamination: float = 0.05):
+        self.model = None
+        self.scaler = StandardScaler()
+        self.contamination = contamination
+    
+    def fit(self, X: np.ndarray) -> None:
+        """Train the anomaly detection model"""
+        if not SKLEARN_AVAILABLE:
+            return None
+            
+        X_scaled = self.scaler.fit_transform(X)
+        self.model = IsolationForest(
+            contamination=self.contamination,
+            random_state=42
+        )
+        self.model.fit(X_scaled)
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Detect anomalies in the data"""
+        if self.model is None:
+            return np.zeros(len(X), dtype=bool)
+            
+        X_scaled = self.scaler.transform(X)
+        return self.model.predict(X_scaled) == -1
+
+# ===========================================
+# 4. VISUALIZATION
+# ===========================================
+
+def plot_sensor_data(df: pd.DataFrame) -> None:
+    """Create interactive sensor data visualization"""
+    fig = go.Figure()
+    
+    # Add traces for each sensor
+    fig.add_trace(go.Scatter(
+        x=df['Timestamp'],
+        y=df['Temperature'],
+        name='Temperature (°C)',
+        line=dict(color='#FF6B6B')
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Timestamp'],
+        y=df['Pressure'],
+        name='Pressure (kPa)',
+        yaxis='y2',
+        line=dict(color='#4ECDC4')
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=df['Timestamp'],
+        y=df['Vibration'] * 20,  # Scale for visibility
+        name='Vibration (x20)',
+        yaxis='y3',
+        line=dict(color='#45B7D1')
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        title='Equipment Sensor Data',
+        xaxis=dict(domain=[0.1, 0.9]),
+        yaxis=dict(title='Temperature (°C)', titlefont=dict(color='#FF6B6B')),
+        yaxis2=dict(
+            title='Pressure (kPa)',
+            titlefont=dict(color='#4ECDC4'),
+            anchor='x',
+            overlaying='y',
+            side='right'
+        ),
+        yaxis3=dict(
+            title='Vibration (mm/s)',
+            titlefont=dict(color='#45B7D1'),
+            anchor='free',
+            overlaying='y',
+            side='right',
+            position=0.95
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color='white'),
+        height=500,
+        margin=dict(t=50, b=50, l=50, r=50)
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_equipment_status(data: pd.DataFrame) -> None:
+    """Display current equipment status"""
+    if data is None or len(data) == 0:
+        return
+    
     latest = data.iloc[-1]
     prev = data.iloc[-2] if len(data) > 1 else latest
     
-    # Status indicators
-    status = "Normal"
-    status_color = "green"
+    # Determine status
+    temp_status = latest['Temperature'] > 80
+    pressure_status = latest['Pressure'] > 150 or latest['Pressure'] < 50
+    vib_status = latest['Vibration'] > 0.8
     
-    if latest['Temperature'] > 80 or latest['Pressure'] > 150 or latest['Vibration'] > 0.8:
-        status = "Warning"
-        status_color = "orange"
-    if latest['Temperature'] > 90 or latest['Pressure'] > 180 or latest['Vibration'] > 1.0:
-        status = "Critical"
-        status_color = "red"
+    if temp_status or pressure_status or vib_status:
+        status = "<span class='status-critical'>Critical</span>"
+    elif latest['Temperature'] > 70 or latest['Pressure'] > 130 or latest['Vibration'] > 0.6:
+        status = "<span class='status-warning'>Warning</span>"
+    else:
+        status = "<span class='status-normal'>Normal</span>"
     
-    # Create a status visualization
+    # Display metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         delta_temp = latest['Temperature'] - prev['Temperature']
-        st.metric(
-            "Temperature", 
-            f"{latest['Temperature']:.1f}°C", 
-            f"{delta_temp:+.1f}°C", 
-            delta_color="inverse"
-        )
+        st.metric("Temperature", f"{latest['Temperature']:.1f}°C", f"{delta_temp:+.1f}°C")
     
     with col2:
         delta_pressure = latest['Pressure'] - prev['Pressure']
-        st.metric(
-            "Pressure", 
-            f"{latest['Pressure']:.1f} kPa", 
-            f"{delta_pressure:+.1f} kPa"
-        )
+        st.metric("Pressure", f"{latest['Pressure']:.1f} kPa", f"{delta_pressure:+.1f} kPa")
     
     with col3:
         delta_vib = latest['Vibration'] - prev['Vibration']
-        st.metric(
-            "Vibration", 
-            f"{latest['Vibration']:.2f} mm/s", 
-            f"{delta_vib:+.2f} mm/s"
-        )
+        st.metric("Vibration", f"{latest['Vibration']:.2f} mm/s", f"{delta_vib:+.2f} mm/s")
     
     with col4:
-        st.metric("Status", status, delta=None, delta_color="off")
-        status_emoji = "🟢" if status == "Normal" else ("🟠" if status == "Warning" else "🔴")
-        st.markdown(f"<p style='font-size:24px; color:{status_color}; text-align:center;'>{status_emoji} {status}</p>", unsafe_allow_html=True)
-    
-    # Add tabs for different metrics
-    tab1, tab2, tab3 = st.tabs(["Temperature", "Pressure", "Vibration"])
-    
-    with tab1:
-        fig = px.line(data, y='Temperature', 
-                     title='Temperature Trend',
-                     labels={'value': 'Temperature (°C)', 'index': 'Time'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        fig = px.line(data, y='Pressure',
-                     title='Pressure Trend',
-                     labels={'value': 'Pressure (kPa)', 'index': 'Time'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab3:
-        fig = px.line(data, y='Vibration',
-                     title='Vibration Trend',
-                     labels={'value': 'Vibration (mm/s)', 'index': 'Time'})
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Add recommendations
-    st.markdown("### 🛠️ Maintenance Recommendations")
-    recommendations = generate_recommendations(data)
-    for i, rec in enumerate(recommendations, 1):
-        st.markdown(f"{i}. {rec}")
+        st.markdown(f"### Status: {status}", unsafe_allow_html=True)
 
 # ===========================================
-# 6. MAIN APP LAYOUT
+# 5. MAIN APPLICATION
 # ===========================================
 
 def main():
-    """Main application layout"""
-    # Load data and models
-    data = generate_sensor_data()
-    data = detect_anomalies(data)
-    data = predict_failures(data)
+    # Setup page
+    setup_page()
     
-    # Set page title and favicon
-    st.markdown("""
-    <style>
-    .main .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    .stAlert {
-        border-radius: 12px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Title and description
+    st.title("🤖 Neural Digital Twin Elite")
+    st.markdown("*Advanced industrial equipment monitoring and analytics*")
     
-    # Page header
-    st.title("🏭 Smart Digital Twin Dashboard")
-    st.markdown("*Real-time monitoring and predictive maintenance for industrial equipment*")
+    # Initialize session state
+    if 'simulator' not in st.session_state:
+        st.session_state.simulator = EquipmentSimulator()
+        st.session_state.data = st.session_state.simulator.generate_data()
     
-    # Main tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📈 Analytics", "⚙️ Equipment"])
+    # Sidebar controls
+    with st.sidebar:
+        st.header("⚙️ Controls")
+        
+        if st.button("🔄 Refresh Data"):
+            st.session_state.data = st.session_state.simulator.generate_data()
+        
+        st.markdown("---")
+        st.markdown("### Equipment Settings")
+        
+        # Equipment selection
+        equipment_type = st.selectbox(
+            "Equipment Type",
+            ["Centrifugal Pump", "Compressor", "Turbine"],
+            index=0
+        )
+        
+        # Alert thresholds
+        temp_threshold = st.slider("Temperature Alert (°C)", 50, 100, 80)
+        pressure_threshold = st.slider("Pressure Alert (kPa)", 50, 200, 150)
+        vib_threshold = st.slider("Vibration Alert (mm/s)", 0.1, 2.0, 0.8, 0.1)
     
-    with tab1:  # Dashboard
-        # Metrics row
-        latest = data.iloc[-1]
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(create_metric_card("🌡️ Temperature", f"{latest['Temperature']:.1f}°C"), unsafe_allow_html=True)
-        with col2:
-            st.markdown(create_metric_card("⚡ Pressure", f"{latest['Pressure']:.1f} kPa"), unsafe_allow_html=True)
-        with col3:
-            st.markdown(create_metric_card("📊 Vibration", f"{latest['Vibration']:.2f} mm/s"), unsafe_allow_html=True)
-        with col4:
-            st.markdown(create_metric_card("💯 System Health", f"{100 - latest['Failure_Risk']*100:.0f}%"), unsafe_allow_html=True)
-        
-        # AI Insights
-        render_ai_insights(data)
-        
-        # Time series charts
-        st.markdown("### 📈 Live Sensor Data")
-        fig = px.line(data, x='Timestamp', y=['Temperature', 'Pressure', 'Vibration'],
-                     title="Sensor Data Over Time",
-                     labels={'value': 'Value', 'variable': 'Metric'})
-        st.plotly_chart(fig, use_container_width=True)
+    # Main content
+    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "📈 Analytics", "⚙️ Settings"])
     
-    with tab2:  # Analytics
-        st.markdown("### 🔍 Anomaly Detection")
+    with tab1:
+        st.header("Real-time Monitoring")
+        display_equipment_status(st.session_state.data)
         
-        # Anomaly visualization
-        fig = px.scatter(data, x='Timestamp', y='Temperature', 
-                        color='AI_Anomaly',
-                        title="Detected Anomalies",
-                        color_discrete_map={0: '#3b82f6', 1: '#ef4444'})
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Failure prediction
-        st.markdown("### ⚠️ Failure Prediction")
-        fig = px.line(data, x='Timestamp', y='Failure_Risk',
-                     title="Equipment Failure Risk Over Time",
-                     labels={'Failure_Risk': 'Failure Probability'})
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("### Sensor Data")
+        plot_sensor_data(st.session_state.data)
     
-    with tab3:  # Equipment
-        render_equipment_status(data)
+    with tab2:
+        st.header("Advanced Analytics")
         
-        with st.expander("⚙️ Equipment Settings", expanded=False):
-            st.markdown("### 🚨 Alert Thresholds")
-            col1, col2, col3 = st.columns(3)
+        if SKLEARN_AVAILABLE:
+            # Prepare data for anomaly detection
+            X = st.session_state.data[['Temperature', 'Pressure', 'Vibration']].values
             
-            with col1:
-                temp_threshold = st.slider("High Temp Threshold (°C)", 50, 100, 80)
-            with col2:
-                pressure_threshold = st.slider("High Pressure (kPa)", 100, 200, 150)
-            with col3:
-                vibration_threshold = st.slider("Vibration (mm/s)", 0.1, 2.0, 0.8, step=0.1)
+            # Train anomaly detector
+            detector = AnomalyDetector()
+            detector.fit(X)
+            anomalies = detector.predict(X)
             
-            # Equipment information
-            st.markdown("### 📝 Equipment Details")
-            col1, col2 = st.columns(2)
-            with col1:
-                equipment_id = st.text_input("Equipment ID", "Pump-001")
-                location = st.text_input("Location", "Production Line A")
-            with col2:
-                last_maintenance = st.date_input("Last Maintenance", pd.to_datetime('2023-01-15'))
-                next_maintenance = st.date_input("Next Maintenance", pd.to_datetime('2023-07-15'))
+            # Add anomalies to data
+            data_with_anomalies = st.session_state.data.copy()
+            data_with_anomalies['Anomaly'] = anomalies
             
-            # Save button with confirmation
-            if st.button("💾 Save Settings", type="primary"):
-                st.toast('Settings saved successfully!', icon='✅')
-                st.balloons()
+            # Plot anomalies
+            fig = px.scatter(
+                data_with_anomalies,
+                x='Timestamp',
+                y='Temperature',
+                color='Anomaly',
+                title='Anomaly Detection',
+                color_discrete_map={True: '#FF5252', False: '#4CAF50'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Anomaly detection requires scikit-learn. Install with: pip install scikit-learn")
+    
+    with tab3:
+        st.header("System Settings")
+        
+        st.markdown("### Data Management")
+        if st.button("Export Data"):
+            # Create a download link for the data
+            csv = st.session_state.data.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            href = f'<a href="data:file/csv;base64,{b64}" download="equipment_data.csv">Download CSV File</a>'
+            st.markdown(href, unsafe_allow_html=True)
+        
+        st.markdown("### About")
+        st.markdown("""
+        **Neural Digital Twin Elite**  
+        Version 1.0.0  
+        
+        A comprehensive industrial monitoring solution with AI-powered analytics.
+        """)
 
 if __name__ == "__main__":
     main()
