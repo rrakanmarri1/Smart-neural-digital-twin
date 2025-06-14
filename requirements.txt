@@ -1,10 +1,6 @@
-pygments==2.19.1
-mdurl==0.1.2
-markdown-it-py==3.0.0
-rich==14.0.0
-
-# Optional Visualization (Can be installed as needed)
-# dash>=2.9.3  # Alternative dashboarding
-# streamlit-echarts>=0.4.0  # Advanced charts
-# streamlit-folium>=0.11.0  # Maps
-# streamlit-vega-lite>=0.5.0  # Advanced visualizations
+streamlit
+pandas
+numpy
+plotly
+scikit-learn
+requests
