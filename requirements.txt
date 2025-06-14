@@ -1,35 +1,7 @@
-# Core Dependencies (Required)
-streamlit>=1.24.0
-pandas>=1.5.0
-numpy>=1.23.0
-plotly>=5.13.0
-plotly-express>=0.4.1
-
-# UI/UX Enhancements
-streamlit-extras>=1.0.0
-streamlit-option-menu>=0.3.6
-streamlit-lottie>=0.0.4
-
-# Data Processing & Analysis
-scikit-learn>=1.0.2
-statsmodels>=0.13.2
-python-dateutil>=2.8.2
-pytz>=2022.7.1
-
-# 3D Visualization (Optional - Heavy)
-pydeck>=0.8.0  # For 3D mapping
-vtk>=9.1.0  # For 3D rendering
-pyvista>=0.35.2  # For 3D visualization
-
-# AI/ML (Optional - Very Heavy)
-torch>=2.0.0  # PyTorch for deep learning
-prophet>=1.1.4  # Time series forecasting
-
-# Utilities
-python-dotenv>=1.0.0  # For environment variables
-requests>=2.28.2  # For API calls
-python-multipart>=0.0.6  # For file uploads
-kaleido>=0.2.1  # For static image export
+pygments==2.19.1
+mdurl==0.1.2
+markdown-it-py==3.0.0
+rich==14.0.0
 
 # Optional Visualization (Can be installed as needed)
 # dash>=2.9.3  # Alternative dashboarding
