@@ -16,17 +16,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ===== Session Defaults =====n# Default theme color
+# ===== Session Defaults =====
 if 'theme_color' not in st.session_state:
     st.session_state.theme_color = '#1976D2'
-# Default anomaly contamination
 if 'contamination' not in st.session_state:
     st.session_state.contamination = 0.05
-# Default language
 if 'language' not in st.session_state:
     st.session_state.language = 'en'
 
-# ===== Dynamic CSS =====nprimary = st.session_state.theme_color
+# ===== Dynamic CSS =====
+primary = st.session_state.theme_color
 css = f"""
 <style>
 body, .css-ffhzg2, .css-12oz5g7 {{
@@ -56,10 +55,11 @@ body, .css-ffhzg2, .css-12oz5g7 {{
 """
 st.markdown(css, unsafe_allow_html=True)
 
-# ===== Database Setup =====ndef init_db():
+# ===== Database Setup =====
+def init_db():
     conn = sqlite3.connect('sensor_logs.db', check_same_thread=False)
-    c = conn.cursor()
-    c.execute(
+    cursor = conn.cursor()
+    cursor.execute(
         '''CREATE TABLE IF NOT EXISTS logs (
            timestamp TEXT, temp REAL, pressure REAL, vibration REAL, gas REAL)'''
     )
@@ -68,19 +68,22 @@ st.markdown(css, unsafe_allow_html=True)
 
 conn = init_db()
 
-# ===== Data Functions =====ndef fetch_data():
+# ===== Data Functions =====
+def fetch_data():
     return {
         'temp': float(np.random.normal(36, 2)),
         'pressure': float(np.random.normal(95, 5)),
         'vibration': float(np.random.normal(0.5, 0.1)),
         'gas': float(np.random.normal(5, 1))
     }
-n
-def log_data(d):
-    cur = conn.cursor()
-    cur.execute('INSERT INTO logs VALUES (?,?,?,?,?)', (
-        datetime.now().isoformat(), d['temp'], d['pressure'], d['vibration'], d['gas']
-    ))
+
+
+def log_data(data):
+    cursor = conn.cursor()
+    cursor.execute(
+        'INSERT INTO logs VALUES (?,?,?,?,?)',
+        (datetime.now().isoformat(), data['temp'], data['pressure'], data['vibration'], data['gas'])
+    )
     conn.commit()
 
 @st.cache_data(ttl=300)
@@ -90,19 +93,23 @@ def load_history():
         df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df
 
-# ===== Model Training =====ndef train_model(df, target):
+# ===== Model Training =====
+@st.cache_data(ttl=600)
+def train_model(df, target):
     if len(df) < 6:
         return None
     df = df.sort_values('timestamp')
     X, y = [], []
     for i in range(5, len(df)):
-        X.append(df[['temp','pressure','vibration','gas']].iloc[i-5:i].values.flatten())
+        window = df[['temp','pressure','vibration','gas']].iloc[i-5:i].values.flatten()
+        X.append(window)
         y.append(df[target].iloc[i])
     model = RandomForestRegressor(n_estimators=50)
     model.fit(X, y)
     return model
 
-# ===== Smart Solutions =====ndef generate_solution(lang):
+# ===== Smart Solutions =====
+def generate_solution(lang):
     if lang == 'en':
         return {
             'Name': 'Cooling System Diagnostic',
@@ -120,35 +127,53 @@ def load_history():
             'الفعالية': 'عالية جداً'
         }
 
-# ===== Sidebar Menu =====ndef get_menu_labels(lang):
-    en = ['📊 Dashboard','🎛️ Simulation','📈 Predictive Analysis','🛠️ Smart Solutions','⚙️ Settings','ℹ️ About']
-    ar = ['📊 لوحة البيانات','🎛️ المحاكاة','📈 التحليل التنبؤي','🛠️ الحلول الذكية','⚙️ الإعدادات','ℹ️ حول']
-    return en if lang=='en' else ar
+# ===== UI Setup =====
+# Menu labels per language
+en_menu = ['📊 Dashboard','🎛️ Simulation','📈 Predictive Analysis','🛠️ Smart Solutions','⚙️ Settings','ℹ️ About']
+ar_menu = ['📊 لوحة البيانات','🎛️ المحاكاة','📈 التحليل التنبؤي','🛠️ الحلول الذكية','⚙️ الإعدادات','ℹ️ حول']
+# Language & menu selection in Settings only
 
-menu = st.sidebar.radio("Menu", get_menu_labels(st.session_state.language))
+# Page Rendering
+selected = st.session_state.language  # shorthand
+menu = st.sidebar.radio(
+    'Menu', en_menu if selected=='en' else ar_menu
+)
 
-# ===== Settings Page =====nif menu == (get_menu_labels(st.session_state.language)[4]):
-    st.markdown(f"<div class='main-title'>{'⚙️ Settings' if st.session_state.language=='en' else '⚙️ الإعدادات'}</div>", unsafe_allow_html=True)
-    # Language
-    lang = st.selectbox('Language / اللغة', ['English','العربية'], index=0 if st.session_state.language=='en' else 1)
+if menu == (ar_menu[4] if selected=='ar' else en_menu[4]):  # Settings
+    st.markdown(f"<div class='main-title'>{'⚙️ Settings' if selected=='en' else '⚙️ الإعدادات'}</div>", unsafe_allow_html=True)
+    # Language selection
+    lang = st.selectbox('Select Language' if selected=='en' else 'اختر اللغة', ['English','العربية'], index=0 if selected=='en' else 1)
     st.session_state.language = 'en' if lang=='English' else 'ar'
-    # Theme Color Picker
-    color = st.color_picker('Accent Color', st.session_state.theme_color)
-    st.session_state.theme_color = color
+    # Palette selection
+    palettes = {
+        'Blue':'#1976D2','Teal':'#00897B','Purple':'#7E57C2','Orange':'#FFA726','Red':'#EF5350'
+    }
+    p_choice = st.selectbox('Accent Color' if selected=='en' else 'لون التمييز', list(palettes.keys()), index=list(palettes.values()).index(st.session_state.theme_color))
+    st.session_state.theme_color = palettes[p_choice]
     # Anomaly sensitivity
-    cont = st.slider('Anomaly Sensitivity' if st.session_state.language=='en' else 'حساسية كشف الشذوذ', 0.01, 0.3, st.session_state.contamination, 0.01)
+    cont = st.slider('Anomaly Sensitivity' if selected=='en' else 'حساسية كشف الشذوذ', 0.01, 0.3, st.session_state.contamination, 0.01)
     st.session_state.contamination = cont
-    st.info('Adjust to fine-tune anomaly detection.' if st.session_state.language=='en' else 'اضبط هذه القيمة لضبط كشف الشذوذ.')
+    st.info('Use these settings to customize the app.' if selected=='en' else 'استخدم هذه الإعدادات لتخصيص التطبيق.')
 else:
-    # Fetch & Log
+    # Fetch, log, and analyze
     data = fetch_data()
     log_data(data)
     history = load_history()
-    # Anomaly detection
     if not history.empty:
         iso = IsolationForest(contamination=st.session_state.contamination)
         history['anomaly'] = iso.fit_predict(history[['temp','pressure','vibration','gas']])
     else:
-        history['anomaly'] = 1
-    # Pages logic follows...
-    # ... (rest of dashboard, simulation, predictive, solutions, about as before)
+        history = pd.DataFrame(columns=['timestamp','temp','pressure','vibration','gas','anomaly'])
+
+    if menu == (en_menu[0] if selected=='en' else ar_menu[0]):
+        st.markdown("<div class='main-title'>🧠 Smart Neural Digital Twin</div>", unsafe_allow_html=True)
+        cols = st.columns(4)
+        keys = ['temp','pressure','vibration','gas']
+        names = ['Temperature','Pressure','Vibration','Gas'] if selected=='en' else ['درجة الحرارة','الضغط','الاهتزاز','الغاز']
+        for i,k in enumerate(keys): cols[i].metric(names[i], f"{data[k]:.2f}")
+        st.markdown("---")
+        if not history.empty:
+            fig = px.line(history, x='timestamp', y=keys, color='anomaly')
+            fig.update_layout(paper_bgcolor='#121212', plot_bgcolor='#121212', font_color='#E0E0E0')
+            st.plotly_chart(fig, use_container_width=True)
+    # ... other pages omitted for brevity
