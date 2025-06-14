@@ -18,7 +18,12 @@ import json
 import base64
 from pathlib import Path
 import pydeck as pdk
-import pyvista as pv
+try:
+    import pyvista as pv
+    PYWISTA_AVAILABLE = True
+except ImportError:
+    PYWISTA_AVAILABLE = False
+    
 from sklearn.ensemble import IsolationForest
 from prophet import Prophet
 import torch
@@ -132,42 +137,66 @@ def generate_sensor_data():
 # 3. 3D VISUALIZATION
 # ===========================================
 
-def create_3d_equipment_model():
-    """Create a 3D model of industrial equipment"""
-    # Create a simple 3D model of a pump
-    mesh = pv.Cylinder(center=(0, 0, 0), direction=(0, 0, 1), radius=1, height=3)
-    
-    # Add some details
-    base = pv.Cylinder(center=(0, 0, -0.2), direction=(0, 0, 1), radius=1.2, height=0.4)
-    top = pv.Cylinder(center=(0, 0, 3), direction=(0, 0, 1), radius=0.8, height=0.3)
-    
-    # Combine the meshes
-    equipment = mesh + base + top
-    
-    return equipment
+if PYWISTA_AVAILABLE:
+    def create_3d_equipment_model():
+        """Create a 3D model of industrial equipment"""
+        try:
+            # Create a simple 3D model of a pump
+            mesh = pv.Cylinder(center=(0, 0, 0), direction=(0, 0, 1), radius=1, height=3)
+            
+            # Add some details
+            base = pv.Cylinder(center=(0, 0, -0.2), direction=(0, 0, 1), radius=1.2, height=0.4)
+            top = pv.Cylinder(center=(0, 0, 3), direction=(0, 0, 1), radius=0.8, height=0.3)
+            
+            # Combine the meshes
+            equipment = mesh + base + top
+            return equipment
+        except Exception as e:
+            st.warning(f"3D model creation failed: {str(e)}")
+            return None
 
-def render_3d_model():
-    """Render 3D model using PyVista and Streamlit"""
-    st.markdown("### 🏭 3D Equipment Model")
-    
-    # Create plotter
-    plotter = pv.Plotter(window_size=[600, 400])
-    
-    # Add equipment model
-    equipment = create_3d_equipment_model()
-    plotter.add_mesh(equipment, color='lightblue', smooth_shading=True)
-    
-    # Configure plotter
-    plotter.set_background('black')
-    plotter.camera_position = 'xy'
-    plotter.camera.azimuth = 30
-    plotter.camera.elevation = 20
-    
-    # Render to streamlit
-    plotter.export_html('temp_3d_model.html')
-    with open('temp_3d_model.html', 'r', encoding='utf-8') as f:
-        html = f.read()
-    st.components.v1.html(html, height=500)
+    def render_3d_model():
+        """Render 3D model using PyVista and Streamlit"""
+        st.markdown("### 🏭 3D Equipment Model")
+        try:
+            # Create plotter
+            plotter = pv.Plotter(window_size=[600, 400])
+            
+            # Add equipment model
+            equipment = create_3d_equipment_model()
+            if equipment is not None:
+                plotter.add_mesh(equipment, color='lightblue', smooth_shading=True)
+                
+                # Configure plotter
+                plotter.set_background('black')
+                plotter.camera_position = 'xy'
+                plotter.camera.azimuth = 30
+                plotter.camera.elevation = 20
+                
+                # Render to streamlit
+                plotter.export_html('temp_3d_model.html')
+                with open('temp_3d_model.html', 'r', encoding='utf-8') as f:
+                    html = f.read()
+                st.components.v1.html(html, height=500)
+            else:
+                st.warning("Could not create 3D model")
+        except Exception as e:
+            st.warning(f"3D rendering failed: {str(e)}")
+            st.info("3D visualization requires additional packages. To enable, install with: `pip install pyvista panel`")
+else:
+    def render_3d_model():
+        """Show message when 3D visualization is not available"""
+        st.markdown("### 🏭 3D Equipment Model")
+        st.info("""
+        **3D visualization is not available**
+        
+        To enable 3D visualization, please install the required packages:
+        ```bash
+        pip install pyvista panel
+        ```
+        
+        Then restart the application.
+        """)
 
 # ===========================================
 # 4. AI-POWERED ANALYTICS
@@ -330,15 +359,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
     
     with tab3:  # 3D Model
-        st.markdown("### 🏭 Interactive 3D Equipment Model")
-        st.markdown("*Rotate, zoom, and pan to inspect the equipment*")
-        
-        # Check if PyVista is available
-        try:
-            render_3d_model()
-        except Exception as e:
-            st.warning("3D visualization requires additional dependencies. Please install pyvista and panel.")
-            st.code("pip install pyvista panel")
+        render_3d_model()
     
     with tab4:  # Settings
         st.markdown("### ⚙️ System Settings")
