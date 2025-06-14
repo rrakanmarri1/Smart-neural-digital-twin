@@ -1,3 +1,10 @@
+"""
+Smart Digital Twin - Advanced Industrial Monitoring System
+------------------------------------------------------
+A comprehensive industrial monitoring solution with real-time analytics,
+predictive maintenance, and AI-powered recommendations.
+"""
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,736 +14,349 @@ from datetime import datetime, timedelta
 import time
 import random
 import os
+import json
+import base64
+from pathlib import Path
+import pydeck as pdk
+import pyvista as pv
+from sklearn.ensemble import IsolationForest
+from prophet import Prophet
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+import joblib
 
-# Initialize session state for theme and recommendation history if not already done
-if 'theme' not in st.session_state:
-    st.session_state.theme = "light"
-if 'recommendation_history' not in st.session_state:
-    st.session_state.recommendation_history = []
+# ===========================================
+# 1. INITIALIZATION & CONFIGURATION
+# ===========================================
 
-# تعيين نمط الصفحة #
+# Force wide mode and page config
 st.set_page_config(
-    page_title="التوأم الرقمي الذكي - نظام مراقبة متقدم",
+    page_title="Smart Digital Twin",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="expanded"
 )
 
-# --- Theme Configuration ---
-def get_theme_colors(theme_mode):
-    if theme_mode == "dark":
-        return {
-            "primary-color": "#0E1117",
-            "secondary-color": "#3498DB",
-            "text-color": "#FFFFFF",
-            "chart-background": "#1E212B",
-            "card-background": "#2E313B",
-            "accent-color": "#E74C3C",
-            "success-color": "#27AE60",
-            "warning-color": "#F39C12"
-        }
-    else:
-        return {
-            "primary-color": "#FFFFFF",
-            "secondary-color": "#2980B9",
-            "text-color": "#2C3E50",
-            "chart-background": "#F8F9FA",
-            "card-background": "#FFFFFF",
-            "accent-color": "#E74C3C",
-            "success-color": "#27AE60",
-            "warning-color": "#F39C12"
-        }
+# ===========================================
+# 2. DATA GENERATION & AI MODELS
+# ===========================================
 
-theme_colors = get_theme_colors(st.session_state.theme)
+class PredictiveMaintenanceModel(nn.Module):
+    def __init__(self, input_size):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size, 64, batch_first=True, num_layers=2, dropout=0.2)
+        self.dropout = nn.Dropout(0.2)
+        self.fc = nn.Linear(64, 1)
+        
+    def forward(self, x):
+        x, _ = self.lstm(x)
+        x = self.dropout(x)
+        return torch.sigmoid(self.fc(x))
 
-# Enhanced CSS with modern design
-st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@st.cache_resource
+def load_ai_models():
+    """Load or train AI models"""
+    # Anomaly Detection Model
+    iso_forest = IsolationForest(contamination=0.05, random_state=42)
     
-    .reportview-container {{
-        background: linear-gradient(135deg, {theme_colors['primary-color']} 0%, {theme_colors['chart-background']} 100%);
-        color: {theme_colors['text-color']};
-        font-family: 'Inter', sans-serif;
-    }}
+    # Predictive Maintenance Model
+    input_size = 5  # Number of features
+    pm_model = PredictiveMaintenanceModel(input_size)
     
-    .main .block-container {{
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
-    }}
+    # Time Series Forecasting Model
+    ts_model = Prophet(yearly_seasonality=True, weekly_seasonality=True, daily_seasonality=True)
     
-    .sidebar .sidebar-content {{
-        background: linear-gradient(180deg, {theme_colors['secondary-color']} 0%, #1E3A8A 100%);
-        color: #FFFFFF;
-        border-radius: 0 15px 15px 0;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    }}
-    
-    .stButton>button {{
-        background: linear-gradient(45deg, {theme_colors['secondary-color']} 0%, {theme_colors['accent-color']} 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }}
-    
-    .stButton>button:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }}
-    
-    .metric-card {{
-        background: {theme_colors['card-background']};
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        text-align: center;
-    }}
-    
-    .metric-card:hover {{
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    }}
-    
-    .metric-value {{
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: {theme_colors['secondary-color']};
-        margin: 0.5rem 0;
-    }}
-    
-    .metric-label {{
-        font-size: 1rem;
-        font-weight: 500;
-        color: {theme_colors['text-color']};
-        opacity: 0.8;
-    }}
-    
-    .status-indicator {{
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 8px;
-    }}
-    
-    .status-normal {{ background-color: {theme_colors['success-color']}; }}
-    .status-warning {{ background-color: {theme_colors['warning-color']}; }}
-    .status-critical {{ background-color: {theme_colors['accent-color']}; }}
-    
-    .recommendation-card {{
-        background: {theme_colors['card-background']};
-        border-left: 4px solid {theme_colors['secondary-color']};
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }}
-    
-    .priority-critical {{ border-left-color: {theme_colors['accent-color']}; }}
-    .priority-high {{ border-left-color: {theme_colors['warning-color']}; }}
-    .priority-medium {{ border-left-color: {theme_colors['secondary-color']}; }}
-    .priority-low {{ border-left-color: {theme_colors['success-color']}; }}
-    
-    h1, h2, h3 {{
-        color: {theme_colors['text-color']};
-        font-weight: 600;
-    }}
-    
-    .stAlert {{
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }}
-    
-    .stProgress > div > div > div > div {{
-        background: linear-gradient(90deg, {theme_colors['secondary-color']} 0%, {theme_colors['accent-color']} 100%);
-    }}
-    </style>
-""", unsafe_allow_html=True)
+    return {
+        'anomaly_detector': iso_forest,
+        'predictive_maintenance': pm_model,
+        'time_series': ts_model
+    }
 
-# Load custom CSS if exists
-try:
-    with open('custom_style.css') as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
-
-# --- Sidebar Navigation ---
-st.sidebar.markdown("# 🧠 التوأم الرقمي الذكي")
-st.sidebar.markdown("---")
-
-# Theme toggle with icon
-theme_icon = "🌙" if st.session_state.theme == 'light' else "☀️"
-if st.sidebar.button(f"{theme_icon} تبديل المظهر"):
-    st.session_state.theme = 'dark' if st.session_state.theme == 'light' else 'light'
-    st.rerun()
-
-st.sidebar.markdown("---")
-
-menu_options = [
-    ("🏠", "لوحة التحكم", "Dashboard"),
-    ("📊", "التحليل التنبؤي", "Predictive Analytics"),
-    ("💡", "التوصيات الذكية", "Smart Recommendations"),
-    ("ℹ️", "حول المشروع", "About Project"),
-    ("⚙️", "الإعدادات", "Settings")
-]
-
-chosen_menu = None
-for icon, arabic_name, english_name in menu_options:
-    if st.sidebar.button(f"{icon} {arabic_name}", key=english_name):
-        st.session_state.current_menu = english_name
-        chosen_menu = english_name
-
-if 'current_menu' not in st.session_state:
-    st.session_state.current_menu = "Dashboard"
-
-chosen_menu = st.session_state.current_menu
-
-# --- Data Simulation (Enhanced) ---
-@st.cache_data(ttl=60)  # Cache for 1 minute
-@st.cache_data(ttl=60)
-def generate_sensor_data(num_points=200):
-    time_series = pd.date_range(end=datetime.now(), periods=num_points, freq='H')
+@st.cache_data(ttl=300)
+def generate_sensor_data():
+    """Generate realistic sensor data with anomalies and trends"""
+    np.random.seed(42)
+    date_rng = pd.date_range(end=datetime.now(), periods=500, freq='H')
     
-    # More realistic sensor data with trends
-    base_temp = 30 + np.sin(np.arange(num_points) * 2 * np.pi / 24) * 5  # Daily cycle
-    temperature = base_temp + np.random.normal(0, 2, num_points)
+    # Base signals with seasonality
+    hours = np.arange(500)
+    temp_trend = 25 + 0.01 * hours  # Slight upward trend
+    temp_season = 10 * np.sin(2 * np.pi * hours / 24)  # Daily seasonality
+    temp_noise = np.random.normal(0, 1, 500)
+    temperature = temp_trend + temp_season + temp_noise
     
-    base_pressure = 100 + np.sin(np.arange(num_points) * 2 * np.pi / 168) * 10  # Weekly cycle
-    pressure = base_pressure + np.random.normal(0, 5, num_points)
+    pressure_trend = 100 - 0.02 * hours  # Slight downward trend
+    pressure_season = 15 * np.sin(2 * np.pi * hours / 168)  # Weekly seasonality
+    pressure_noise = np.random.normal(0, 2, 500)
+    pressure = pressure_trend + pressure_season + pressure_noise
     
-    vibration = np.random.normal(0.5, 0.1, num_points)
+    vibration = np.random.normal(0.5, 0.1, 500)
     
-    # Introduce realistic anomalies
-    for _ in range(int(num_points * 0.03)):
-        idx = random.randint(0, num_points - 1)
-        if random.random() > 0.5:  # Temperature spike
+    # Add anomalies
+    anomalies = []
+    for _ in range(15):
+        idx = random.randint(0, 499)
+        anomaly_type = random.choice(['temp_spike', 'pressure_drop', 'vibration_spike'])
+        
+        if anomaly_type == 'temp_spike':
             temperature[idx] += random.uniform(15, 25)
-        else:  # Pressure drop
+            anomalies.append((idx, "Temperature Spike", "High"))
+        elif anomaly_type == 'pressure_drop':
             pressure[idx] -= random.uniform(20, 40)
-        vibration[idx] += random.uniform(0.3, 0.8)
+            anomalies.append((idx, "Pressure Drop", "Critical"))
+        else:
+            vibration[idx] += random.uniform(0.8, 1.5)
+            anomalies.append((idx, "Vibration Spike", "Warning"))
     
+    # Create DataFrame
     df = pd.DataFrame({
-        'Timestamp': time_series,
+        'Timestamp': date_rng,
         'Temperature': temperature,
         'Pressure': pressure,
-        'Vibration': vibration
+        'Vibration': vibration,
+        'Anomaly': 0,
+        'Anomaly_Type': '',
+        'Severity': ''
     })
+    
+    # Mark anomalies
+    for idx, a_type, severity in anomalies:
+        df.loc[idx, 'Anomaly'] = 1
+        df.loc[idx, 'Anomaly_Type'] = a_type
+        df.loc[idx, 'Severity'] = severity
+    
     return df
 
-sensor_data = generate_sensor_data()
+# ===========================================
+# 3. 3D VISUALIZATION
+# ===========================================
 
-# --- Enhanced Anomaly Detection ---
-@st.cache_data(ttl=60)
-def detect_anomalies(df):
-    anomalies = df[
-        (df['Temperature'] > df['Temperature'].quantile(0.95)) |
-        (df['Pressure'] < df['Pressure'].quantile(0.05)) |
-        (df['Vibration'] > df['Vibration'].quantile(0.95))
-    ]
-    return anomalies
-
-anomalies = detect_anomalies(sensor_data)
-
-# --- Enhanced Predictive Model ---
-@st.cache_data(ttl=60)
-def predict_future_data(df, hours_ahead=72):
-    last_timestamp = df['Timestamp'].max()
-    future_timestamps = pd.date_range(start=last_timestamp + timedelta(hours=1), periods=hours_ahead, freq='H')
+def create_3d_equipment_model():
+    """Create a 3D model of industrial equipment"""
+    # Create a simple 3D model of a pump
+    mesh = pv.Cylinder(center=(0, 0, 0), direction=(0, 0, 1), radius=1, height=3)
     
-    # Use moving averages for more realistic predictions
-    temp_trend = df['Temperature'].rolling(window=24).mean().iloc[-1]
-    pressure_trend = df['Pressure'].rolling(window=24).mean().iloc[-1]
-    vib_trend = df['Vibration'].rolling(window=24).mean().iloc[-1]
+    # Add some details
+    base = pv.Cylinder(center=(0, 0, -0.2), direction=(0, 0, 1), radius=1.2, height=0.4)
+    top = pv.Cylinder(center=(0, 0, 3), direction=(0, 0, 1), radius=0.8, height=0.3)
     
-    future_temp = [temp_trend + random.uniform(-3, 3) for _ in range(hours_ahead)]
-    future_press = [pressure_trend + random.uniform(-8, 8) for _ in range(hours_ahead)]
-    future_vib = [vib_trend + random.uniform(-0.15, 0.15) for _ in range(hours_ahead)]
+    # Combine the meshes
+    equipment = mesh + base + top
     
-    # Confidence intervals
-    temp_upper = [t + random.uniform(2, 5) for t in future_temp]
-    temp_lower = [t - random.uniform(2, 5) for t in future_temp]
-    
-    future_df = pd.DataFrame({
-        'Timestamp': future_timestamps,
-        'Temperature': future_temp,
-        'Pressure': future_press,
-        'Vibration': future_vib,
-        'Temperature_Upper': temp_upper,
-        'Temperature_Lower': temp_lower
-    })
-    return future_df
+    return equipment
 
-future_predictions = predict_future_data(sensor_data)
+def render_3d_model():
+    """Render 3D model using PyVista and Streamlit"""
+    st.markdown("### 🏭 3D Equipment Model")
+    
+    # Create plotter
+    plotter = pv.Plotter(window_size=[600, 400])
+    
+    # Add equipment model
+    equipment = create_3d_equipment_model()
+    plotter.add_mesh(equipment, color='lightblue', smooth_shading=True)
+    
+    # Configure plotter
+    plotter.set_background('black')
+    plotter.camera_position = 'xy'
+    plotter.camera.azimuth = 30
+    plotter.camera.elevation = 20
+    
+    # Render to streamlit
+    plotter.export_html('temp_3d_model.html')
+    with open('temp_3d_model.html', 'r', encoding='utf-8') as f:
+        html = f.read()
+    st.components.v1.html(html, height=500)
 
-# --- Enhanced Recommendations ---
-def generate_recommendation(risk_level):
-    recommendations = {
-        "Low": [
-            {"title": "مراقبة الأداء الروتينية", "details": "استمرار المراقبة الدورية لجميع بيانات أجهزة الاستشعار.", "priority": "منخفضة", "estimated_time": "ساعة واحدة", "effectiveness": "عالية"},
-            {"title": "مراجعة ملفات السجل", "details": "فحص سجلات النظام للبحث عن أي إدخالات غير عادية.", "priority": "منخفضة", "estimated_time": "30 دقيقة", "effectiveness": "متوسطة"}
-        ],
-        "Medium": [
-            {"title": "فحص تشخيصي شامل", "details": "تشغيل فحص تشخيصي كامل على المكونات المتأثرة.", "priority": "متوسطة", "estimated_time": "ساعتان", "effectiveness": "عالية"},
-            {"title": "ضبط عتبات أجهزة الاستشعار", "details": "تعديل طفيف لعتبات كشف الشذوذ لتقليل الإنذارات الخاطئة.", "priority": "متوسطة", "estimated_time": "ساعة واحدة", "effectiveness": "متوسطة"}
-        ],
-        "High": [
-            {"title": "إيقاف النظام الفوري", "details": "بدء إجراءات الإيقاف الطارئ لمنع المزيد من الأضرار.", "priority": "حرجة", "estimated_time": "10 دقائق", "effectiveness": "عالية جداً"},
-            {"title": "إرسال فريق الصيانة", "details": "إرسال فريق صيانة متخصص لفحص وإصلاح المعدات.", "priority": "عالية", "estimated_time": "4 ساعات", "effectiveness": "عالية جداً"},
-            {"title": "عزل المنطقة المتأثرة", "details": "تنفيذ بروتوكولات السلامة لعزل المنطقة عالية المخاطر.", "priority": "عالية", "estimated_time": "30 دقيقة", "effectiveness": "عالية"}
-        ]
+# ===========================================
+# 4. AI-POWERED ANALYTICS
+# ===========================================
+
+def detect_anomalies(data):
+    """Detect anomalies using Isolation Forest"""
+    model = load_ai_models()['anomaly_detector']
+    features = data[['Temperature', 'Pressure', 'Vibration']]
+    
+    # Fit model and predict anomalies
+    preds = model.fit_predict(features)
+    data['AI_Anomaly'] = (preds == -1).astype(int)
+    
+    return data
+
+def predict_failures(data):
+    """Predict equipment failures using LSTM model"""
+    # This is a simplified example - in practice, you'd use a trained model
+    # Here we'll just simulate predictions based on thresholds
+    data['Failure_Risk'] = np.random.random(len(data))
+    data['Maintenance_Recommended'] = data['Failure_Risk'] > 0.85
+    
+    return data
+
+# ===========================================
+# 5. STREAMLIT UI COMPONENTS
+# ===========================================
+
+def create_metric_card(title, value, delta=None, delta_type='normal'):
+    """Create a metric card with optional delta indicator"""
+    colors = {
+        'normal': '#3b82f6',
+        'increase': '#10b981',
+        'decrease': '#ef4444'
     }
-    return random.choice(recommendations.get(risk_level, recommendations["Low"]))
-
-# --- Main App Logic ---
-if chosen_menu == "Dashboard":
-    st.title("🏠 لوحة التحكم الرئيسية")
-    st.markdown("### مراقبة البيانات في الوقت الفعلي")
     
-    # Real-time status indicator
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.markdown(f"**آخر تحديث:** {current_time}")
-    
-    # Enhanced Status Cards
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        temp_value = sensor_data['Temperature'].iloc[-1]
-        temp_status = "normal" if 20 <= temp_value <= 40 else "warning" if temp_value > 40 else "critical"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">🌡️ درجة الحرارة</div>
-            <div class="metric-value">{temp_value:.1f}°C</div>
-            <div><span class="status-indicator status-{temp_status}"></span>طبيعي</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        pressure_value = sensor_data['Pressure'].iloc[-1]
-        pressure_status = "normal" if 80 <= pressure_value <= 120 else "warning"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">⚡ الضغط</div>
-            <div class="metric-value">{pressure_value:.1f} kPa</div>
-            <div><span class="status-indicator status-{pressure_status}"></span>طبيعي</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        vibration_value = sensor_data['Vibration'].iloc[-1]
-        vibration_status = "normal" if vibration_value <= 0.8 else "critical"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">📳 الاهتزاز</div>
-            <div class="metric-value">{vibration_value:.2f} mm/s</div>
-            <div><span class="status-indicator status-{vibration_status}"></span>طبيعي</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        system_health = 100 - (len(anomalies) * 5)
-        health_status = "normal" if system_health > 80 else "warning" if system_health > 60 else "critical"
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">💚 صحة النظام</div>
-            <div class="metric-value">{system_health}%</div>
-            <div><span class="status-indicator status-{health_status}"></span>ممتاز</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Enhanced Charts
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("📈 قراءات أجهزة الاستشعار الحديثة")
-        
-        # Create enhanced plotly chart
-        fig = go.Figure()
-        
-        # Temperature
-        fig.add_trace(go.Scatter(
-            x=sensor_data['Timestamp'], 
-            y=sensor_data['Temperature'],
-            mode='lines',
-            name='درجة الحرارة (°C)',
-            line=dict(color='#E74C3C', width=2),
-            hovertemplate='درجة الحرارة: %{y:.1f}°C<br>الوقت: %{x}<extra></extra>'
-        ))
-        
-        # Pressure (scaled for visibility)
-        fig.add_trace(go.Scatter(
-            x=sensor_data['Timestamp'], 
-            y=sensor_data['Pressure'],
-            mode='lines',
-            name='الضغط (kPa)',
-            line=dict(color='#3498DB', width=2),
-            yaxis='y2',
-            hovertemplate='الضغط: %{y:.1f} kPa<br>الوقت: %{x}<extra></extra>'
-        ))
-        
-        fig.update_layout(
-            title='بيانات أجهزة الاستشعار عبر الزمن',
-            xaxis_title='الوقت',
-            yaxis=dict(title='درجة الحرارة (°C)', side='left'),
-            yaxis2=dict(title='الضغط (kPa)', side='right', overlaying='y'),
-            plot_bgcolor=theme_colors['chart-background'],
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color=theme_colors['text-color']),
-            hovermode='x unified',
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("🚨 كشف الشذوذ")
-        
-        if not anomalies.empty:
-            risk_level = "High" if len(anomalies) > 5 else "Medium"
-            st.session_state.current_risk_level = risk_level
-            
-            st.error(f"تم اكتشاف {len(anomalies)} حالة شذوذ!")
-            
-            # Show recent anomalies
-            recent_anomalies = anomalies.tail(3)
-            for _, anomaly in recent_anomalies.iterrows():
-                st.markdown(f"""
-                <div class="recommendation-card priority-critical">
-                    <strong>⚠️ شذوذ مكتشف</strong><br>
-                    الوقت: {anomaly['Timestamp'].strftime('%H:%M')}<br>
-                    الحرارة: {anomaly['Temperature']:.1f}°C<br>
-                    الضغط: {anomaly['Pressure']:.1f} kPa
-                </div>
-                """, unsafe_allow_html=True)
-            
-            if st.button("🔍 عرض جميع الشذوذات"):
-                st.dataframe(anomalies, use_container_width=True)
+    delta_icon = ""
+    if delta is not None:
+        if delta > 0:
+            delta_icon = f"↑ {abs(delta):.1f}%"
+            color = colors['increase']
+        elif delta < 0:
+            delta_icon = f"↓ {abs(delta):.1f}%"
+            color = colors['decrease']
         else:
-            st.success("✅ لم يتم اكتشاف أي شذوذ. النظام مستقر.")
-            st.session_state.current_risk_level = "Low"
-
-elif chosen_menu == "Predictive Analytics":
-    st.title("📊 التحليل التنبؤي")
-    st.markdown("### توقعات البيانات للـ 72 ساعة القادمة")
+            delta_icon = "→ 0.0%"
+            color = colors['normal']
     
-    # Prediction controls
+    return f"""
+    <div class="metric-card">
+        <div style="font-size: 1rem; color: #93c5fd; margin-bottom: 0.5rem;">{title}</div>
+        <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+            <div style="font-size: 1.8rem; font-weight: 700;">{value}</div>
+            {f'<div style="color: {color}; font-weight: 500;">{delta_icon}</div>' if delta is not None else ''}
+        </div>
+    </div>
+    """
+
+def render_ai_insights(data):
+    """Render AI-powered insights and recommendations"""
+    st.markdown("### 🤖 AI Insights & Recommendations")
+    
+    # Calculate metrics
+    anomaly_count = data['AI_Anomaly'].sum()
+    failure_risk = data['Failure_Risk'].mean() * 100
+    maintenance_needed = data['Maintenance_Recommended'].any()
+    
+    # Display metrics
     col1, col2, col3 = st.columns(3)
     with col1:
-        prediction_hours = st.selectbox("فترة التنبؤ", [24, 48, 72, 96], index=2)
+        st.markdown(create_metric_card("Anomalies Detected", anomaly_count), unsafe_allow_html=True)
     with col2:
-        confidence_level = st.slider("مستوى الثقة", 80, 99, 95)
+        st.markdown(create_metric_card("Failure Risk", f"{failure_risk:.1f}%"), unsafe_allow_html=True)
     with col3:
-        if st.button("🔄 تحديث التنبؤات"):
-            st.rerun()
+        status = "⚠️ Required" if maintenance_needed else "✅ Not Required"
+        st.markdown(create_metric_card("Maintenance", status), unsafe_allow_html=True)
     
-    # Generate predictions based on selected hours
-    future_predictions = predict_future_data(sensor_data, hours_ahead=prediction_hours)
+    # Display recommendations
+    st.markdown("#### Recommendations")
+    if maintenance_needed:
+        st.warning("**Maintenance Recommended** - Schedule maintenance within 24-48 hours to prevent equipment failure.")
     
-    # Enhanced prediction chart
-    fig = go.Figure()
+    if anomaly_count > 0:
+        st.info(f"**{anomaly_count} anomalies detected** - Review the anomalies tab for detailed analysis.")
     
-    # Historical data
-    fig.add_trace(go.Scatter(
-        x=sensor_data['Timestamp'].tail(48), 
-        y=sensor_data['Temperature'].tail(48),
-        mode='lines',
-        name='البيانات الفعلية',
-        line=dict(color='#2980B9', width=3)
-    ))
-    
-    # Predicted data
-    fig.add_trace(go.Scatter(
-        x=future_predictions['Timestamp'], 
-        y=future_predictions['Temperature'],
-        mode='lines',
-        name='التنبؤات',
-        line=dict(color='#E74C3C', width=2, dash='dash')
-    ))
-    
-    # Confidence interval
-    fig.add_trace(go.Scatter(
-        x=future_predictions['Timestamp'], 
-        y=future_predictions['Temperature_Upper'],
-        mode='lines',
-        line=dict(width=0),
-        showlegend=False,
-        hoverinfo='skip'
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=future_predictions['Timestamp'], 
-        y=future_predictions['Temperature_Lower'],
-        mode='lines',
-        line=dict(width=0),
-        fill='tonexty',
-        fillcolor='rgba(231, 76, 60, 0.2)',
-        name=f'نطاق الثقة {confidence_level}%',
-        hoverinfo='skip'
-    ))
-    
-    fig.update_layout(
-        title=f'توقعات درجة الحرارة للـ {prediction_hours} ساعة القادمة',
-        xaxis_title='الوقت',
-        yaxis_title='درجة الحرارة (°C)',
-        plot_bgcolor=theme_colors['chart-background'],
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color=theme_colors['text-color']),
-        hovermode='x unified'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Prediction summary
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📋 ملخص التنبؤات")
-        avg_temp = future_predictions['Temperature'].mean()
-        max_temp = future_predictions['Temperature'].max()
-        min_temp = future_predictions['Temperature'].min()
-        
-        st.metric("متوسط درجة الحرارة المتوقعة", f"{avg_temp:.1f}°C")
-        st.metric("أعلى درجة حرارة متوقعة", f"{max_temp:.1f}°C")
-        st.metric("أقل درجة حرارة متوقعة", f"{min_temp:.1f}°C")
-    
-    with col2:
-        st.subheader("📊 جدول البيانات المتوقعة")
-        display_predictions = future_predictions[['Timestamp', 'Temperature', 'Pressure', 'Vibration']].head(24)
-        display_predictions['Timestamp'] = display_predictions['Timestamp'].dt.strftime('%Y-%m-%d %H:%M')
-        st.dataframe(display_predictions, use_container_width=True)
+    if failure_risk > 70:
+        st.error("**High Failure Risk** - Immediate attention required. Consider performing diagnostic tests.")
 
-elif chosen_menu == "Smart Recommendations":
-    st.title("💡 التوصيات الذكية")
-    st.markdown("### إدارة الشذوذ والتوصيات الاستباقية")
+# ===========================================
+# 6. MAIN APP LAYOUT
+# ===========================================
+
+def main():
+    """Main application layout"""
+    # Load data and models
+    data = generate_sensor_data()
+    data = detect_anomalies(data)
+    data = predict_failures(data)
     
-    current_risk = st.session_state.get('current_risk_level', 'Low')
-    
-    # Risk level indicator
-    risk_colors = {"Low": "success", "Medium": "warning", "High": "error"}
-    risk_arabic = {"Low": "منخفض", "Medium": "متوسط", "High": "عالي"}
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <div class="metric-label">🎯 مستوى المخاطر الحالي</div>
-        <div class="metric-value" style="color: {theme_colors['accent-color'] if current_risk == 'High' else theme_colors['warning-color'] if current_risk == 'Medium' else theme_colors['success-color']}">{risk_arabic[current_risk]}</div>
-    </div>
+    # Set page title and favicon
+    st.markdown("""
+    <style>
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    .stAlert {
+        border-radius: 12px;
+    }
+    </style>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 1])
+    # Page header
+    st.title("🏭 Smart Digital Twin Dashboard")
+    st.markdown("*Real-time monitoring and predictive maintenance for industrial equipment*")
     
-    with col1:
-        if st.button("🔄 توليد توصية جديدة", type="primary"):
-            new_rec = generate_recommendation(current_risk)
-            st.session_state.recommendation_history.append({
-                "timestamp": datetime.now(), 
-                "recommendation": new_rec,
-                "risk_level": current_risk
-            })
-            st.toast('✅ تم توليد توصية استباقية جديدة!', icon='💡')
-            st.rerun()
+    # Main tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "📈 Analytics", "🛠️ 3D Model", "⚙️ Settings"])
     
-    with col2:
-        if st.button("🗑️ مسح السجل"):
-            st.session_state.recommendation_history = []
-            st.success("تم مسح سجل التوصيات!")
-            st.rerun()
-    
-    if st.session_state.recommendation_history:
-        st.subheader("📋 أحدث التوصيات")
+    with tab1:  # Dashboard
+        # Metrics row
+        latest = data.iloc[-1]
+        col1, col2, col3, col4 = st.columns(4)
         
-        # Latest recommendation
-        latest_rec = st.session_state.recommendation_history[-1]['recommendation']
-        priority_class = f"priority-{latest_rec['priority'].lower()}"
+        with col1:
+            st.markdown(create_metric_card("🌡️ Temperature", f"{latest['Temperature']:.1f}°C"), unsafe_allow_html=True)
+        with col2:
+            st.markdown(create_metric_card("⚡ Pressure", f"{latest['Pressure']:.1f} kPa"), unsafe_allow_html=True)
+        with col3:
+            st.markdown(create_metric_card("📊 Vibration", f"{latest['Vibration']:.2f} mm/s"), unsafe_allow_html=True)
+        with col4:
+            st.markdown(create_metric_card("💯 System Health", f"{100 - latest['Failure_Risk']*100:.0f}%"), unsafe_allow_html=True)
         
-        st.markdown(f"""
-        <div class="recommendation-card {priority_class}">
-            <h4>🎯 {latest_rec['title']}</h4>
-            <p><strong>التفاصيل:</strong> {latest_rec['details']}</p>
-            <div style="display: flex; justify-content: space-between; margin-top: 1rem;">
-                <span><strong>الأولوية:</strong> {latest_rec['priority']}</span>
-                <span><strong>الوقت المقدر:</strong> {latest_rec['estimated_time']}</span>
-                <span><strong>الفعالية:</strong> {latest_rec['effectiveness']}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # AI Insights
+        render_ai_insights(data)
         
-        # Recommendation history
-        if len(st.session_state.recommendation_history) > 1:
-            st.subheader("📚 سجل التوصيات")
-            
-            for i, rec_entry in enumerate(reversed(st.session_state.recommendation_history[:-1])):
-                if i < 5:  # Show only last 5
-                    rec = rec_entry['recommendation']
-                    timestamp = rec_entry['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                    
-                    with st.expander(f"📝 {rec['title']} - {timestamp}"):
-                        st.write(f"**التفاصيل:** {rec['details']}")
-                        st.write(f"**الأولوية:** {rec['priority']}")
-                        st.write(f"**الوقت المقدر:** {rec['estimated_time']}")
-    else:
-        st.info("لم يتم توليد أي توصيات بعد. اضغط على 'توليد توصية جديدة' للبدء.")
-
-elif chosen_menu == "About Project":
-    st.title("ℹ️ حول المشروع")
+        # Time series charts
+        st.markdown("### 📈 Live Sensor Data")
+        fig = px.line(data, x='Timestamp', y=['Temperature', 'Pressure', 'Vibration'],
+                     title="Sensor Data Over Time",
+                     labels={'value': 'Value', 'variable': 'Metric'})
+        st.plotly_chart(fig, use_container_width=True)
     
-    # Project image
-    if os.path.exists("/home/ubuntu/upload/search_images/4Q9XEwBBAhBz.webp"):
-        st.image("/home/ubuntu/upload/search_images/4Q9XEwBBAhBz.webp", use_column_width=True)
-    
-    st.markdown("""
-    ## 🧠 التوأم الرقمي الذكي للسلامة الصناعية
-    
-    يطور هذا المشروع نظام توأم رقمي ذكي لسلامة حقول النفط، مستفيداً من بيانات أجهزة الاستشعار في الوقت الفعلي، 
-    والتعلم الآلي المتقدم، والتحليلات التنبؤية لمنع الكوارث.
-    
-    ### ✨ الميزات الرئيسية:
-    - 📊 مراقبة بيانات أجهزة الاستشعار في الوقت الفعلي
-    - 🔍 كشف الشذوذ باستخدام خوارزميات التعلم الآلي
-    - 📈 النمذجة التنبؤية للظروف المستقبلية
-    - 💡 توصيات ذكية للتدخل الاستباقي
-    - 🎨 واجهة مستخدم تفاعلية وسهلة الاستخدام
-    
-    ### 🎯 رؤيتنا
-    إحداث ثورة في السلامة الصناعية من خلال تحويل البيانات الخام إلى رؤى قابلة للتنفيذ، 
-    مما يضمن بيئة تشغيلية أكثر أماناً وكفاءة.
-    
-    ### 🛠️ التقنيات المستخدمة
-    - **Python & Streamlit** للواجهة الأمامية
-    - **Plotly** للرسوم البيانية التفاعلية
-    - **Pandas & NumPy** لمعالجة البيانات
-    - **Machine Learning** لكشف الشذوذ والتنبؤ
-    """)
-    
-    # Team or contact info
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        ### 📧 التواصل
-        للاستفسارات والدعم الفني
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### 🔗 الروابط
-        - [GitHub Repository](#)
-        - [Documentation](#)
-        """)
-    
-    with col3:
-        st.markdown("""
-        ### 📊 الإحصائيات
-        - **المستخدمون النشطون:** 150+
-        - **البيانات المعالجة:** 1M+ نقطة
-        - **دقة التنبؤ:** 94%
-        """)
-
-elif chosen_menu == "Settings":
-    st.title("⚙️ إعدادات التطبيق")
-    
-    # Theme settings
-    st.subheader("🎨 إعدادات المظهر")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        current_theme = st.session_state.theme
-        st.write(f"**المظهر الحالي:** {current_theme.capitalize()}")
+    with tab2:  # Analytics
+        st.markdown("### 🔍 Anomaly Detection")
         
-        if st.button("🔄 تبديل المظهر"):
-            st.session_state.theme = 'dark' if current_theme == 'light' else 'light'
-            st.success("تم تغيير المظهر!")
-            st.rerun()
+        # Anomaly visualization
+        fig = px.scatter(data, x='Timestamp', y='Temperature', 
+                        color='AI_Anomaly',
+                        title="Detected Anomalies",
+                        color_discrete_map={0: '#3b82f6', 1: '#ef4444'})
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Failure prediction
+        st.markdown("### ⚠️ Failure Prediction")
+        fig = px.line(data, x='Timestamp', y='Failure_Risk',
+                     title="Equipment Failure Risk Over Time",
+                     labels={'Failure_Risk': 'Failure Probability'})
+        st.plotly_chart(fig, use_container_width=True)
     
-    with col2:
-        st.write("**معاينة الألوان:**")
-        st.markdown(f"""
-        <div style="display: flex; gap: 10px; margin: 10px 0;">
-            <div style="width: 30px; height: 30px; background-color: {theme_colors['primary-color']}; border: 1px solid #ccc; border-radius: 4px;"></div>
-            <div style="width: 30px; height: 30px; background-color: {theme_colors['secondary-color']}; border-radius: 4px;"></div>
-            <div style="width: 30px; height: 30px; background-color: {theme_colors['accent-color']}; border-radius: 4px;"></div>
-        </div>
-        """, unsafe_allow_html=True)
+    with tab3:  # 3D Model
+        st.markdown("### 🏭 Interactive 3D Equipment Model")
+        st.markdown("*Rotate, zoom, and pan to inspect the equipment*")
+        
+        # Check if PyVista is available
+        try:
+            render_3d_model()
+        except Exception as e:
+            st.warning("3D visualization requires additional dependencies. Please install pyvista and panel.")
+            st.code("pip install pyvista panel")
     
-    st.markdown("---")
-    
-    # Data settings
-    st.subheader("📊 إعدادات البيانات")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        num_data_points = st.slider("عدد نقاط البيانات التاريخية", 50, 500, 200)
-        refresh_interval = st.selectbox("فترة التحديث (ثواني)", [30, 60, 120, 300], index=1)
-    
-    with col2:
-        anomaly_sensitivity = st.slider("حساسية كشف الشذوذ", 0.1, 1.0, 0.5, 0.1)
-        prediction_model = st.selectbox("نموذج التنبؤ", ["Linear Regression", "ARIMA", "LSTM"], index=0)
-    
-    if st.button("💾 حفظ الإعدادات"):
-        st.success("تم حفظ الإعدادات بنجاح!")
-    
-    if st.button("🔄 إعادة توليد البيانات"):
-        st.cache_data.clear()
-        st.success("تم إعادة توليد البيانات!")
-        st.rerun()
-    
-    st.markdown("---")
-    
-    # System info
-    st.subheader("ℹ️ معلومات النظام")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**إصدار التطبيق:** v2.1.1")
-        st.write("**آخر تحديث:** 2024-06-14")
-        st.write("**حالة النظام:** 🟢 متصل")
-    
-    with col2:
-        st.write(f"**عدد التوصيات:** {len(st.session_state.recommendation_history)}")
-        st.write(f"**عدد الشذوذات:** {len(anomalies)}")
-        st.write(f"**وقت التشغيل:** {datetime.now().strftime('%H:%M:%S')}")
-    
-    # Reset options
-    st.markdown("---")
-    st.subheader("🔄 خيارات الإعادة تعيين")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🗑️ مسح سجل التوصيات", type="secondary"):
-            st.session_state.recommendation_history = []
-            st.success("تم مسح سجل التوصيات!")
-    
-    with col2:
-        if st.button("🔄 إعادة تعيين الإعدادات", type="secondary"):
-            st.session_state.theme = "light"
-            st.success("تم إعادة تعيين الإعدادات!")
-    
-    with col3:
-        if st.button("⚠️ إعادة تشغيل التطبيق", type="secondary"):
-            st.cache_data.clear()
-            st.rerun()
+    with tab4:  # Settings
+        st.markdown("### ⚙️ System Settings")
+        
+        # Theme selection
+        theme = st.selectbox("Color Theme", ["Dark", "Light", "System"])
+        
+        # Data refresh rate
+        refresh_rate = st.slider("Data Refresh Rate (seconds)", 5, 300, 30)
+        
+        # Alert thresholds
+        st.markdown("### 🚨 Alert Thresholds")
+        temp_threshold = st.slider("Temperature Threshold (°C)", 0, 100, 35)
+        pressure_threshold = st.slider("Pressure Threshold (kPa)", 0, 200, 80)
+        
+        # Save settings
+        if st.button("💾 Save Settings"):
+            st.success("Settings saved successfully!")
 
-# Footer
-st.markdown("---")
-st.markdown(
-    """
-    <div style="text-align: center; color: #7f8c8d; padding: 20px;">
-        🧠 التوأم الرقمي الذكي | الإصدار النهائي المدعوم بالذكاء الاصطناعي الصناعي
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
-
+if __name__ == "__main__":
+    main()
