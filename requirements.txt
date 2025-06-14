@@ -1,44 +1,38 @@
-# Core
+# Core Dependencies (Required)
 streamlit>=1.24.0
 pandas>=1.5.0
 numpy>=1.23.0
 plotly>=5.13.0
-
-# Visualization
-dash>=2.9.3
 plotly-express>=0.4.1
-kaleido>=0.2.1
-streamlit-echarts>=0.4.0
-streamlit-folium>=0.11.0
-streamlit-vega-lite>=0.5.0
 
-# UI/UX
-streamlit-extras>=0.3.0
+# UI/UX Enhancements
+streamlit-extras>=1.0.0
 streamlit-option-menu>=0.3.6
-streamlit-vertical-slider>=1.0.3
-streamlit-toggle-switch>=1.0.0
 streamlit-lottie>=0.0.4
 
-# Data Processing
+# Data Processing & Analysis
 scikit-learn>=1.0.2
 statsmodels>=0.13.2
-prophet>=1.1.4
-python-dotenv>=1.0.0
-
-# 3D Visualization
-pydeck>=0.8.0
-vtk>=9.1.0
-pyvista>=0.35.2
-
-# AI/ML
-tensorflow>=2.11.0
-torch>=2.0.0
-prophet>=1.1.4
-
-# Utilities
 python-dateutil>=2.8.2
 pytz>=2022.7.1
-requests>=2.28.2
-python-multipart>=0.0.6
 
+# 3D Visualization (Optional - Heavy)
+pydeck>=0.8.0  # For 3D mapping
+vtk>=9.1.0  # For 3D rendering
+pyvista>=0.35.2  # For 3D visualization
 
+# AI/ML (Optional - Very Heavy)
+torch>=2.0.0  # PyTorch for deep learning
+prophet>=1.1.4  # Time series forecasting
+
+# Utilities
+python-dotenv>=1.0.0  # For environment variables
+requests>=2.28.2  # For API calls
+python-multipart>=0.0.6  # For file uploads
+kaleido>=0.2.1  # For static image export
+
+# Optional Visualization (Can be installed as needed)
+# dash>=2.9.3  # Alternative dashboarding
+# streamlit-echarts>=0.4.0  # Advanced charts
+# streamlit-folium>=0.11.0  # Maps
+# streamlit-vega-lite>=0.5.0  # Advanced visualizations
