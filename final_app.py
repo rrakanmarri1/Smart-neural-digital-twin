@@ -1,162 +1,103 @@
-import os
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-from datetime import timedelta
-import random
+from datetime import datetime
 
-st.set_page_config(
-    page_title="Smart Neural Digital Twin",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Session defaults
-if 'lang' not in st.session_state:
-    st.session_state.lang = 'العربية'
+# صفحة الإعدادات
+st.set_page_config(page_title="Smart Neural Digital Twin", page_icon="🧠", layout="wide")
+if 'language' not in st.session_state:
+    st.session_state.language = 'ar'
 if 'palette' not in st.session_state:
-    st.session_state.palette = 'Ocean'
+    st.session_state.palette = 'Slate'
 
-# Palette colors
-PALETTE_COLORS = {
-    'Ocean':  '#1B3B6F',
-    'Forest': '#2E7D32',
-    'Sunset': '#EF6C00',
-    'Purple': '#6A1B9A',
-    'Slate':  '#37474F'
-}
+def _rerun():
+    st.experimental_rerun()
 
-# Apply background color
-bg = PALETTE_COLORS.get(st.session_state.palette, '#FFFFFF')
+def get_background_url(palette):
+    urls = {
+        'Ocean': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
+        'Forest': 'https://images.unsplash.com/photo-1501785888041-af3ef285b470',
+        'Sunset': 'https://images.unsplash.com/photo-1518837695005-2083093ee35b',
+        'Purple': 'https://images.unsplash.com/photo-1522661067900-22e2879de181',
+        'Slate': 'https://images.unsplash.com/photo-1531959871807-30c29ab64749'
+    }
+    return urls.get(palette, '')
+
+# الستايل الديناميكي
+bg_url = get_background_url(st.session_state.palette)
 st.markdown(f"""
 <style>
-    .stApp {{ background-color: {bg}; }}
+body {{
+    background: #111;
+    background-image: url('{bg_url}');
+    background-size: cover;
+    background-attachment: fixed;
+}}
+.main-header {{
+    background-color: rgba(0,0,0,0.5);
+    padding: 1rem;
+    border-radius: 8px;
+}}
+.menu-item {{
+    margin-right: 1rem;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-LANG = st.session_state.lang
-# Translation helper
-def T(ar, en): return ar if LANG=='العربية' else en
+# العنوان وتحديد الصفحة
+st.markdown("<div class='main-header'><h1>🧠 Smart Neural Digital Twin</h1></div>", unsafe_allow_html=True)
+page = st.radio(
+    label="",
+    options=['Dashboard', 'Simulation', 'Predictive Analysis', 'Smart Solutions', 'Settings', 'About'],
+    format_func=lambda x: x if st.session_state.language=='en' else {'Dashboard':'لوحة البيانات','Simulation':'المحاكاة','Predictive Analysis':'التحليل التنبؤي','Smart Solutions':'الحلول الذكية','Settings':'الإعدادات','About':'حول'}[x],
+    on_change=_rerun,
+    key='page'
+)
 
-# Header
-title = T('التوأم الرقمي الذكي','Smart Neural Digital Twin')
-st.markdown(f"<h1 style='text-align:center;'>🧠 {title}</h1>", unsafe_allow_html=True)
+# إعدادات في صفحة Settings
+if page=='Settings':
+    lang = st.radio("اختر اللغة" if st.session_state.language=='ar' else "Select Language",
+                     ('ar','en'),
+                     format_func=lambda x: 'العربية' if x=='ar' else 'English',
+                     index=0 if st.session_state.language=='ar' else 1,
+                     on_change=_rerun,
+                     key='language')
+    st.session_state.language = lang
+    pal = st.radio("لوحة الألوان" if lang=='ar' else "Palette",
+                   ('Ocean','Forest','Sunset','Purple','Slate'),
+                   index=list(('Ocean','Forest','Sunset','Purple','Slate')).index(st.session_state.palette),
+                   on_change=_rerun,
+                   key='palette')
+    st.session_state.palette = pal
 
-# Page selection
-pages_ar = ['الرئيسية','المحاكاة','التحليل التنبؤي','الحلول الذكية','الإعدادات','حول']
-pages_en = ['Dashboard','Simulation','Predictive Analysis','Smart Solutions','Settings','About']
-options = pages_ar if LANG=='العربية' else pages_en
-page = st.radio('', options, index=0, horizontal=True, label_visibility='collapsed')
-# Map to internal keys
-key = pages_en[pages_ar.index(page)] if LANG=='العربية' else page
+# صفحات أخرى
+if page=='Dashboard':
+    st.write("No data available")
+elif page=='Simulation':
+    sd = {'temp':34,'pressure':94,'vibration':0.34,'gas':3.45}
+    sd['temp']=st.slider('Temperature (°C)',0,50,sd['temp'])
+    sd['pressure']=st.slider('Pressure (kPa)',60,120,sd['pressure'])
+    sd['vibration']=st.slider('Vibration (mm/s)',0.0,1.5,sd['vibration'])
+    sd['gas']=st.slider('Gas (ppm)',0.0,10.0,sd['gas'])
+    df = pd.DataFrame([sd])
+    st.dataframe(df)
+elif page=='Predictive Analysis':
+    dates = pd.date_range(end=datetime.now(), periods=72, freq='H')
+    df = pd.DataFrame({
+        'timestamp': dates,
+        'temperature': 37 + 0.1 * (pd.Series(range(72))%5),
+        'pressure': 98 + 0.2 * (pd.Series(range(72))%7),
+        'vibration': 0.5 + 0.01 * (pd.Series(range(72))%3)
+    })
+    fig = px.line(df, x='timestamp', y=['temperature','pressure','vibration'], title='Trends')
+    st.plotly_chart(fig, use_container_width=True)
+elif page=='Smart Solutions':
+    if st.button('Generate Solution' if st.session_state.language=='en' else 'توليد الحل'):
+        sol = {'Name':'تشخيص تبريد','Details':'فحص شامل','Duration':'30 دقيقة','Priority':'عالية','Effectiveness':'عالية جداً'}
+        st.table(sol)
+elif page=='About':
+    txt = "Disasters don't wait..." if st.session_state.language=='en' else "الكوارث لا تنتظر..."
+    st.write(txt)
 
-# Load data
-def load_data():
-    if os.path.exists('sensor_data_simulated.csv'):
-        df = pd.read_csv('sensor_data_simulated.csv', parse_dates=['Time'], dayfirst=False)
-        df = df.rename(columns={
-            'Time':'timestamp',
-            'Temperature (°C)':'temp',
-            'Pressure (psi)':'pressure',
-            'Vibration (g)':'vibration',
-            'Methane (CH₄ ppm)':'gas',
-            'H₂S (ppm)':'h2s'
-        }).dropna(subset=['timestamp'])
-    else:
-        df = pd.DataFrame(columns=['timestamp','temp','pressure','vibration','gas','h2s'])
-    return df
-history = load_data()
-latest = history.iloc[-1] if not history.empty else None
-
-# Pages
-if key=='Dashboard':
-    st.header(T('الرئيسية','Dashboard'))
-    if history.empty:
-        st.info(T('لا توجد بيانات.','No data available.'))
-    else:
-        c1,c2,c3,c4 = st.columns(4)
-        c1.metric(f"🌡️ {T('الحرارة','Temperature')}", f"{latest.temp:.2f}°C")
-        c2.metric(f"⚡ {T('الضغط','Pressure')}", f"{latest.pressure:.2f} psi")
-        c3.metric(f"📳 {T('الاهتزاز','Vibration')}", f"{latest.vibration:.2f} g")
-        c4.metric(f"🛢️ {T('الميثان','Methane')}", f"{latest.gas:.2f} ppm")
-        st.markdown('---')
-        st.subheader(T('📈 الاتجاهات','📈 Trends'))
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.temp, name='Temp'))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.pressure, name='Pressure'))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.vibration, name='Vibration'))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.gas, name='Gas'))
-        st.plotly_chart(fig, use_container_width=True)
-        st.subheader(T('🌡️ خريطة الحرارة','🌡️ Heatmap'))
-        history['hour']=history.timestamp.dt.hour
-        history['day']=history.timestamp.dt.day
-        heat=history.pivot_table(index='hour',columns='day',values='temp',aggfunc='mean')
-        fig2=px.imshow(heat, labels={'x':T('اليوم','Day'),'y':T('الساعة','Hour'),'color':T('حرارة','Temp')})
-        st.plotly_chart(fig2, use_container_width=True)
-
-elif key=='Simulation':
-    st.header(T('المحاكاة','Simulation'))
-    if latest is None:
-        st.info(T('لا توجد بيانات أساسية.','No baseline data.'))
-    else:
-        sd = latest.to_dict()
-        sd['temp']=st.slider('Temperature (°C)',0.0,100.0,sd['temp'])
-        sd['pressure']=st.slider('Pressure (psi)',0.0,200.0,sd['pressure'])
-        sd['vibration']=st.slider('Vibration (g)',0.0,5.0,sd['vibration'])
-        sd['gas']=st.slider('Methane (CH₄ ppm)',0.0,20.0,sd['gas'])
-        sd['h2s']=st.slider('H₂S (ppm)',0.0,10.0,sd['h2s'])
-        st.table(pd.DataFrame([sd]).T.rename(columns={0:T('القيمة','Value')}))
-
-elif key=='Predictive Analysis':
-    st.header(T('التحليل التنبؤي (72س)','Predictive Analysis (72h)'))
-    if history.empty:
-        st.info(T('لا توجد بيانات.','No data.'))
-    else:
-        last=history.timestamp.max()
-        fut=pd.DataFrame({
-            'timestamp':[last+timedelta(hours=i) for i in range(1,73)],
-            'temp':np.linspace(latest.temp,latest.temp+random.uniform(-2,2),72)
-        })
-        fig3=go.Figure()
-        fig3.add_trace(go.Scatter(x=history.timestamp.tail(24),y=history.temp.tail(24),name='Actual'))
-        fig3.add_trace(go.Scatter(x=fut.timestamp,y=fut.temp,name='Predicted',line=dict(dash='dash')))
-        st.plotly_chart(fig3,use_container_width=True)
-
-elif key=='Smart Solutions':
-    st.header(T('الحلول الذكية','Smart Solutions'))
-    if latest is None:
-        st.info(T('لا توجد بيانات.','No data.'))
-    else:
-        if st.button(T('توليد حل','Generate Solution')):
-            sol={
-                T('الحل','Solution'):T('تفعيل التبريد','Activate cooling'),
-                T('المدة','Duration'):'10m',
-                T('الأولوية','Priority'):T('عالية','High')
-            }
-            st.table(pd.DataFrame([sol]).T.rename(columns={0:T('التفاصيل','Details')}))
-
-elif key=='Settings':
-    st.header(T('الإعدادات','Settings'))
-    new_lang=st.radio(T('اختر اللغة','Choose Language'),['العربية','English'],index=0 if LANG=='العربية' else 1,horizontal=True)
-    if new_lang!=LANG:
-        st.session_state.lang=new_lang
-        st.experimental_rerun()
-    new_pal=st.radio(T('لوحة الألوان','Color Palette'),list(PALETTE_COLORS.keys()),index=list(PALETTE_COLORS.keys()).index(st.session_state.palette),horizontal=True)
-    if new_pal!=st.session_state.palette:
-        st.session_state.palette=new_pal
-        st.experimental_rerun()
-
-else:
-    st.header(T('حول','About'))
-    st.markdown(f"""
-**{T("الكوارث لا تنتظر... ونحن أيضًا","Disasters don't wait... and neither do we.")}**
-
-**{T('رؤيتنا: إحداث ثورة في السلامة الصناعية من خلال تحويل البيانات الخام إلى رؤى قابلة للتنفيذ.','Vision: Revolutionize industrial safety by turning raw data into actionable insights.')}**
-
-**{T('الفريق','Team')}:**
-- Rakan Almarri | rakan.almarri.2@aramco.com | 0532559664
-- Abdulrahman Alzhrani | abdulrahman.alzhrani.1@aramco.com | 0549202574
-""", unsafe_allow_html=True)
+# النهاية
+st.markdown("© Rakan & Abdulrahman")
