@@ -1,170 +1,108 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Smart Neural Digital Twin", page_icon="🧠", layout="wide")
+st.set_page_config(
+    page_title="Smart Neural Digital Twin",
+    page_icon="🧠",
+    layout="wide"
+)
 
-# Load data
-df = pd.read_csv("sensor_data_simulated.csv", parse_dates=["Timestamp"])
-df = df.rename(columns={
-    "Timestamp": "timestamp",
-    "Temperature (°C)": "temperature",
+# Load the simulated data
+df = pd.read_csv(
+    "sensor_data_simulated.csv",
+    parse_dates=["Time"],
+    sep=","
+)
+df.rename(columns={
+    "Time": "timestamp",
+    "Temperature (°C)": "temp",
     "Pressure (psi)": "pressure",
     "Vibration (g)": "vibration",
-    "Methane (CH₄, ppm)": "gas"
-})
+    "Methane (CH₄ ppm)": "gas",
+    "H₂S (ppm)": "h2s"
+}, inplace=True)
 
-# UI controls
-lang = st.radio("", ["العربية", "English"], horizontal=True, key="lang")
-pal = st.radio("", ["Ocean", "Forest", "Sunset", "Purple", "Slate"], horizontal=True, key="pal")
+# Sidebar: language & theme
+st.sidebar.title("MENU")
+lang = st.sidebar.radio("Select Language", ("العربية", "English"))
+palette = st.sidebar.radio("لوحة الألوان" if lang=="العربية" else "Palette",
+    ("Ocean", "Forest", "Sunset", "Purple", "Slate"))
 
-# Translations
-t = {
-    "العربية": {
-        "menu": ["لوحة البيانات", "المحاكاة", "التحليل التنبؤي", "الحلول الذكية", "الإعدادات", "حول"],
-        "dashboard": "لوحة البيانات",
-        "simulation": "المحاكاة",
-        "predictive": "التحليل التنبؤي",
-        "solutions": "الحلول الذكية",
-        "settings": "الإعدادات",
-        "about": "حول",
-        "generate": "توليد الحل",
-        "no_data": "لا توجد بيانات",
-        "select_page": "اختر الصفحة",
-        "select_lang": "اختر اللغة",
-        "select_pal": "لوحة الألوان",
-        "sensitivity": "حساسية كشف الشذوذ",
-        "temp": "درجة الحرارة (°C)",
-        "pres": "الضغط (psi)",
-        "vib": "الاهتزاز (g)",
-        "gas": "غاز الميثان (ppm)",
-        "dashboard_title": "لوحة البيانات",
-        "sim_title": "المحاكاة",
-        "pred_title": "التحليل التنبؤي خلال 72 ساعة",
-        "sol_title": "الحلول الذكية",
-        "set_title": "الإعدادات",
-        "about_title": "حول المشروع"
-    },
-    "English": {
-        "menu": ["Dashboard", "Simulation", "Predictive Analysis", "Smart Solutions", "Settings", "About"],
-        "dashboard": "Dashboard",
-        "simulation": "Simulation",
-        "predictive": "Predictive Analysis",
-        "solutions": "Smart Solutions",
-        "settings": "Settings",
-        "about": "About",
-        "generate": "Generate Solution",
-        "no_data": "No data available",
-        "select_page": "Select Page",
-        "select_lang": "Select Language",
-        "select_pal": "Palette",
-        "sensitivity": "Anomaly Sensitivity",
-        "temp": "Temperature (°C)",
-        "pres": "Pressure (psi)",
-        "vib": "Vibration (g)",
-        "gas": "Methane (ppm)",
-        "dashboard_title": "Dashboard",
-        "sim_title": "Simulation",
-        "pred_title": "72h Predictive Analysis",
-        "sol_title": "Smart Solutions",
-        "set_title": "Settings",
-        "about_title": "About"
-    }
-}[lang]
-
-# Backgrounds
-bg = {
-    "Ocean": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
-    "Forest": "https://images.unsplash.com/photo-1501785888041-af3ef285b470",
-    "Sunset": "https://images.unsplash.com/photo-1518837695005-2083093ee35b",
-    "Purple": "https://images.unsplash.com/photo-1519985176271-adb1088fa94c",
-    "Slate": "https://images.unsplash.com/photo-1503602642458-232111445657"
-}[pal]
-
+# Main header
+bg_colors = {
+    "Ocean": "#1E90FF",
+    "Forest": "#228B22",
+    "Sunset": "#FF4500",
+    "Purple": "#800080",
+    "Slate": "#2F4F4F",
+}
 st.markdown(f"""
-    <style>
-    .stApp {{
-        background-image: url('{bg}?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260');
-        background-size: cover;
-        color: white;
-    }}
-    .menu-container {{
-        display: flex; gap: 2rem; margin-top: 1rem;
-    }}
-    .menu-container label {{
-        cursor: pointer; font-size: 1.1rem;
-    }}
-    .main-header {{
-        background: rgba(0,0,0,0.5); padding: 1rem; border-radius: 8px;
-        display: flex; align-items: center; gap: 0.5rem;
-    }}
-    </style>
+    <div style="background-color:{bg_colors[palette]};
+                color:white;
+                padding:1rem;
+                border-radius:5px;
+                display:flex;
+                align-items:center;
+                gap:0.5rem;">
+        <span style="font-size:1.5rem;">🧠</span>
+        <h1 style="margin:0;">{"التوأم الرقمي العصبي الذكي" if lang=="العربية" else "Smart Neural Digital Twin"}</h1>
+    </div>
 """, unsafe_allow_html=True)
 
-# Page selector
-page = st.radio("", t["menu"], index=0, format_func=lambda x: x, horizontal=True)
+# Menu selection
+pages = ["Dashboard","Simulation","Predictive Analysis","Smart Solutions","Settings","About"]
+labels_ar = ["لوحة البيانات","المحاكاة","التحليل التنبؤي","الحلول الذكية","الإعدادات","حول"]
+items = []
+for i, p in enumerate(pages):
+    items.append(st.radio(
+        "", 
+        (f"{'🔴 ' if i==0 else '⚪️ '}{(labels_ar[i] if lang=='العربية' else p)}"), 
+        key=p
+    ))
+current = pages[items.index(next(filter(lambda x: x, items)))]
 
-# Header
-st.markdown(f"<div class='main-header'><span>🧠</span><h1>{t[page.lower().replace(' ', '_')]}</h1></div>", unsafe_allow_html=True)
+if current == "Dashboard":
+    st.subheader("لوحة البيانات" if lang=="العربية" else "Dashboard")
+    cols = st.columns(4)
+    latest = df.iloc[-1]
+    cols[0].metric("درجة الحرارة (°C)" if lang=="العربية" else "Temperature (°C)", f"{latest.temp:.2f}")
+    cols[1].metric("الضغط (psi)" if lang=="العربية" else "Pressure (psi)", f"{latest.pressure:.2f}")
+    cols[2].metric("الاهتزاز (g)" if lang=="العربية" else "Vibration (g)", f"{latest.vibration:.2f}")
+    cols[3].metric("غاز الميثان (ppm)" if lang=="العربية" else "Methane (ppm)", f"{latest.gas:.2f}")
 
-if page == t["dashboard"]:
-    st.subheader(t["dashboard_title"])
-    if df.empty:
-        st.info(t["no_data"])
-    else:
-        cols = st.columns(4)
-        latest = df.iloc[-1]
-        cols[0].metric(t["temp"], f"{latest.temperature:.2f}")
-        cols[1].metric(t["pres"], f"{latest.pressure:.2f}")
-        cols[2].metric(t["vib"], f"{latest.vibration:.2f}")
-        cols[3].metric(t["gas"], f"{latest.gas:.2f}")
-
-elif page == t["simulation"]:
-    st.subheader(t["sim_title"])
-    sens = st.slider(t["sensitivity"], 0.01, 0.30, 0.05)
-    sd = {
-        "temperature": st.slider(t["temp"], 20.0, 50.0, float(latest.temperature)),
-        "pressure": st.slider(t["pres"], 60.0, 120.0, float(latest.pressure)),
-        "vibration": st.slider(t["vib"], 0.0, 1.5, float(latest.vibration)),
-        "gas": st.slider(t["gas"], 0.0, 10.0, float(latest.gas))
-    }
-    sim_df = pd.DataFrame([sd])
-    fig = px.heatmap(sim_df.T, labels={"value": "Value"}, y=sim_df.T.index, color_continuous_scale="Viridis")
+    st.markdown("---")
+    fig = px.line(df, x="timestamp", y=["temp","pressure","vibration","gas"],
+                  labels={"timestamp": "الوقت" if lang=="العربية" else "Time",
+                          "value": "القيمة" if lang=="العربية" else "Value",
+                          "variable": ""}, title="")
     st.plotly_chart(fig, use_container_width=True)
 
-elif page == t["predictive"]:
-    st.subheader(t["pred_title"])
-    df72 = df.tail(72)
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df72.timestamp, y=df72.temperature, mode="lines", name=t["temp"]))
-    fig.add_trace(go.Scatter(x=df72.timestamp, y=df72.pressure, mode="lines", name=t["pres"], yaxis="y2"))
-    fig.update_layout(yaxis2=dict(overlaying="y", side="right"))
-    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("خريطة حرارية" if lang=="العربية" else "Heatmap")
+    heat = df.pivot_table(index=df.timestamp.dt.hour, columns=df.timestamp.dt.day, values="temp", aggfunc="mean")
+    fig2 = go.Figure(data=go.Heatmap(z=heat.values, x=heat.columns, y=heat.index, colorscale="Viridis"))
+    st.plotly_chart(fig2, use_container_width=True)
 
-elif page == t["solutions"]:
-    st.subheader(t["sol_title"])
-    if st.button(t["generate"]):
-        sol = {
-            "Name": [ "Diagnose Cooling System" ],
-            "Details": [ "Check fans, fluid levels, clear vents." ],
-            "Duration": [ "30 min" ],
-            "Priority": [ "High" ],
-            "Effectiveness": [ "Very High" ]
-        }
-        sol_df = pd.DataFrame(sol)
-        st.table(sol_df)
+elif current == "Predictive Analysis":
+    st.subheader("التحليل التنبؤي" if lang=="العربية" else "Predictive Analysis")
+    future = df.set_index("timestamp").resample("H").mean().ffill().last("72H")
+    fig3 = px.line(future, x=future.index, y="temp",
+                   labels={"timestamp": "الوقت" if lang=="العربية" else "Time",
+                           "temp": "درجة الحرارة (°C)" if lang=="العربية" else "Temperature (°C)"},
+                   title="")
+    st.plotly_chart(fig3, use_container_width=True)
 
-elif page == t["settings"]:
-    st.subheader(t["set_title"])
-    st.write(f"{t['select_lang']}: {lang}")
-    st.write(f"{t['select_pal']}: {pal}")
+elif current == "About":
+    st.subheader("حول المشروع" if lang=="العربية" else "About")
+    st.write("نظام للتوأم الرقمي العصبي يتتبع ويحلل بيانات المستشعرات..." 
+             if lang=="العربية" else
+             "A smart neural digital twin for real-time sensor monitoring, anomaly detection, predictive analytics, and smart recommendations.")
 
-elif page == t["about"]:
-    st.subheader(t["about_title"])
-    if lang == "العربية":
-        st.write("نظام توأم رقمي عصبي ذكي يعرض البيانات الحية ويكتشف الشذوذ ويتنبأ بالمستقبل ويوفر حلولاً ذكية.")
-    else:
-        st.write("A Smart Neural Digital Twin showcasing live data, anomaly detection, predictive analytics and smart solutions.")
+elif current == "Settings":
+    st.subheader("الإعدادات" if lang=="العربية" else "Settings")
+    st.write("اختر اللغة ولوحة الألوان أعلى" if lang=="العربية" else "Use the sidebar to change language and palette.")
+
+else:
+    pass
