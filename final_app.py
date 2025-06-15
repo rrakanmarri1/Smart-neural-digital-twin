@@ -59,10 +59,18 @@ def load_history():
     path = 'sensor_data_simulated.csv'
     if os.path.exists(path):
         df = pd.read_csv(path, parse_dates=['timestamp'])
-    else:
-        df = pd.read_sql('SELECT ts as timestamp, temp, pressure, vibration, gas FROM logs', db)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df
+        return df
+    # fallback to SQLite logs
+    try:
+        df = pd.read_sql_query(
+            'SELECT ts AS timestamp, temp, pressure, vibration, gas FROM logs',
+            con=db
+        )
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+        return df
+    except Exception:
+        # return empty DataFrame if read fails
+        return pd.DataFrame(columns=['timestamp','temp','pressure','vibration','gas'])
 
 history = load_history()
 
