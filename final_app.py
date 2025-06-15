@@ -7,6 +7,13 @@ import plotly.graph_objects as go
 from datetime import timedelta
 import random
 
+# must be the very first Streamlit command
+st.set_page_config(
+    page_title="Smart Neural Digital Twin",
+    page_icon="🧠",
+    layout="wide"
+)
+
 # --- Load and prepare data ---
 @st.cache_data(ttl=600)
 def load_history():
@@ -19,23 +26,16 @@ def load_history():
         df = df.rename(columns={
             "Time": "timestamp",
             "Temperature (°C)": "temp",
-            "Pressure (psi)": "pressure",
-            "Vibration (g)": "vibration",
-            "Methane (CH₄ ppm)": "gas",
-            "H₂S (ppm)": "h2s"
+            "Pressure (psi)":     "pressure",
+            "Vibration (g)":      "vibration",
+            "Methane (CH₄ ppm)":  "gas",
+            "H₂S (ppm)":          "h2s"
         })
         return df.dropna(subset=["timestamp"])
     else:
         return pd.DataFrame(columns=["timestamp","temp","pressure","vibration","gas","h2s"])
 
 history = load_history()
-
-# --- Page config ---
-st.set_page_config(
-    page_title="Smart Neural Digital Twin",
-    page_icon="🧠",
-    layout="wide"
-)
 
 # --- Header & menu ---
 st.markdown("<h1 style='text-align:center;'>🧠 Smart Neural Digital Twin</h1>", unsafe_allow_html=True)
@@ -57,6 +57,7 @@ if page == "Dashboard":
         c2.metric("Pressure (psi)", f"{latest.pressure:.2f}")
         c3.metric("Vibration (g)", f"{latest.vibration:.2f}")
         c4.metric("Gas (ppm)", f"{latest.gas:.2f}")
+
         st.markdown("### Trends")
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=history.timestamp, y=history.temp, name="Temp"))
@@ -80,11 +81,11 @@ elif page == "Simulation":
         st.info("No baseline data available.")
     else:
         current = history.iloc[-1].to_dict()
-        current["temp"]      = st.slider("Temperature (°C)",     0.0, 100.0, float(current["temp"]),      0.1)
-        current["pressure"]  = st.slider("Pressure (psi)",        0.0, 200.0, float(current["pressure"]),  0.1)
-        current["vibration"] = st.slider("Vibration (g)",         0.0,   5.0, float(current["vibration"]), 0.01)
-        current["gas"]       = st.slider("Methane (CH₄ ppm)",     0.0,  20.0, float(current["gas"]),       0.1)
-        current["h2s"]       = st.slider("H₂S (ppm)",             0.0,  10.0, float(current["h2s"]),       0.1)
+        current["temp"]      = st.slider("Temperature (°C)", 0.0, 100.0, float(current["temp"]), 0.1)
+        current["pressure"]  = st.slider("Pressure (psi)",    0.0, 200.0, float(current["pressure"]), 0.1)
+        current["vibration"] = st.slider("Vibration (g)",     0.0,   5.0, float(current["vibration"]), 0.01)
+        current["gas"]       = st.slider("Methane (CH₄ ppm)", 0.0,  20.0, float(current["gas"]),       0.1)
+        current["h2s"]       = st.slider("H₂S (ppm)",         0.0,  10.0, float(current["h2s"]),       0.1)
         df_sim = pd.DataFrame([current]).T.rename(columns={0:"Value"})
         st.table(df_sim)
 
@@ -115,9 +116,9 @@ elif page == "Smart Solutions":
         st.info("No data to analyze.")
     else:
         def recommend(row):
-            if row.temp > 40:           return {"Solution":"Activate cooling","Duration":"10m","Priority":"Critical"}
-            if row.pressure < 80:       return {"Solution":"Inspect valves","Duration":"30m","Priority":"High"}
-            if row.vibration > 1.0:     return {"Solution":"Check bearings","Duration":"45m","Priority":"Medium"}
+            if row.temp > 40:       return {"Solution":"Activate cooling","Duration":"10m","Priority":"Critical"}
+            if row.pressure < 80:   return {"Solution":"Inspect valves","Duration":"30m","Priority":"High"}
+            if row.vibration > 1.0: return {"Solution":"Check bearings","Duration":"45m","Priority":"Medium"}
             return {"Solution":"Routine check","Duration":"1h","Priority":"Low"}
 
         sol = recommend(history.iloc[-1])
