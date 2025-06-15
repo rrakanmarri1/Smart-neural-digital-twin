@@ -7,138 +7,156 @@ import plotly.graph_objects as go
 from datetime import timedelta
 import random
 
-# must be the very first Streamlit command
 st.set_page_config(
     page_title="Smart Neural Digital Twin",
     page_icon="🧠",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# --- Load and prepare data ---
-@st.cache_data(ttl=600)
-def load_history():
-    if os.path.exists("sensor_data_simulated.csv"):
-        df = pd.read_csv(
-            "sensor_data_simulated.csv",
-            parse_dates=["Time"],
-            dayfirst=False
-        )
+# Session defaults
+if 'lang' not in st.session_state:
+    st.session_state.lang = 'العربية'
+if 'palette' not in st.session_state:
+    st.session_state.palette = 'Ocean'
+
+# Palette colors
+PALETTE_COLORS = {
+    'Ocean':  '#1B3B6F',
+    'Forest': '#2E7D32',
+    'Sunset': '#EF6C00',
+    'Purple': '#6A1B9A',
+    'Slate':  '#37474F'
+}
+
+# Apply background color
+bg = PALETTE_COLORS.get(st.session_state.palette, '#FFFFFF')
+st.markdown(f"""
+<style>
+    .stApp {{ background-color: {bg}; }}
+</style>
+""", unsafe_allow_html=True)
+
+LANG = st.session_state.lang
+# Translation helper
+def T(ar, en): return ar if LANG=='العربية' else en
+
+# Header
+title = T('التوأم الرقمي الذكي','Smart Neural Digital Twin')
+st.markdown(f"<h1 style='text-align:center;'>🧠 {title}</h1>", unsafe_allow_html=True)
+
+# Page selection
+pages_ar = ['الرئيسية','المحاكاة','التحليل التنبؤي','الحلول الذكية','الإعدادات','حول']
+pages_en = ['Dashboard','Simulation','Predictive Analysis','Smart Solutions','Settings','About']
+options = pages_ar if LANG=='العربية' else pages_en
+page = st.radio('', options, index=0, horizontal=True, label_visibility='collapsed')
+# Map to internal keys
+key = pages_en[pages_ar.index(page)] if LANG=='العربية' else page
+
+# Load data
+def load_data():
+    if os.path.exists('sensor_data_simulated.csv'):
+        df = pd.read_csv('sensor_data_simulated.csv', parse_dates=['Time'], dayfirst=False)
         df = df.rename(columns={
-            "Time": "timestamp",
-            "Temperature (°C)": "temp",
-            "Pressure (psi)":     "pressure",
-            "Vibration (g)":      "vibration",
-            "Methane (CH₄ ppm)":  "gas",
-            "H₂S (ppm)":          "h2s"
-        })
-        return df.dropna(subset=["timestamp"])
+            'Time':'timestamp',
+            'Temperature (°C)':'temp',
+            'Pressure (psi)':'pressure',
+            'Vibration (g)':'vibration',
+            'Methane (CH₄ ppm)':'gas',
+            'H₂S (ppm)':'h2s'
+        }).dropna(subset=['timestamp'])
     else:
-        return pd.DataFrame(columns=["timestamp","temp","pressure","vibration","gas","h2s"])
+        df = pd.DataFrame(columns=['timestamp','temp','pressure','vibration','gas','h2s'])
+    return df
+history = load_data()
+latest = history.iloc[-1] if not history.empty else None
 
-history = load_history()
-
-# --- Header & menu ---
-st.markdown("<h1 style='text-align:center;'>🧠 Smart Neural Digital Twin</h1>", unsafe_allow_html=True)
-page = st.radio(
-    "Select Page",
-    ["Dashboard", "Simulation", "Predictive Analysis", "Smart Solutions", "About"],
-    horizontal=True
-)
-
-# --- Dashboard ---
-if page == "Dashboard":
-    st.header("Dashboard")
+# Pages
+if key=='Dashboard':
+    st.header(T('الرئيسية','Dashboard'))
     if history.empty:
-        st.info("No data available. Please add sensor_data_simulated.csv")
+        st.info(T('لا توجد بيانات.','No data available.'))
     else:
-        latest = history.iloc[-1]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Temperature (°C)", f"{latest.temp:.2f}")
-        c2.metric("Pressure (psi)", f"{latest.pressure:.2f}")
-        c3.metric("Vibration (g)", f"{latest.vibration:.2f}")
-        c4.metric("Gas (ppm)", f"{latest.gas:.2f}")
-
-        st.markdown("### Trends")
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric(f"🌡️ {T('الحرارة','Temperature')}", f"{latest.temp:.2f}°C")
+        c2.metric(f"⚡ {T('الضغط','Pressure')}", f"{latest.pressure:.2f} psi")
+        c3.metric(f"📳 {T('الاهتزاز','Vibration')}", f"{latest.vibration:.2f} g")
+        c4.metric(f"🛢️ {T('الميثان','Methane')}", f"{latest.gas:.2f} ppm")
+        st.markdown('---')
+        st.subheader(T('📈 الاتجاهات','📈 Trends'))
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.temp, name="Temp"))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.pressure, name="Pressure"))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.vibration, name="Vibration"))
-        fig.add_trace(go.Scatter(x=history.timestamp, y=history.gas, name="Gas"))
-        fig.update_layout(height=400, hovermode="x unified")
+        fig.add_trace(go.Scatter(x=history.timestamp, y=history.temp, name='Temp'))
+        fig.add_trace(go.Scatter(x=history.timestamp, y=history.pressure, name='Pressure'))
+        fig.add_trace(go.Scatter(x=history.timestamp, y=history.vibration, name='Vibration'))
+        fig.add_trace(go.Scatter(x=history.timestamp, y=history.gas, name='Gas'))
         st.plotly_chart(fig, use_container_width=True)
-
-        st.markdown("### Heatmap (hour vs day)")
-        history["hour"] = history.timestamp.dt.hour
-        history["day"]  = history.timestamp.dt.day
-        heat = history.pivot_table(index="hour", columns="day", values="temp", aggfunc="mean")
-        fig2 = px.imshow(heat, labels=dict(x="Day", y="Hour", color="Temp"))
+        st.subheader(T('🌡️ خريطة الحرارة','🌡️ Heatmap'))
+        history['hour']=history.timestamp.dt.hour
+        history['day']=history.timestamp.dt.day
+        heat=history.pivot_table(index='hour',columns='day',values='temp',aggfunc='mean')
+        fig2=px.imshow(heat, labels={'x':T('اليوم','Day'),'y':T('الساعة','Hour'),'color':T('حرارة','Temp')})
         st.plotly_chart(fig2, use_container_width=True)
 
-# --- Simulation ---
-elif page == "Simulation":
-    st.header("Simulation")
-    if history.empty:
-        st.info("No baseline data available.")
+elif key=='Simulation':
+    st.header(T('المحاكاة','Simulation'))
+    if latest is None:
+        st.info(T('لا توجد بيانات أساسية.','No baseline data.'))
     else:
-        current = history.iloc[-1].to_dict()
-        current["temp"]      = st.slider("Temperature (°C)", 0.0, 100.0, float(current["temp"]), 0.1)
-        current["pressure"]  = st.slider("Pressure (psi)",    0.0, 200.0, float(current["pressure"]), 0.1)
-        current["vibration"] = st.slider("Vibration (g)",     0.0,   5.0, float(current["vibration"]), 0.01)
-        current["gas"]       = st.slider("Methane (CH₄ ppm)", 0.0,  20.0, float(current["gas"]),       0.1)
-        current["h2s"]       = st.slider("H₂S (ppm)",         0.0,  10.0, float(current["h2s"]),       0.1)
-        df_sim = pd.DataFrame([current]).T.rename(columns={0:"Value"})
-        st.table(df_sim)
+        sd = latest.to_dict()
+        sd['temp']=st.slider('Temperature (°C)',0.0,100.0,sd['temp'])
+        sd['pressure']=st.slider('Pressure (psi)',0.0,200.0,sd['pressure'])
+        sd['vibration']=st.slider('Vibration (g)',0.0,5.0,sd['vibration'])
+        sd['gas']=st.slider('Methane (CH₄ ppm)',0.0,20.0,sd['gas'])
+        sd['h2s']=st.slider('H₂S (ppm)',0.0,10.0,sd['h2s'])
+        st.table(pd.DataFrame([sd]).T.rename(columns={0:T('القيمة','Value')}))
 
-# --- Predictive Analysis ---
-elif page == "Predictive Analysis":
-    st.header("Predictive Analysis (Next 72h)")
+elif key=='Predictive Analysis':
+    st.header(T('التحليل التنبؤي (72س)','Predictive Analysis (72h)'))
     if history.empty:
-        st.info("No data available.")
+        st.info(T('لا توجد بيانات.','No data.'))
     else:
-        last = history.timestamp.max()
-        future = pd.DataFrame({
-            "timestamp": [last + timedelta(hours=i) for i in range(1, 73)],
-            "temp":      np.linspace(history.temp.iloc[-1],      history.temp.iloc[-1] + random.uniform(-2,2),    72),
-            "pressure":  np.linspace(history.pressure.iloc[-1],  history.pressure.iloc[-1] + random.uniform(-10,10),72),
-            "vibration": np.linspace(history.vibration.iloc[-1], history.vibration.iloc[-1] + random.uniform(-0.5,0.5),72),
-            "gas":       np.linspace(history.gas.iloc[-1],       history.gas.iloc[-1] + random.uniform(-2,2),       72)
+        last=history.timestamp.max()
+        fut=pd.DataFrame({
+            'timestamp':[last+timedelta(hours=i) for i in range(1,73)],
+            'temp':np.linspace(latest.temp,latest.temp+random.uniform(-2,2),72)
         })
-        fig3 = go.Figure()
-        fig3.add_trace(go.Scatter(x=history.timestamp.tail(24), y=history.temp.tail(24), name="Actual Temp"))
-        fig3.add_trace(go.Scatter(x=future.timestamp,             y=future.temp,             name="Predicted Temp", line=dict(dash="dash")))
-        fig3.update_layout(title="Temperature Forecast", height=300)
-        st.plotly_chart(fig3, use_container_width=True)
+        fig3=go.Figure()
+        fig3.add_trace(go.Scatter(x=history.timestamp.tail(24),y=history.temp.tail(24),name='Actual'))
+        fig3.add_trace(go.Scatter(x=fut.timestamp,y=fut.temp,name='Predicted',line=dict(dash='dash')))
+        st.plotly_chart(fig3,use_container_width=True)
 
-# --- Smart Solutions ---
-elif page == "Smart Solutions":
-    st.header("Smart Solutions")
-    if history.empty:
-        st.info("No data to analyze.")
+elif key=='Smart Solutions':
+    st.header(T('الحلول الذكية','Smart Solutions'))
+    if latest is None:
+        st.info(T('لا توجد بيانات.','No data.'))
     else:
-        def recommend(row):
-            if row.temp > 40:       return {"Solution":"Activate cooling","Duration":"10m","Priority":"Critical"}
-            if row.pressure < 80:   return {"Solution":"Inspect valves","Duration":"30m","Priority":"High"}
-            if row.vibration > 1.0: return {"Solution":"Check bearings","Duration":"45m","Priority":"Medium"}
-            return {"Solution":"Routine check","Duration":"1h","Priority":"Low"}
+        if st.button(T('توليد حل','Generate Solution')):
+            sol={
+                T('الحل','Solution'):T('تفعيل التبريد','Activate cooling'),
+                T('المدة','Duration'):'10m',
+                T('الأولوية','Priority'):T('عالية','High')
+            }
+            st.table(pd.DataFrame([sol]).T.rename(columns={0:T('التفاصيل','Details')}))
 
-        sol = recommend(history.iloc[-1])
-        st.table(pd.DataFrame([sol]).T.rename(columns={0:"Value"}))
+elif key=='Settings':
+    st.header(T('الإعدادات','Settings'))
+    new_lang=st.radio(T('اختر اللغة','Choose Language'),['العربية','English'],index=0 if LANG=='العربية' else 1,horizontal=True)
+    if new_lang!=LANG:
+        st.session_state.lang=new_lang
+        st.experimental_rerun()
+    new_pal=st.radio(T('لوحة الألوان','Color Palette'),list(PALETTE_COLORS.keys()),index=list(PALETTE_COLORS.keys()).index(st.session_state.palette),horizontal=True)
+    if new_pal!=st.session_state.palette:
+        st.session_state.palette=new_pal
+        st.experimental_rerun()
 
-# --- About ---
 else:
-    st.header("About")
-    st.markdown("""
-**Disasters don't wait... and neither do we. Predict. Prevent. Protect.**
+    st.header(T('حول','About'))
+    st.markdown(f"""
+**{T("الكوارث لا تنتظر... ونحن أيضًا","Disasters don't wait... and neither do we.")}**
 
-**Vision:** Revolutionize industrial safety by turning raw data into actionable insights.
+**{T('رؤيتنا: إحداث ثورة في السلامة الصناعية من خلال تحويل البيانات الخام إلى رؤى قابلة للتنفيذ.','Vision: Revolutionize industrial safety by turning raw data into actionable insights.')}**
 
-**Features:**
-- Real-time Monitoring  
-- Anomaly Detection  
-- Predictive Analytics  
-- Smart Recommendations  
-
-**Team:**  
-Rakan Almarri | rakan.almarri.2@aramco.com | 0532559664  
-Abdulrahman Alzhrani | abdulrahman.alzhrani.1@aramco.com | 0549202574  
-""")
+**{T('الفريق','Team')}:**
+- Rakan Almarri | rakan.almarri.2@aramco.com | 0532559664
+- Abdulrahman Alzhrani | abdulrahman.alzhrani.1@aramco.com | 0549202574
+""", unsafe_allow_html=True)
