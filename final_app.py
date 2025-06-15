@@ -19,10 +19,10 @@ def load_history():
         df = df.rename(columns={
             "Time": "timestamp",
             "Temperature (°C)": "temp",
-            "Pressure (psi)":     "pressure",
-            "Vibration (g)":      "vibration",
-            "Methane (CH₄ ppm)":  "gas",
-            "H₂S (ppm)":          "h2s"
+            "Pressure (psi)": "pressure",
+            "Vibration (g)": "vibration",
+            "Methane (CH₄ ppm)": "gas",
+            "H₂S (ppm)": "h2s"
         })
         return df.dropna(subset=["timestamp"])
     else:
