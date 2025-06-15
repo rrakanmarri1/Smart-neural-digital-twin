@@ -56,11 +56,16 @@ db.execute('CREATE TABLE IF NOT EXISTS logs(ts TEXT,temp REAL,pressure REAL,vibr
 
 @st.cache_data
 def load_history():
-    path = 'sensor_data_simulated.csv'
-    if os.path.exists(path):
-        df = pd.read_csv(path, parse_dates=['timestamp'])
-        return df
-    # fallback to SQLite logs
+    # Try CSV data first
+    csv_paths = ['sensor_data_simulated.csv', os.path.join(os.getcwd(), 'sensor_data_simulated.csv'), '/mnt/data/sensor_data_simulated.csv']
+    for path in csv_paths:
+        try:
+            if os.path.exists(path):
+                df = pd.read_csv(path, parse_dates=['timestamp'])
+                return df
+        except Exception:
+            continue
+    # Fallback to SQLite logs
     try:
         df = pd.read_sql_query(
             'SELECT ts AS timestamp, temp, pressure, vibration, gas FROM logs',
@@ -69,7 +74,7 @@ def load_history():
         df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
         return df
     except Exception:
-        # return empty DataFrame if read fails
+        # no data
         return pd.DataFrame(columns=['timestamp','temp','pressure','vibration','gas'])
 
 history = load_history()
