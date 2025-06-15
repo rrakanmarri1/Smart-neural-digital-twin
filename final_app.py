@@ -8,6 +8,7 @@ import sqlite3
 from datetime import datetime
 from sklearn.ensemble import RandomForestRegressor, IsolationForest
 
+# Utility to darken colors
 def darken(hex_color: str, amount: float = 0.1) -> str:
     import colorsys
     c = hex_color.lstrip('#')
@@ -17,179 +18,176 @@ def darken(hex_color: str, amount: float = 0.1) -> str:
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s)
     return f"#{int(r2*255):02X}{int(g2*255):02X}{int(b2*255):02X}"
 
-st.set_page_config(page_title="🧠 Smart Neural Digital Twin", page_icon="🌐", layout="wide")
+# Page config
+st.set_page_config(page_title="Smart Neural Digital Twin", page_icon="🧠", layout="wide")
 
+# Initialize session state
 if 'lang' not in st.session_state:
     st.session_state.lang = 'en'
-if 'contamination' not in st.session_state:
-    st.session_state.contamination = 0.05
 if 'palette' not in st.session_state:
     st.session_state.palette = 'Ocean'
-if 'sim_data' not in st.session_state:
-    st.session_state.sim_data = {}
+if 'contam' not in st.session_state:
+    st.session_state.contam = 0.05
+if 'sim' not in st.session_state:
+    st.session_state.sim = {}
 
+# Define color palettes
 PALETTES = {
-    'Ocean':  ['#1976D2','#0288D1','#26C6DA'],
+    'Ocean': ['#1976D2','#0288D1','#26C6DA'],
     'Forest': ['#2E7D32','#388E3C','#66BB6A'],
-    'Sunset': ['#EF5350','#FFA726','#FF7043'],
+    'Sunset':['#EF5350','#FFA726','#FF7043'],
     'Purple':['#7E57C2','#8E24AA','#BA68C8'],
     'Slate': ['#455A64','#546E7A','#78909C']
 }
-primary, secondary, accent = PALETTES[st.session_state.palette]
-sidebar_bg = f"linear-gradient(180deg,{primary},{secondary})"
-main_bg    = darken(primary, 0.1)
-box_bg     = darken(accent, 0.1)
 
+# Choose palette colors
+def get_colors():
+    pal = PALETTES[st.session_state.palette]
+    return pal[0], pal[1], pal[2]
+primary, secondary, accent = get_colors()
+main_bg = darken(primary, 0.1)
+
+# Sidebar styling
 st.markdown(f"""
 <style>
-[data-testid="stSidebar"]{{background:{sidebar_bg}!important;color:white!important;}}
-body{{background:#121212!important;color:#E0E0E0!important;}}
-.main-title{{text-align:center;font-size:2.5rem;color:{primary};margin-bottom:1rem;}}
-.section-box{{background:{main_bg};padding:1rem;margin:1rem 0;border-left:6px solid {secondary};border-radius:8px;}}
-.button-box{{background:{box_bg};padding:0.5rem 1rem;border-radius:6px;margin:0.5rem 0;}}
+[data-testid="stSidebar"] > div:first-child {{ background: linear-gradient(180deg, {primary}, {secondary}); }}
+.main-title {{ font-size:2.5rem; color:{secondary}; text-align:center; margin-bottom:1rem; }}
+.section-box {{ background:{main_bg}; padding:1rem; border-radius:8px; margin:1rem 0; }}
 </style>
 """, unsafe_allow_html=True)
 
-conn = sqlite3.connect('logs.db', check_same_thread=False)
-conn.execute('CREATE TABLE IF NOT EXISTS logs(timestamp TEXT, temp REAL, pressure REAL, vibration REAL, gas REAL)')
+# Database setup
+db = sqlite3.connect('logs.db', check_same_thread=False)
+db.execute('CREATE TABLE IF NOT EXISTS logs(ts TEXT,temp REAL,pressure REAL,vibration REAL,gas REAL)')
 
-@st.cache_data(ttl=300)
+# Load simulated CSV or DB logs
+@st.cache_data
 def load_history():
-    csv_path = 'sensor_data_simulated.csv'
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path, parse_dates=['timestamp'])
-        return df
-    df = pd.read_sql('SELECT * FROM logs', conn)
-    if not df.empty:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+    path = 'sensor_data_simulated.csv'
+    if os.path.exists(path):
+        return pd.read_csv(path, parse_dates=['timestamp'])
+    df = pd.read_sql('SELECT ts as timestamp, temp, pressure, vibration, gas FROM logs', db)
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df
 
 history = load_history()
 
-def fetch_data():
+# Fetch live data
+def fetch():
     return {
-        'temp': round(np.random.normal(36, 2), 2),
-        'pressure': round(np.random.normal(95, 5), 2),
-        'vibration': round(np.random.normal(0.5, 0.1), 2),
-        'gas': round(np.random.normal(5, 1), 2)
+        'temp': round(np.random.normal(36,2),2),
+        'pressure': round(np.random.normal(95,5),2),
+        'vibration': round(np.random.normal(0.5,0.1),3),
+        'gas': round(np.random.normal(5,1),2)
     }
 
+# Log new data
 def log_data(d):
-    conn.execute(
-        'INSERT INTO logs VALUES(?,?,?,?,?)',
-        (datetime.now().isoformat(), d['temp'], d['pressure'], d['vibration'], d['gas'])
-    )
-    conn.commit()
+    db.execute('INSERT INTO logs VALUES(?,?,?,?,?)',(
+        datetime.now().isoformat(), d['temp'], d['pressure'], d['vibration'], d['gas']
+    ))
+    db.commit()
 
-@st.cache_data(ttl=300)
+# Train predictive model
+@st.cache_data
 def train_model(df, target='temp'):
     if len(df) < 10:
         return None
-    df = df.sort_values('timestamp')
+    df_sorted = df.sort_values('timestamp')
     X, y = [], []
-    for i in range(5, len(df)):
-        row = df[['temp','pressure','vibration','gas']].iloc[i-5:i].values.flatten()
-        X.append(row)
-        y.append(df[target].iloc[i])
+    for i in range(5, len(df_sorted)):
+        window = df_sorted.iloc[i-5:i][['temp','pressure','vibration','gas']].values.flatten()
+        X.append(window)
+        y.append(df_sorted[target].iloc[i])
     model = RandomForestRegressor(n_estimators=50)
     model.fit(X, y)
     return model
 
-def generate_solution(lang):
-    if lang == 'en':
-        return {
-            'Name': 'Cooling Diagnostic',
-            'Details': 'Run comprehensive diagnostic on cooling system.',
-            'Duration': '30 mins',
-            'Priority': 'High',
-            'Effectiveness': 'Very High'
-        }
-    return {
-        'الاسم': 'تشخيص التبريد',
-        'التفاصيل': 'فحص شامل لنظام التبريد.',
-        'المدة': '30 دقيقة',
-        'الأولوية': 'عالية',
-        'الفعالية': 'عالية جداً'
-    }
+# Detect anomalies
+@st.cache_data
+def detect_anomalies(df):
+    iso = IsolationForest(contamination=st.session_state.contam)
+    df['anomaly'] = iso.fit_predict(df[['temp','pressure','vibration','gas']])
+    return df
 
-st.sidebar.title('🌐 MENU')
-page = st.sidebar.radio('Select Page', [
-    'Dashboard', 'Simulation', 'Predictive Analysis', 'Smart Solutions', 'Settings', 'About'
-])
+# Sidebar controls
+st.sidebar.header('Language')
+st.session_state.lang = st.sidebar.radio('', ('English','العربية'))
+st.sidebar.header('Palette')
+st.session_state.palette = st.sidebar.radio('', list(PALETTES.keys()))
+st.sidebar.header('Menu')
+page = st.sidebar.radio('', ['Dashboard','Simulation','Predictive Analysis','Smart Solutions','Settings','About'])
 
+# Page logic
 if page == 'Dashboard':
-    data = fetch_data()
+    data = fetch()
     log_data(data)
-    st.markdown("<div class='main-title'>🧠 Smart Neural Digital Twin</div>", unsafe_allow_html=True)
-    cols = st.columns(4)
-    labels = ['Temperature','Pressure','Vibration','Gas']
-    for i, k in enumerate(['temp','pressure','vibration','gas']):
-        cols[i].metric(labels[i], data[k])
+    st.markdown('<div class="main-title">Smart Neural Digital Twin</div>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric('Temperature', f"{data['temp']}")
+    c2.metric('Pressure', f"{data['pressure']}")
+    c3.metric('Vibration', f"{data['vibration']}")
+    c4.metric('Gas', f"{data['gas']}")
     if not history.empty:
-        iso = IsolationForest(contamination=st.session_state.contamination)
-        history['anomaly'] = iso.fit_predict(history[['temp','pressure','vibration','gas']])
-        fig = px.line(history, x='timestamp', y=['temp','pressure','vibration','gas'], color='anomaly')
-        st.plotly_chart(fig, use_container_width=True)
+        df_anom = detect_anomalies(history.copy())
+        fig_line = px.line(df_anom, x='timestamp', y=['temp','pressure','vibration','gas'], color='anomaly')
+        st.plotly_chart(fig_line, use_container_width=True)
 
 elif page == 'Simulation':
-    st.markdown("<div class='main-title'>🎛️ Simulation</div>", unsafe_allow_html=True)
-    sd = st.session_state.sim_data or fetch_data()
-    sd['temp'] = st.slider('Temperature (°C)', 0, 100, float(sd['temp']))
-    sd['pressure'] = st.slider('Pressure (kPa)', 0, 200, float(sd['pressure']))
-    sd['vibration'] = st.slider('Vibration (mm/s)', 0.0, 5.0, float(sd['vibration']), step=0.01)
-    sd['gas'] = st.slider('Gas (ppm)', 0.0, 10.0, float(sd['gas']), step=0.01)
-    st.session_state.sim_data = sd
-    st.map(pd.DataFrame({'lat': [24.7], 'lon': [46.7]}))
-    st.write(sd)
+    st.markdown('<div class="main-title">Simulation</div>', unsafe_allow_html=True)
+    sim = st.session_state.sim or fetch()
+    sim['temp'] = st.slider('Temperature (°C)', 0.0, 100.0, sim['temp'], 0.1)
+    sim['pressure'] = st.slider('Pressure (kPa)', 0.0, 200.0, sim['pressure'], 0.1)
+    sim['vibration'] = st.slider('Vibration (mm/s)', 0.0, 5.0, sim['vibration'], 0.01)
+    sim['gas'] = st.slider('Gas (ppm)', 0.0, 10.0, sim['gas'], 0.01)
+    st.session_state.sim = sim
+    st.map(pd.DataFrame({'lat':[24.7],'lon':[46.7]}))
+    st.table(pd.DataFrame([sim]))
 
 elif page == 'Predictive Analysis':
-    st.markdown("<div class='main-title'>📈 Predictive Analysis</div>", unsafe_allow_html=True)
-    if os.path.exists('sensor_data_simulated.csv'):
-        df = pd.read_csv('sensor_data_simulated.csv', parse_dates=['timestamp'])
-        fig = go.Figure()
-        for col, color in zip(['temp','pressure','vibration','gas'], PALETTES[st.session_state.palette]):
-            fig.add_trace(go.Scatter(x=df['timestamp'], y=df[col], mode='lines', name=col.capitalize(), line=dict(color=color)))
-        fig.update_layout(title='Historical Data (72h)', xaxis_title='Time', yaxis_title='Value', plot_bgcolor=main_bg, paper_bgcolor='#121212', font_color='#E0E0E0')
-        st.plotly_chart(fig, use_container_width=True)
-        heat = df.copy()
-        heat['hour'] = heat['timestamp'].dt.hour
-        heat['day'] = heat['timestamp'].dt.day
-        pivot = heat.pivot(index='day', columns='hour', values='temp').fillna(method='ffill')
-        fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index, colorscale='Inferno'))
-        fig2.update_layout(title='Temperature Heatmap', plot_bgcolor='#121212', paper_bgcolor='#121212', font_color='#E0E0E0')
-        st.plotly_chart(fig2, use_container_width=True)
-        if len(df) >= 10:
-            model = train_model(df)
-            if model:
-                last = df[['temp','pressure','vibration','gas']].tail(5).values.flatten()
-                pred = model.predict([last])[0]
-                st.metric('Next Predicted Temperature', f"{pred:.2f} °C")
-        else:
-            st.info('Need at least 10 data points for prediction.')
+    st.markdown('<div class="main-title">Predictive Analysis</div>', unsafe_allow_html=True)
+    df = history.copy()
+    if df.empty:
+        st.info('No data available')
     else:
-        st.info('Place sensor_data_simulated.csv in the app folder for analysis.')
+        # Line charts
+        fig = go.Figure()
+        for col, clr in zip(['temp','pressure','vibration','gas'], PALETTES[st.session_state.palette]):
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df[col], mode='lines', line=dict(color=clr), name=col))
+        st.plotly_chart(fig, use_container_width=True)
+        # Heatmap
+        df['day'] = df['timestamp'].dt.day
+        df['hour'] = df['timestamp'].dt.hour
+        heat = df.pivot(index='day', columns='hour', values='temp').fillna(method='ffill')
+        fig_heat = go.Figure(go.Heatmap(z=heat.values, x=heat.columns, y=heat.index, colorscale='Inferno'))
+        st.plotly_chart(fig_heat, use_container_width=True)
+        # Prediction
+        model = train_model(df)
+        if model:
+            last_window = df[['temp','pressure','vibration','gas']].tail(5).values.flatten()
+            pred = model.predict([last_window])[0]
+            st.metric('Next Temperature', f"{pred:.2f} °C")
+        else:
+            st.info('Need at least 10 data points for prediction')
 
 elif page == 'Smart Solutions':
-    st.markdown("<div class='main-title'>🛠️ Smart Solutions</div>", unsafe_allow_html=True)
-    sol = generate_solution(st.session_state.lang)
+    st.markdown('<div class="main-title">Smart Solutions</div>', unsafe_allow_html=True)
     if st.button('Generate Solution'):
-        st.table(sol)
+        sol = {'Name':'Cooling Check', 'Details':'Inspect cooling system and airflow','Duration':'30 min','Priority':'High','Effectiveness':'Very High'}
+        st.table(pd.DataFrame([sol]))
 
 elif page == 'Settings':
-    st.markdown("<div class='main-title'>⚙️ Settings</div>", unsafe_allow_html=True)
-    langs = ['en','ar']
-    st.session_state.lang = st.selectbox('Language', langs, index=langs.index(st.session_state.lang))
-    palettes = list(PALETTES.keys())
-    st.session_state.palette = st.selectbox('Color Palette', palettes, index=palettes.index(st.session_state.palette))
-    st.session_state.contamination = st.slider('Anomaly Sensitivity', 0.01, 0.3, st.session_state.contamination, 0.01)
+    st.markdown('<div class="main-title">Settings</div>', unsafe_allow_html=True)
+    st.session_state.contam = st.slider('Anomaly Sensitivity', 0.01, 0.3, st.session_state.contam, 0.01)
 
-else:
-    st.markdown("<div class='main-title'>ℹ️ About</div>", unsafe_allow_html=True)
+else:  # About
+    st.markdown('<div class="main-title">About</div>', unsafe_allow_html=True)
     st.markdown("**Disasters don't wait... and neither do we. Predict. Prevent. Protect.**")
-    st.markdown("**Vision**: Revolutionize industrial safety by turning raw data into actionable insights.")
-    st.markdown("- Real-time Monitoring  - Anomaly Detection  - Predictive Analytics  - Smart Recommendations")
-    st.markdown("**Team**: Rakan Almarri & Abdulrahman Alzhrani")
-    st.markdown("📧 rakan.almarri.2@aramco.com | 0532559664")
-    st.markdown("📧 abdulrahman.alzhrani.1@aramco.com | 0549202574")
+    st.markdown(f"Vision: Revolutionize industrial safety by turning raw data into actionable insights.")
+    st.markdown('- Real-time Monitoring  •  Anomaly Detection  •  Predictive Analytics  •  Smart Recommendations')
+    st.markdown('**Team:** Rakan Almarri & Abdulrahman Alzhrani')
+    st.markdown('📧 rakan.almarri.2@aramco.com | 0532559664')
+    st.markdown('📧 abdulrahman.alzhrani.1@aramco.com | 0549202574')
 
-st.markdown("<div style='text-align:center;color:#888;'>© Rakan Almarri & Abdulrahman Alzhrani</div>", unsafe_allow_html=True)
+# Footer
+st.markdown("<div style='text-align:center;color:#888;'>© Rakan & Abdulrahman</div>", unsafe_allow_html=True)
