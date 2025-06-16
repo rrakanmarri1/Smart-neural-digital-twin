@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
+from fpdf import FPDF
 import streamlit_authenticator as stauth
 from datetime import timedelta, datetime
 import json
@@ -59,14 +61,26 @@ T = {
     "en": {
         "Dashboard":"Dashboard", "Simulation":"Simulation","Predictive Analysis":"Predictive","Smart Solutions":"Solutions",
         "Settings":"Settings","About":"About","Generate Solution":"Generate Solution","No data":"No data available",
-        "Export CSV":"Export CSV","Sensor Map":"Sensor Locations","Anomaly Sensitivity":"Anomaly Sensitivity"
+        "Export CSV":"Export CSV","Export PDF":"Export PDF","Sensor Map":"Sensor Locations","Anomaly Sensitivity":"Anomaly Sensitivity"
     },
     "العربية": {
         "Dashboard":"لوحة البيانات","Simulation":"المحاكاة","Predictive Analysis":"التحليل التنبؤي",
         "Smart Solutions":"الحلول الذكية","Settings":"الإعدادات","About":"حول","Generate Solution":"توليد الحل",
-        "No data":"لا توجد بيانات","Export CSV":"تصدير CSV","Sensor Map":"مواقع المستشعرات","Anomaly Sensitivity":"حساسية الشذوذ"
+        "No data":"لا توجد بيانات","Export CSV":"تصدير CSV","Export PDF":"تصدير PDF","Sensor Map":"مواقع المستشعرات","Anomaly Sensitivity":"حساسية الشذوذ"
     }
 }[lang]
+
+# PDF helper
+def create_pdf_report(data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, "Recent Sensor Data", ln=1)
+    for _, row in data.tail(10).iterrows():
+        pdf.cell(0, 10,
+                 f"{row['timestamp']} T:{row['temp']:.1f} P:{row['pressure']:.1f} "
+                 f"V:{row['vibration']:.1f} G:{row['gas']:.1f}", ln=1)
+    return pdf.output(dest="S").encode('latin1')
 
 # 8. Load data
 df = pd.read_csv("sensor_data_simulated.csv", parse_dates=["Time"])
@@ -99,10 +113,23 @@ if page==T["Dashboard"]:
             "lat":[27.0,26.8,27.1],"lon":[49.6,49.7,49.65],
             "sensor":["A","B","C"]
         })
-        st.map(locs.rename(columns={"lat":"latitude","lon":"longitude"}))
+        layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=locs,
+            get_position="[lon, lat]",
+            get_color=[0, 0, 255, 160],
+            get_radius=5000,
+            pickable=True,
+        )
+        view_state = pdk.ViewState(latitude=locs.lat.mean(), longitude=locs.lon.mean(), zoom=6)
+        st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state,
+                                tooltip={"text": "{sensor}"}))
+
         # Export
         csv = df.to_csv(index=False)
         st.download_button(T["Export CSV"], data=csv, file_name="data.csv", mime="text/csv")
+        pdf = create_pdf_report(df)
+        st.download_button(T["Export PDF"], data=pdf, file_name="report.pdf", mime="application/pdf")
 
 # 12. Simulation
 elif page==T["Simulation"]:

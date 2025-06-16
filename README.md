@@ -10,6 +10,11 @@ An advanced neural digital twin solution for industrial equipment monitoring, fe
 - **3D Equipment Visualization**: Interactive 3D model of industrial equipment
 - **Bilingual Support**: English/Arabic interface
 - **Dark Mode**: Optimized for extended monitoring sessions
+- **Interactive Maps**: View sensor locations on an interactive Mapbox map
+- **PDF/CSV Export**: Download recent readings as CSV or PDF reports
+- **User Authentication**: Streamlit based login with role support
+- **Toast Alerts**: Instant notifications for critical values
+- **Docker & CI**: Dockerfile and GitHub Actions for automated testing
 
 ## 🚀 Quick Start
 
@@ -23,3 +28,15 @@ cd Smart-neural-digital-twin
 
 # Install dependencies
 pip install -r requirements.txt
+
+### Running
+```bash
+# Launch the application
+streamlit run final_app.py
+
+# Run tests
+pytest
+
+# Build container
+docker build -t digital-twin .
+```
