@@ -11,6 +11,7 @@ An advanced neural digital twin solution for industrial equipment monitoring, fe
 - **Bilingual Support**: English/Arabic interface
 - **Dark Mode**: Optimized for extended monitoring sessions
 - **Interactive Maps**: View sensor locations on an interactive Mapbox map
+- **Real-Time Streaming**: View live sensor updates without reload
 - **PDF/CSV Export**: Download recent readings as CSV or PDF reports
 - **User Authentication**: Streamlit based login with role support
 - **Toast Alerts**: Instant notifications for critical values
