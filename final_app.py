@@ -4,9 +4,12 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
+from fpdf import FPDF
 import streamlit_authenticator as stauth
 from datetime import timedelta, datetime
 import json
+import time
 
 # 1. Page config
 st.set_page_config(page_title="Smart Neural Digital Twin", page_icon="🧠", layout="wide")
@@ -44,6 +47,7 @@ st.markdown(f"""
     <style>
     .stApp {{ background: url('{bg}?auto=compress&cs=tinysrgb&w=1260') no-repeat center fixed; background-size: cover; }}
     .btn-gen > button {{ background-color: #FF5722 !important; color: white !important; font-weight: bold; }}
+    @media (max-width: 600px) {{ .stApp {{ font-size: 14px; }} }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -59,14 +63,30 @@ T = {
     "en": {
         "Dashboard":"Dashboard", "Simulation":"Simulation","Predictive Analysis":"Predictive","Smart Solutions":"Solutions",
         "Settings":"Settings","About":"About","Generate Solution":"Generate Solution","No data":"No data available",
-        "Export CSV":"Export CSV","Sensor Map":"Sensor Locations","Anomaly Sensitivity":"Anomaly Sensitivity"
+        "Export CSV":"Export CSV","Export PDF":"Export PDF","Sensor Map":"Sensor Locations","Anomaly Sensitivity":"Anomaly Sensitivity",
+        "Real-Time Stream":"Real-Time Stream","Start Streaming":"Start Streaming",
+        "select_lang":"Selected language","select_pal":"Selected palette"
     },
     "العربية": {
         "Dashboard":"لوحة البيانات","Simulation":"المحاكاة","Predictive Analysis":"التحليل التنبؤي",
         "Smart Solutions":"الحلول الذكية","Settings":"الإعدادات","About":"حول","Generate Solution":"توليد الحل",
-        "No data":"لا توجد بيانات","Export CSV":"تصدير CSV","Sensor Map":"مواقع المستشعرات","Anomaly Sensitivity":"حساسية الشذوذ"
+        "No data":"لا توجد بيانات","Export CSV":"تصدير CSV","Export PDF":"تصدير PDF","Sensor Map":"مواقع المستشعرات","Anomaly Sensitivity":"حساسية الشذوذ",
+        "Real-Time Stream":"البث الحي","Start Streaming":"ابدأ البث",
+        "select_lang":"اللغة المختارة","select_pal":"لوحة الألوان المختارة"
     }
 }[lang]
+
+# PDF helper
+def create_pdf_report(data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, "Recent Sensor Data", ln=1)
+    for _, row in data.tail(10).iterrows():
+        pdf.cell(0, 10,
+                 f"{row['timestamp']} T:{row['temp']:.1f} P:{row['pressure']:.1f} "
+                 f"V:{row['vibration']:.1f} G:{row['gas']:.1f}", ln=1)
+    return pdf.output(dest="S").encode('latin1')
 
 # 8. Load data
 df = pd.read_csv("sensor_data_simulated.csv", parse_dates=["Time"])
@@ -78,7 +98,8 @@ st_autorefresh = st.experimental_memo.clear  # handled by cache
 st_autorefresh()  # clear on each run
 
 # 10. Page navigation
-pages = [T["Dashboard"], T["Simulation"], T["Predictive Analysis"], T["Smart Solutions"], T["Settings"], T["About"]]
+pages = [T["Dashboard"], T["Simulation"], T["Real-Time Stream"], T["Predictive Analysis"],
+         T["Smart Solutions"], T["Settings"], T["About"]]
 page = st.radio("", pages, horizontal=True)
 
 # 11. Dashboard
@@ -99,10 +120,23 @@ if page==T["Dashboard"]:
             "lat":[27.0,26.8,27.1],"lon":[49.6,49.7,49.65],
             "sensor":["A","B","C"]
         })
-        st.map(locs.rename(columns={"lat":"latitude","lon":"longitude"}))
+        layer = pdk.Layer(
+            "ScatterplotLayer",
+            data=locs,
+            get_position="[lon, lat]",
+            get_color=[0, 0, 255, 160],
+            get_radius=5000,
+            pickable=True,
+        )
+        view_state = pdk.ViewState(latitude=locs.lat.mean(), longitude=locs.lon.mean(), zoom=6)
+        st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state,
+                                tooltip={"text": "{sensor}"}))
+
         # Export
         csv = df.to_csv(index=False)
         st.download_button(T["Export CSV"], data=csv, file_name="data.csv", mime="text/csv")
+        pdf = create_pdf_report(df)
+        st.download_button(T["Export PDF"], data=pdf, file_name="report.pdf", mime="application/pdf")
 
 # 12. Simulation
 elif page==T["Simulation"]:
@@ -120,7 +154,21 @@ elif page==T["Simulation"]:
         fig=px.imshow(pd.DataFrame([sd]).T, labels={"x":"Sensor","value":"Value"})
         st.plotly_chart(fig,use_container_width=True)
 
-# 13. Predictive Analysis
+# 13. Real-Time Stream
+elif page==T["Real-Time Stream"]:
+    st.header(T["Real-Time Stream"])
+    if st.button(T["Start Streaming"], key="stream"):
+        placeholder = st.empty()
+        for _ in range(10):
+            row = df.sample(1)
+            with placeholder.container():
+                st.metric("🌡️ Temp", f"{row.temp.values[0]:.2f}°C")
+                st.metric("⚡ Pressure", f"{row.pressure.values[0]:.2f} psi")
+                st.metric("📳 Vibration", f"{row.vibration.values[0]:.2f} g")
+                st.metric("🛢️ Methane", f"{row.gas.values[0]:.2f} ppm")
+            time.sleep(1)
+
+# 14. Predictive Analysis
 elif page==T["Predictive Analysis"]:
     st.header(T["Predictive Analysis"])
     if df.empty:
@@ -136,7 +184,7 @@ elif page==T["Predictive Analysis"]:
         fig.add_trace(go.Scatter(x=fut.timestamp,y=fut.temp,name="Predicted",line=dict(dash="dash")))
         st.plotly_chart(fig,use_container_width=True)
 
-# 14. Smart Solutions
+# 15. Smart Solutions
 elif page==T["Smart Solutions"]:
     st.header(T["Smart Solutions"])
     if df.empty:
@@ -149,13 +197,13 @@ elif page==T["Smart Solutions"]:
             st.plotly_chart(fig,use_container_width=True)
             st.table(sol_df)
 
-# 15. Settings
+# 16. Settings
 elif page==T["Settings"]:
     st.header(T["Settings"])
     st.write(f"{T['select_lang']} : {lang}")
     st.write(f"{T['select_pal']} : {palette}")
 
-# 16. About
+# 17. About
 else:
     st.header(T["About"])
     # Aramco logo + links
@@ -167,7 +215,7 @@ else:
         st.write("نظام توأم رقمي عصبي ذكي للسلامة الصناعية، مراقبة لحظية، كشف شذوذ، تحليل تنبؤي، وتوصيات ذكية.")
         st.write("[GitHub](https://github.com/rrakanmarri1/Smart-neural-digital-twin) • [Confluence](#)")
 
-# 17. Toast notifications
+# 18. Toast notifications
 if not df.empty and df.temp.iloc[-1] > 80:
     if st.session_state.last_toast != "high_temp":
         st.toast("⚠️ High temperature!", icon="⚠️")

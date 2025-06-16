@@ -2,5 +2,9 @@ streamlit
 pandas
 numpy
 plotly
+pydeck
 scikit-learn
 requests
+streamlit-authenticator
+fpdf
+pytest
