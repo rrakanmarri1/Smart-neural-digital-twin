@@ -646,4 +646,4 @@ if st.session_state.logged_in:
             st.markdown(f"""<div class="metric-card">
                 <h3>{get_text('vibration')}</h3>
                 <p style='font-size: 2rem; font-weight: bold;'>{live_data['vibration']:.2f} g</p>
-                <p>{get_
+                <p>{get_}
