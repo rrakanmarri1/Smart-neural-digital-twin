@@ -5,5 +5,4 @@ numpy
 reportlab
 folium
 streamlit-folium
-
-
+streamlit-autorefresh
