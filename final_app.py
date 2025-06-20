@@ -390,11 +390,6 @@ def render_about_page():
     with col2:
         st.info(f"**{get_text('abdulrahman_alzhrani')}**\n* {get_text('contact')}: abdulrahman.alzhrani.1@aramco.com | 0549202574")
 
-def render_financial_impact():
-    st.header(get_text("financial_header"))
-    st.info(get_text("cost_savings_desc"))
-    # You can add charts, tables, or summary stats here as needed
-
 def render_settings():
     st.header(get_text("nav_settings"))
     lang_map = {"English": "en", "العربية": "ar"}
@@ -415,6 +410,11 @@ def render_settings():
             st.session_state.auto_refresh = False
             st.rerun()
 
+def render_financial_impact():
+    st.header(get_text("financial_header"))
+    st.info(get_text("cost_savings_desc"))
+    # You can add charts, tables, or summary stats here as needed
+    
 # --- Main App Layout & Dispatcher ---
 st.sidebar.title(get_text("title"))
 page_options = {
