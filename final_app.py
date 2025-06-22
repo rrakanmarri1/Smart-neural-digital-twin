@@ -1,630 +1,324 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-import folium
+import plotly.express as px
+from sklearn.ensemble import IsolationForest
 
-# --- CSV Data Loader ---
-@st.cache_data(show_spinner=False)
-def load_sensor_csv():
-    url = "https://raw.githubusercontent.com/rrakanmarri1/Smart-neural-digital-twin/master/sensor_data_simulated.csv"
-    df = pd.read_csv(url)
-    return df
+THEMES = {
+    "Ocean": {
+        "sidebar_bg": "#145DA0",
+        "main_bg": "#1E3C72",
+        "accent": "#00A8CC",
+        "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?fit=crop&w=900&q=80"
+    },
+    "Forest": {
+        "sidebar_bg": "#145A32",
+        "main_bg": "#196F3D",
+        "accent": "#45B39D",
+        "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?fit=crop&w=900&q=80"
+    },
+    "Classic": {
+        "sidebar_bg": "#222831",
+        "main_bg": "#393E46",
+        "accent": "#FFD369",
+        "image": ""
+    }
+}
 
-# Load data into session state at startup
-if 'sensor_data' not in st.session_state:
-    st.session_state['sensor_data'] = load_sensor_csv()
-
-from streamlit_folium import st_folium
-from streamlit_autorefresh import st_autorefresh
-import time
-from datetime import datetime, timedelta
-
-# --- App Configuration ---
 st.set_page_config(
     page_title="Smart Neural Digital Twin",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="🧠",
+    layout="wide"
 )
 
-# --- Full Translations ---
-translations = {
-    "en": {
-        "title": "Smart Neural Digital Twin",
-        "nav_dashboard": "Dashboard", "nav_predictive": "Predictive Analysis", "nav_solutions": "Smart Solutions",
-        "nav_locations": "Sensor Locations", "nav_alerts": "Real-time Alerts", "nav_sim_controls": "Simulation Controls",
-        "nav_financial": "Financial Impact", "nav_anomaly": "AI Anomaly Log", "nav_3d": "3D Asset View",
-        "nav_maintenance": "Maintenance Scheduler", "nav_energy": "Energy Dashboard", "nav_about": "About & Team", "nav_settings": "Settings",
-        "language": "Language", "theme": "Theme", "auto_refresh": "Enable Auto-Refresh (15s)",
-        "live_data_header": "Live Sensor Data", "temp": "Temperature", "pressure": "Pressure", "vibration": "Vibration", "methane": "Methane",
-        "historical_data_header": "Historical Data (Last 7 Days)", "predictive_header": "72-Hour Predictive Forecast",
-        "historical_vs_forecast": "Historical vs. Forecasted Data", "historical": "Historical", "forecasted": "Forecasted",
-        "solutions_header": "Generated Smart Solution", "generate_solutions_button": "Generate New Recommendation",
-        "task_title": "Task", "description": "Description", "priority": "Priority", "est_time": "Est. Time", "effectiveness": "Effectiveness",
-        "high": "High", "medium": "Medium", "low": "Low", "schedule_maintenance": "Schedule Maintenance", "task_scheduled": "Task Scheduled!",
-        "locations_header": "Sensor Locations Map", "alerts_header": "Real-time Alerts Dashboard", "alert_level": "Alert Level", "timestamp": "Timestamp",
-        "about_header": "About the Project",
-        "about_text": """
-### 🚀 Revolutionizing Oilfield Operations!\n
-Welcome to the command center for the next generation of energy production. The **Smart Neural Digital Twin** isn't just a tool; it's your new strategic partner. We turn complex data into decisive, money-saving action.\n
----\n
-### ✨ **Key Features**\n
-*   **🧠 Predictive AI:** We see the future! Our AI forecasts equipment health 72 hours in advance.\n
-*   **💸 Financial Impact:** See your savings in real-time. We connect operational improvements directly to your bottom line.\n
-*   **🔬 AI Anomaly Log:** Catches the sneakiest issues before they become catastrophic failures.\n
-*   **🕹️ Simulation Controls:** Safely stress-test your assets under any condition you can imagine.\n
-*   **⚡ Energy Dashboard:** Monitor and optimize energy consumption for greener, more efficient operations.\n
-### ✅ **How It Helps You Win**\n
-*   **📈 Maximize Uptime:** Proactive maintenance means less downtime and more production.\n
-*   **🛡️ Enhance Safety:** Predict and prevent hazardous conditions before they happen.\n
-*   **💰 Boost Profitability:** Lower maintenance costs and higher efficiency equals more profit.\n
-*   **🎯 Data-Driven Decisions:** Stop guessing. Start making informed decisions backed by powerful AI insights.\n
-""",
-        "tech_stack": "Technology Stack", "team_header": "Main Developers", "contact": "Contact",
-        "rakan_almarri": "Rakan Almarri", "abdulrahman_alzhrani": "Abdulrahman Alzhrani",
-        "sim_controls_header": "Simulation Controls", "temp_baseline": "Temperature Baseline (°C)", "pressure_volatility": "Pressure Volatility (hPa)", "inject_anomaly": "Inject Temperature Anomaly",
-        "financial_header": "Financial Impact Analysis", "cost_savings_desc": "Estimated cost savings based on proactively addressing generated solutions.",
-        "prevented_failure_cost": "Prevented Failure Cost", "reduced_downtime_cost": "Reduced Downtime Cost", "total_savings": "Total Estimated Savings",
-        "anomaly_log_header": "AI Anomaly Log", "anomaly_desc": "Subtle deviations detected by the AI that are being monitored.",
-        "view_3d_header": "Interactive 3D Asset View", "maintenance_header": "Maintenance Scheduler", "pending_tasks": "Pending Tasks",
-        "completed_tasks": "Completed Tasks", "mark_complete": "Mark as Complete", "energy_header": "Energy Consumption Dashboard",
-        "live_consumption": "Live Energy Consumption (kWh)", "efficiency_rating": "Operational Efficiency"
-    },
-    "ar": {
-        "title": "التوأم الرقمي العصبي الذكي",
-        "nav_dashboard": "لوحة التحكم", "nav_predictive": "التحليل التنبؤي", "nav_solutions": "الحلول الذكية",
-        "nav_locations": "مواقع الحساسات", "nav_alerts": "التنبيهات الفورية", "nav_sim_controls": "أدوات التحكم بالمحاكاة",
-        "nav_financial": "الأثر المالي", "nav_anomaly": "سجل الشذوذ", "nav_3d": "عرض ثلاثي الأبعاد",
-        "nav_maintenance": "جدولة الصيانة", "nav_energy": "لوحة الطاقة", "nav_about": "عن المشروع والفريق", "nav_settings": "الإعدادات",
-        "language": "اللغة", "theme": "المظهر", "auto_refresh": "تفعيل التحديث التلقائي (15 ثانية)",
-        "live_data_header": "بيانات الحساسات الحية", "temp": "درجة الحرارة", "pressure": "الضغط", "vibration": "الاهتزاز", "methane": "الميثان",
-        "historical_data_header": "البيانات التاريخية (آخر 7 أيام)", "predictive_header": "توقعات تنبؤية لـ 72 ساعة",
-        "historical_vs_forecast": "البيانات التاريخية مقابل المتوقعة", "historical": "تاريخي", "forecasted": "متوقع",
-        "solutions_header": "الحل الذكي المقترح", "generate_solutions_button": "توليد توصية جديدة",
-        "task_title": "المهمة", "description": "الوصف", "priority": "الأولوية", "est_time": "الوقت المقدر", "effectiveness": "الفعالية",
-        "high": "عالية", "medium": "متوسطة", "low": "منخفضة", "schedule_maintenance": "جدولة الصيانة", "task_scheduled": "تمت جدولة المهمة!",
-        "locations_header": "خريطة مواقع أجهزة الاستشعار", "alerts_header": "لوحة التنبيهات الفورية", "alert_level": "مستوى التنبيه", "timestamp": "الطابع الزمني",
-        "about_header": "عن المشروع",
-        "about_text": """
-### 🚀 ثورة في عمليات حقول النفط!\n
-أهلاً بك في مركز قيادة الجيل القادم من إنتاج الطاقة. **التوأم الرقمي العصبي الذكي** ليس مجرد أداة، بل هو شريكك الاستراتيجي الجديد. نحن نحوّل البيانات المعقدة إلى إجراءات حاسمة وموفرة للمال.\n
----\n
-### ✨ **الميزات الرئيسية**\n
-*   **🧠 ذكاء اصطناعي تنبؤي:** نحن نرى المستقبل! يتنبأ الذكاء الاصطناعي لدينا بصحة المعدات قبل 72 ساعة.\n
-*   **💸 الأثر المالي:** شاهد مدخراتك في الوقت الفعلي. نربط التحسينات التشغيلية مباشرة بأرباحك.\n
-*   **🔬 سجل شذوذ الذكاء الاصطناعي:** يكتشف المشاكل الخفية قبل أن تتحول إلى كوارث.\n
-*   **🕹️ أدوات تحكم بالمحاكاة:** اختبر أصولك بأمان تحت أي ظرف يمكنك تخيله.\n
-*   **⚡ لوحة استهلاك الطاقة:** راقب وحسّن استهلاك الطاقة لعمليات أكثر استدامة وكفاءة.\n
-### ✅ **كيف يساعدك على التفوق**\n
-*   **📈 زيادة وقت التشغيل:** صيانة استباقية تعني توقفًا أقل وإنتاجًا أكثر.\n
-*   **🛡️ تعزيز السلامة:** تنبأ بالظروف الخطرة وامنعها قبل وقوعها.\n
-*   **💰 زيادة الربحية:** تكاليف صيانة أقل وكفاءة أعلى تساوي أرباحًا أكثر.\n
-*   **🎯 قرارات تعتمد على البيانات:** توقف عن التخمين. ابدأ في اتخاذ قرارات مستنيرة مدعومة برؤى الذكاء الاصطناعي القوية.\n
-""",
-        "tech_stack": "التقنيات المستخدمة", "team_header": "المطورون الرئيسيون", "contact": "للتواصل",
-        "rakan_almarri": "راكان المري", "abdulrahman_alzhrani": "عبدالرحمن الزهراني",
-        "sim_controls_header": "أدوات التحكم بالمحاكاة", "temp_baseline": "خط الأساس لدرجة الحرارة (مئوية)", "pressure_volatility": "تقلب الضغط (هكتوباسكال)", "inject_anomaly": "إدخال شذوذ في درجة الحرارة",
-        "financial_header": "تحليل الأثر المالي", "cost_savings_desc": "تقدير وفورات التكاليف بناءً على المعالجة الاستباقية للحلول المقترحة.",
-        "prevented_failure_cost": "تكلفة الفشل الذي تم منعه", "reduced_downtime_cost": "تكلفة تقليل وقت التوقف", "total_savings": "إجمالي الوفورات المقدرة",
-        "anomaly_log_header": "سجل شذوذ الذكاء الاصطناعي", "anomaly_desc": "الانحرافات الطفيفة التي كشفها الذكاء الاصطناعي والتي يتم مراقبتها.",
-        "view_3d_header": "عرض تفاعلي ثلاثي الأبعاد للأصل", "maintenance_header": "جدولة الصيانة", "pending_tasks": "المهام المعلقة",
-        "completed_tasks": "المهام المكتملة", "mark_complete": "وضع علامة كمكتمل", "energy_header": "لوحة استهلاك الطاقة",
-        "live_consumption": "استهلاك الطاقة المباشر (كيلوواط/ساعة)", "efficiency_rating": "كفاءة التشغيل"
-    }
-}
+if 'lang' not in st.session_state:
+    st.session_state.lang = "ar"
+if 'theme' not in st.session_state:
+    st.session_state.theme = "Ocean"
 
-# --- Themes ---
-themes = {
-    'purple': {'primary': '#9B59B6', 'secondary': '#8E44AD', 'text': '#FFFFFF', 'bg': '#2C3E50'},
-    'ocean': {'primary': '#3498DB', 'secondary': '#2980B9', 'text': '#FFFFFF', 'bg': '#1A5276'},
-    'sunset': {'primary': '#E67E22', 'secondary': '#D35400', 'text': '#FFFFFF', 'bg': '#34495E'},
-    'forest': {'primary': '#2ECC71', 'secondary': '#27AE60', 'text': '#FFFFFF', 'bg': '#1E8449'},
-    'dark': {'primary': '#34495E', 'secondary': '#2C3E50', 'text': '#FFFFFF', 'bg': '#17202A'},
-}
+def settings_panel():
+    st.markdown("### ⚙️ Settings / الإعدادات")
+    lang = st.radio("🌐 Language | اللغة", ["English", "العربية"], 
+                    index=0 if st.session_state.lang == "en" else 1, horizontal=True)
+    th = st.radio("🎨 Theme | الثيم", list(THEMES.keys()), 
+                  index=list(THEMES.keys()).index(st.session_state.theme), horizontal=True)
+    if lang == "English":
+        st.session_state.lang = "en"
+    else:
+        st.session_state.lang = "ar"
+    st.session_state.theme = th
 
-# --- Session State Initialization ---
-def init_session_state():
-    if 'lang' not in st.session_state: st.session_state.lang = 'en'
-    if 'theme' not in st.session_state: st.session_state.theme = 'purple'
-    if 'page' not in st.session_state: st.session_state.page = 'nav_dashboard'
-    if 'auto_refresh' not in st.session_state: st.session_state.auto_refresh = False
-    if 'solution' not in st.session_state: st.session_state.solution = None
-    if 'maintenance_log' not in st.session_state: st.session_state.maintenance_log = []
-    if 'anomaly_log' not in st.session_state: st.session_state.anomaly_log = pd.DataFrame(columns=["Timestamp", "Description"])
-    if 'sim_params' not in st.session_state:
-        st.session_state.sim_params = {'temp_baseline': 30.0, 'pressure_volatility': 10.0, 'anomaly_injected': False, 'last_anomaly_time': None}
+theme = THEMES[st.session_state.theme]
+st.markdown(
+    f"""
+    <style>
+        body, .stApp {{
+            background-color: {theme['main_bg']} !important;
+        }}
+        [data-testid="stSidebar"] {{
+            background-color: {theme['sidebar_bg']} !important;
+        }}
+        .main-title {{
+            color: {theme['accent']}; font-size: 2.5em; text-align:center; font-weight: bold;
+        }}
+        .menu-btn {{
+            background: {theme['accent']}; color: #fff; border-radius:12px; padding:0.7em 1.3em; font-size:1.15em; margin: 0.5em 1em 0.5em 0;
+            border:none; cursor:pointer; box-shadow:1px 1px 7px #2222;
+            transition: 0.2s all;
+        }}
+        .menu-btn.selected {{
+            background: #fff; color: {theme['accent']}; border: 2px solid {theme['accent']};
+        }}
+        .rounded-box {{
+            background: #fff1;
+            border-radius: 14px;
+            padding: 1.2em;
+            margin-bottom: 1.3em;
+            box-shadow: 0 2px 7px #2222;
+        }}
+        .main-bg-img {{
+            background-image: url('{theme['image']}');
+            background-size: cover;
+            background-position: center;
+            min-height: 250px;
+            border-radius: 14px;
+            margin-bottom: 1.5em;
+        }}
+    </style>
+    """, unsafe_allow_html=True
+)
 
-init_session_state()
+if theme['image']:
+    st.markdown('<div class="main-bg-img"></div>', unsafe_allow_html=True)
 
-# --- Helper Functions ---
-def get_text(key):
-    return translations[st.session_state.lang].get(key, key)
-
-def get_custom_css(theme_name):
-    theme = themes[theme_name]
-    return f"""<style>
-    .stApp {{ background-color: {theme['bg']}; }}
-    h1, h2, h3, h4, h5, h6 {{ color: {theme['primary']}; }}
-    .st-emotion-cache-1v0mbdj, .st-emotion-cache-16txtl3, .st-emotion-cache-1y4p8pa, .st-emotion-cache-1d3w5bk, .st-emotion-cache-10trblm, .st-emotion-cache-1r6slb0, .st-emotion-cache-1kyxreq, .st-emotion-cache-1xarl3l {{ color: {theme['text']}; }}
-    .st-emotion-cache-6q9sum, .st-emotion-cache-13ln4jf, .stMetric {{ background-color: {theme['secondary']}; border-radius: 10px; padding: 15px; text-align: center; }}
-    .stButton>button {{ background-color: {theme['primary']}; color: {theme['text']}; border: 2px solid {theme['secondary']}; border-radius: 8px; }}
-    .stButton>button:hover {{ background-color: {theme['secondary']}; color: {theme['text']}; }}
-    </style>"""
-st.markdown(get_custom_css(st.session_state.theme), unsafe_allow_html=True)
-
-# --- Data Simulation & Logic ---
-def simulate_live_data():
-    params = st.session_state.sim_params
-    temp_anomaly = 0
-    if params['anomaly_injected']:
-        params['anomaly_injected'] = False
-        params['last_anomaly_time'] = time.time()
-        new_anomaly = pd.DataFrame([{'Timestamp': datetime.now(), 'Description': 'Manually Injected Temperature Anomaly'}])
-        st.session_state.anomaly_log = pd.concat([new_anomaly, st.session_state.anomaly_log], ignore_index=True)
-    if params['last_anomaly_time'] and (time.time() - params['last_anomaly_time'] < 300):
-        temp_anomaly = 15 * ((300 - (time.time() - params['last_anomaly_time'])) / 300)
-    temp = np.random.uniform(params['temp_baseline'] - 5, params['temp_baseline'] + 5) + np.sin(time.time() / 60) * 5 + temp_anomaly
-    pressure = np.random.uniform(1000, 1020) + np.cos(time.time() / 60) * params['pressure_volatility']
-    vibration = np.random.uniform(0.1, 0.5) + np.random.rand() * 0.1
-    methane = np.random.uniform(1.8, 2.2) + np.random.rand() * 0.05
-    energy = (temp/10) + (pressure/1000) + (vibration*5) + (methane*2) + np.random.uniform(-1,1)
-    return temp, pressure, vibration, methane, energy
-
-def get_historical_data(days=7):
-    dates = pd.to_datetime(pd.date_range(end=pd.Timestamp.now(), periods=days, freq='D'))
-    return pd.DataFrame({'Date': dates, 'Temperature': np.random.normal(30, 3, days), 'Pressure': np.random.normal(1010, 5, days)})
-
-def get_future_forecast(hist_df, days=3):
-    future_dates = pd.to_datetime(pd.date_range(start=hist_df['Date'].iloc[-1], periods=days+1, freq='D'))[1:]
-    last_temp = hist_df['Temperature'].iloc[-1]
-    last_pressure = hist_df['Pressure'].iloc[-1]
-    return pd.DataFrame({'Date': future_dates, 'Temperature_Forecast': np.random.normal(last_temp, 2, days), 'Pressure_Forecast': np.random.normal(last_pressure, 4, days)})
-
-def generate_smart_solution():
-    solutions = [
-        {"title": "Optimize Cooling System", "desc": "Adjust coolant flow rate based on predictive temperature analysis to prevent overheating.", "priority": "high", "time": "2 hours", "effectiveness": 95, "cost_saving": 5000},
-        {"title": "Inspect Pipeline Section 3B", "desc": "Vibration levels are trending upwards. A physical inspection is recommended within 48 hours.", "priority": "medium", "time": "4 hours", "effectiveness": 80, "cost_saving": 2500},
-        {"title": "Calibrate Methane Sensor #7", "desc": "Sensor readings show minor drift. Calibration will ensure data accuracy.", "priority": "low", "time": "1 hour", "effectiveness": 90, "cost_saving": 700},
-        {"title": "Review Pressure Valve Protocols", "desc": "Forecasted pressure spikes require a review of automated pressure release valve settings.", "priority": "high", "time": "3 hours", "effectiveness": 92, "cost_saving": 6200}
-    ]
-    current_titles_in_log = [task['task'] for task in st.session_state.maintenance_log]
-    available_solutions = [s for s in solutions if s['title'] not in current_titles_in_log]
-    if not available_solutions: available_solutions = solutions # Fallback if all are scheduled
-    st.session_state.solution = np.random.choice(available_solutions)
-
-def get_real_time_alerts():
-    return pd.DataFrame([
-        {"level": "High", "desc": "Critical pressure warning in Sector A! Immediate action required.", "time": datetime.now() - timedelta(minutes=5)},
-        {"level": 'Medium', "desc": "Unusual vibration pattern detected in Pump Station 2.", "time": datetime.now() - timedelta(minutes=25)},
-        {"level": 'Low', "desc": "Temperature approaching upper threshold in cooling unit 4.", "time": datetime.now() - timedelta(hours=1)}
-    ])
-
-# --- Page Rendering Functions ---
-def render_main_dashboard():
-    if st.session_state.auto_refresh: st_autorefresh(interval=15 * 1000, key="data_refresh")
-    st.header(get_text("live_data_header"))
-    temp, pressure, vibration, methane, _ = simulate_live_data()
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(get_text("temp"), f"{temp:.2f} °C", f"{np.random.uniform(-0.5, 0.5):.2f}")
-    col2.metric(get_text("pressure"), f"{pressure:.2f} hPa", f"{np.random.uniform(-1, 1):.2f}")
-    col3.metric(get_text("vibration"), f"{vibration:.3f} g", f"{np.random.uniform(-0.01, 0.01):.3f}")
-    col4.metric(get_text("methane"), f"{methane:.2f} ppm", f"{np.random.uniform(-0.02, 0.02):.2f}")
-
-def render_predictive_analysis():
-    st.header(get_text("predictive_header"))
-    hist_data = get_historical_data()
-    forecast_data = get_future_forecast(hist_data)
-    for metric, unit in [('Temperature', '°C'), ('Pressure', 'hPa')]:
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=hist_data['Date'], y=hist_data[metric], name=get_text('historical'), mode='lines'))
-        fig.add_trace(go.Scatter(x=forecast_data['Date'], y=forecast_data[f"{metric}_Forecast"], name=get_text('forecasted'), mode='lines+markers', line=dict(dash='dash')))
-        fig.update_layout(title=f"{get_text('historical_vs_forecast')}: {get_text(metric.lower())}", xaxis_title="Date", yaxis_title=f"{metric} ({unit})")
-        st.plotly_chart(fig, use_container_width=True)
-
-def render_smart_solutions():
-    st.header(get_text("solutions_header"))
-    if st.button(get_text("generate_solutions_button"), key="generate_solutions_button") or not st.session_state.solution:
-        generate_smart_solution()
-    sol = st.session_state.solution
-    if sol:
-        st.markdown(f"""<div style='border: 2px solid {themes[st.session_state.theme]['primary']}; border-radius: 10px; padding: 15px; margin-bottom: 10px;'>
-            <h3 style='color: {themes[st.session_state.theme]['primary']};'><b>{get_text('task_title')}: {sol['title']}</b></h3>
-            <p><b>{get_text('description')}:</b> {sol['desc']}</p>
-            <p><b>{get_text('priority')}:</b> {get_text(sol['priority'])} | <b>{get_text('est_time')}:</b> {sol['time']} | <b>{get_text('effectiveness')}:</b> {sol['effectiveness']}%</p>
-        </div>""", unsafe_allow_html=True)
-        if st.button(get_text("schedule_maintenance"), key=sol['title']):
-            st.session_state.maintenance_log.insert(0, {"task": sol['title'], "status": "Pending", "scheduled_at": datetime.now(), "id": time.time()})
-            st.session_state.solution = None # Clear after scheduling
-            st.success(get_text("task_scheduled"))
-            st.rerun()
-
-def render_sensor_locations():
-    st.header(get_text("locations_header"))
-    df = st.session_state['sensor_data']
-    # Simulate sensor IDs and assign random locations (for demo)
+@st.cache_data
+def load_data():
+    df = pd.read_csv("sensor_data_simulated.csv", parse_dates=["Timestamp"])
     np.random.seed(42)
-    sensor_ids = [f"Sensor {i+1}" for i in range(6)]
-    coords = {
-        sid: [24 + np.random.uniform(-3, 3), 46 + np.random.uniform(-3, 3)]
-        for sid in sensor_ids
-    }
-    # Assign each row a sensor id (round robin for demo)
-    df['sensor_id'] = [sensor_ids[i % len(sensor_ids)] for i in range(len(df))]
-    latest = df.groupby('sensor_id').last().reset_index()
-    m = folium.Map(location=[24.7136, 46.6753], zoom_start=5)
-    for _, row in latest.iterrows():
-        sid = row['sensor_id']
-        lat, lon = coords[sid]
-        temp = row['temperature']
-        popup = f"<b>{sid}</b><br>Temp: {temp:.1f}°C<br>Pressure: {row['pressure']:.1f} hPa<br>Vibration: {row['vibration']:.2f}<br>Methane: {row['methane']:.2f} ppm"
-        color = 'red' if temp > 60 else 'orange' if temp > 45 else 'green'
-        folium.Marker(
-            [lat, lon],
-            popup=popup,
-            tooltip=f"{sid} (Click for details)",
-            icon=folium.Icon(color=color)
-        ).add_to(m)
-    st_folium(m, width=725, height=500)
-    st.caption("🗺️ Click markers for live sensor status. Locations are simulated for demo purposes.")
+    df["Current"] = np.random.uniform(10, 30, len(df))
+    df["Level"] = np.random.uniform(0.2, 1.0, len(df))
+    df["Humidity"] = np.random.uniform(45, 65, len(df))
+    return df
 
+df = load_data()
 
-def render_real_time_alerts():
-    st.header(get_text("alerts_header"))
-    df = st.session_state['sensor_data']
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    alerts = []
-    # Define thresholds for alerting (customize as needed)
-    for _, row in df.tail(100).iterrows():
-        if row['temperature'] > 60:
-            alerts.append({'level': 'High', 'desc': f"High temperature: {row['temperature']:.1f}°C", 'timestamp': row['timestamp']})
-        elif row['pressure'] > 110:
-            alerts.append({'level': 'High', 'desc': f"High pressure: {row['pressure']:.1f} hPa", 'timestamp': row['timestamp']})
-        elif row['vibration'] > 0.7:
-            alerts.append({'level': 'Medium', 'desc': f"Elevated vibration: {row['vibration']:.2f}", 'timestamp': row['timestamp']})
-        elif row['methane'] > 2.5:
-            alerts.append({'level': 'Medium', 'desc': f"Methane spike: {row['methane']:.2f} ppm", 'timestamp': row['timestamp']})
-    if alerts:
-        for alert in alerts[-10:][::-1]:
-            color = st.error if alert['level'] == 'High' else st.warning if alert['level'] == 'Medium' else st.info
-            color(f"**{alert['level']}**: {alert['desc']} ({alert['timestamp'].strftime('%Y-%m-%d %H:%M')})")
-        st.dataframe(pd.DataFrame(alerts[-25:][::-1]), use_container_width=True)
-    else:
-        st.success("No critical alerts in the latest data! All systems normal.")
-    st.info("⚡ Stay vigilant! Real-time alerts help prevent costly incidents.")
+def get_anomaly_score(data):
+    clf = IsolationForest(contamination=0.07, random_state=0)
+    features = data[["Temp", "Pressure", "Vibration", "Gas", "Current", "Level", "Humidity"]]
+    clf.fit(features)
+    scores = clf.decision_function(features)
+    return scores
 
+df["AnomalyScore"] = get_anomaly_score(df)
+df["Anomaly"] = df["AnomalyScore"] < -0.15
 
-def render_simulation_controls():
-    st.header(get_text("sim_controls_header"))
-    st.session_state.sim_params['temp_baseline'] = st.slider(get_text("temp_baseline"), 10.0, 50.0, st.session_state.sim_params['temp_baseline'])
-    st.session_state.sim_params['pressure_volatility'] = st.slider(get_text("pressure_volatility"), 5.0, 25.0, st.session_state.sim_params['pressure_volatility'])
-    if st.button(get_text("inject_anomaly")):
-        st.session_state.sim_params['anomaly_injected'] = True
-        st.rerun()
-
-def render_anomaly_log():
-    st.header(get_text("anomaly_log_header"))
-    st.info(get_text("anomaly_desc"))
-    df = st.session_state['sensor_data']
-    anomalies = []
-    for _, row in df.iterrows():
-        if row['temperature'] > 60:
-            anomalies.append({"Sensor": row.get('sensor_id', 'N/A'), "Timestamp": row['timestamp'], "Description": f"🔥 High temperature: {row['temperature']:.1f}°C"})
-        if row['pressure'] > 110:
-            anomalies.append({"Sensor": row.get('sensor_id', 'N/A'), "Timestamp": row['timestamp'], "Description": f"⚠️ High pressure: {row['pressure']:.1f} hPa"})
-        if row['vibration'] > 0.7:
-            anomalies.append({"Sensor": row.get('sensor_id', 'N/A'), "Timestamp": row['timestamp'], "Description": f"🟠 Elevated vibration: {row['vibration']:.2f}"})
-        if row['methane'] > 2.5:
-            anomalies.append({"Sensor": row.get('sensor_id', 'N/A'), "Timestamp": row['timestamp'], "Description": f"💨 Methane spike: {row['methane']:.2f} ppm"})
-    if anomalies:
-        df_anom = pd.DataFrame(anomalies).sort_values("Timestamp", ascending=False).head(50)
-        st.dataframe(df_anom, use_container_width=True)
-    else:
-        st.success("No anomalies detected in the current data!")
-
-
-def render_3d_view():
-    st.header(get_text("view_3d_header"))
-    temp, _, _, _, _ = simulate_live_data()
-    color = 'red' if temp > st.session_state.sim_params['temp_baseline'] + 10 else 'yellow' if temp > st.session_state.sim_params['temp_baseline'] + 5 else 'green'
-    fig = go.Figure(data=[go.Scatter3d(x=[1], y=[1], z=[1], mode='markers', marker=dict(size=30, color=color, opacity=0.8))])
-    fig.update_layout(margin=dict(l=0, r=0, b=0, t=0), scene=dict(xaxis_title='X-Axis', yaxis_title='Y-Axis', zaxis_title='Z-Axis'))
-    st.plotly_chart(fig, use_container_width=True)
-
-def render_maintenance_scheduler():
-    st.header(get_text("maintenance_header"))
-    st.subheader(get_text("pending_tasks"))
-    for task in [t for t in st.session_state.maintenance_log if t['status'] == 'Pending']:
-        with st.container():
-            st.write(f"{task['task']} (Scheduled: {task['scheduled_at'].strftime('%Y-%m-%d %H:%M')})")
-            if st.button(get_text("mark_complete"), key=f"complete_{task['id']}"):
-                task['status'] = 'Completed'
-                st.rerun()
-    st.subheader(get_text("completed_tasks"))
-    for task in [t for t in st.session_state.maintenance_log if t['status'] == 'Completed']:
-        st.success(f"✓ {task['task']}")
-
-def render_energy_dashboard():
-    st.header(get_text("energy_header"))
-    df = st.session_state['sensor_data']
-    # Simulate energy as sum of all sensor readings (or use a real column if present)
-    if 'energy' in df.columns:
-        df['energy_kwh'] = df['energy']
-    else:
-        # Example: sum of temperature, pressure, vibration, methane for demo purposes
-        df['energy_kwh'] = df[['temperature', 'pressure', 'vibration', 'methane']].sum(axis=1)
-
-    # Show live gauge (latest value)
-    latest_energy = df['energy_kwh'].iloc[-1]
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=latest_energy,
-        title={'text': get_text("live_consumption")},
-        domain={'x': [0, 1], 'y': [0, 1]}
-    ))
-    st.plotly_chart(fig_gauge, use_container_width=True)
-
-    # Show historical energy trend
-    st.subheader("Energy Consumption (Last 24h)")
-    if 'timestamp' in df.columns:
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df_24h = df[df['timestamp'] > (df['timestamp'].max() - pd.Timedelta(hours=24))]
-        st.line_chart(df_24h.set_index('timestamp')['energy_kwh'])
-    else:
-        st.line_chart(df['energy_kwh'])
-
-    # Show summary stats
-    st.markdown(f"**Average (24h):** {df['energy_kwh'].tail(24).mean():.2f} kWh | **Max:** {df['energy_kwh'].max():.2f} kWh | **Min:** {df['energy_kwh'].min():.2f} kWh")
-    st.info("💡 Tip: Monitor energy spikes to optimize efficiency and reduce costs!")
-
-
-def render_about_page():
-    st.header(get_text("about_header"))
-    st.markdown(get_text("about_text"))
-    st.subheader(get_text("tech_stack"))
-    st.markdown("- Streamlit, Pandas, Plotly, Folium, Numpy")
-    st.header(get_text("team_header"))
-    col1, col2 = st.columns(2)
-    with col1:
-        st.info(f"**{get_text('rakan_almarri')}**\n* {get_text('contact')}: rakan.almarri.2@aramco.com | 0532559664")
-    with col2:
-        st.info(f"**{get_text('abdulrahman_alzhrani')}**\n* {get_text('contact')}: abdulrahman.alzhrani.1@aramco.com | 0549202574")
-
-def render_settings():
-    st.header(get_text("nav_settings"))
-    lang_map = {"English": "en", "العربية": "ar"}
-    selected_lang_name = st.selectbox(get_text("language"), options=list(lang_map.keys()), index=list(lang_map.values()).index(st.session_state.lang))
-    if lang_map[selected_lang_name] != st.session_state.lang:
-        st.session_state.lang = lang_map[selected_lang_name]
-        st.rerun()
-    theme_name = st.selectbox(get_text("theme"), options=list(themes.keys()), index=list(themes.keys()).index(st.session_state.theme))
-    if theme_name != st.session_state.theme:
-        st.session_state.theme = theme_name
-        st.rerun()
-    if st.toggle(get_text("auto_refresh"), value=st.session_state.auto_refresh):
-        if not st.session_state.auto_refresh: 
-            st.session_state.auto_refresh = True
-            st.rerun()
-    else:
-        if st.session_state.auto_refresh: 
-            st.session_state.auto_refresh = False
-            st.rerun()
-
-def render_financial_impact():
-    st.header(get_text("financial_header"))
-    st.info(get_text("cost_savings_desc"))
-    # You can add charts, tables, or summary stats here as needed
-    
-# --- Main App Layout & Dispatcher ---
-st.sidebar.title(get_text("title"))
-page_options = {
-    "nav_dashboard": ("🏠", get_text("nav_dashboard"), render_main_dashboard),
-    "nav_predictive": ("📈", get_text("nav_predictive"), render_predictive_analysis),
-    "nav_solutions": ("💡", get_text("nav_solutions"), render_smart_solutions),
-    "nav_energy": ("⚡", get_text("nav_energy"), render_energy_dashboard),
-    "nav_financial": ("💰", get_text("nav_financial"), render_financial_impact),
-    "nav_maintenance": ("🛠️", get_text("nav_maintenance"), render_maintenance_scheduler),
-    "nav_3d": ("🧊", get_text("nav_3d"), render_3d_view),
-    "nav_locations": ("🗺️", get_text("nav_locations"), render_sensor_locations),
-    "nav_alerts": ("🔔", get_text("nav_alerts"), render_real_time_alerts),
-    "nav_anomaly": ("🔬", get_text("nav_anomaly"), render_anomaly_log),
-    "nav_sim_controls": ("🎛️", get_text("nav_sim_controls"), render_simulation_controls),
-    "nav_about": ("ℹ️", get_text("nav_about"), render_about_page),
-    "nav_settings": ("⚙️", get_text("nav_settings"), render_settings),
+pages = {
+    "dashboard": "📊 Dashboard",
+    "predictive": "🔮 Predictive Analytics",
+    "solutions": "💡 Smart Solutions",
+    "log": "📝 Event Log",
+    "report": "📄 Smart Report",
+    "settings": "⚙️ Settings",
+    "about": "ℹ️ About"
 }
-solutions_data = [
-        {"title": "Optimize Cooling System", "desc": "Adjust coolant flow rate based on predictive temperature analysis to prevent overheating.", "priority": "high", "time": "2 hours", "effectiveness": 95, "cost_saving": 5000},
-        {"title": "Inspect Pipeline Section 3B", "desc": "Vibration levels are trending upwards. A physical inspection is recommended within 48 hours.", "priority": "medium", "time": "4 hours", "effectiveness": 80, "cost_saving": 2500},
-        {"title": "Calibrate Methane Sensor #7", "desc": "Sensor readings show minor drift. Calibration will ensure data accuracy.", "priority": "low", "time": "1 hour", "effectiveness": 90, "cost_saving": 700},
-        {"title": "Review Pressure Valve Protocols", "desc": "Forecasted pressure spikes require a review of automated pressure release valve settings.", "priority": "high", "time": "3 hours", "effectiveness": 92, "cost_saving": 6200}
-    ]
-for key, (icon, text, func) in page_options.items():
-    if st.sidebar.button(f"{icon} {text}"):
-        st.session_state.page = key
-        st.rerun()
-
-page_options[st.session_state.page][2]()
-
-# --- Themes ---
-themes = {
-    'purple': {'primary': '#9B59B6', 'secondary': '#8E44AD', 'text': '#FFFFFF', 'bg': '#2C3E50'},
-    'ocean': {'primary': '#3498DB', 'secondary': '#2980B9', 'text': '#FFFFFF', 'bg': '#1A5276'},
-    'sunset': {'primary': '#E67E22', 'secondary': '#D35400', 'text': '#FFFFFF', 'bg': '#34495E'},
-    'forest': {'primary': '#2ECC71', 'secondary': '#27AE60', 'text': '#FFFFFF', 'bg': '#1E8449'},
-    'dark': {'primary': '#34495E', 'secondary': '#2C3E50', 'text': '#FFFFFF', 'bg': '#17202A'},
+pages_ar = {
+    "dashboard": "📊 لوحة البيانات",
+    "predictive": "🔮 التحليل التنبؤي",
+    "solutions": "💡 الحلول الذكية",
+    "log": "📝 سجل الأحداث",
+    "report": "📄 التقرير الذكي",
+    "settings": "⚙️ الإعدادات",
+    "about": "ℹ️ حول المشروع"
 }
+if st.session_state.lang == "ar":
+    menu = list(pages_ar.values())
+    keys = list(pages_ar.keys())
+else:
+    menu = list(pages.values())
+    keys = list(pages.keys())
 
-# --- Session State Initialization ---
-def init_session_state():
-    # Core state
-    if 'lang' not in st.session_state: st.session_state.lang = 'en'
-    if 'theme' not in st.session_state: st.session_state.theme = 'purple'
-    if 'page' not in st.session_state: st.session_state.page = 'nav_dashboard'
-    if 'auto_refresh' not in st.session_state: st.session_state.auto_refresh = False
-    
-    # Feature-specific state
-    if 'solutions' not in st.session_state: st.session_state.solutions = []
-    if 'maintenance_log' not in st.session_state: st.session_state.maintenance_log = []
-    if 'anomaly_log' not in st.session_state: st.session_state.anomaly_log = []
-    if 'sim_params' not in st.session_state:
-        st.session_state.sim_params = {'temp_baseline': 30.0, 'pressure_volatility': 10.0, 'anomaly_injected': False}
-
-init_session_state()
-
-# --- Helper Functions ---
-def get_text(key):
-    return translations[st.session_state.lang].get(key, key)
-
-def get_custom_css(theme_name):
-    theme = themes[theme_name]
-    # (CSS remains largely the same, can be collapsed for brevity)
-    return f"""<style> ... </style>"""
-st.markdown(get_custom_css(st.session_state.theme), unsafe_allow_html=True)
-
-# --- Data Simulation & Logic ---
-def simulate_live_data():
-    params = st.session_state.sim_params
-    base_temp = params['temp_baseline']
-    temp_anomaly = 15 if params['anomaly_injected'] else 0
-    temp = np.random.uniform(base_temp - 5, base_temp + 5) + np.sin(time.time() / 60) * 5 + temp_anomaly
-
-    base_pressure_vol = params['pressure_volatility']
-    pressure = np.random.uniform(1000, 1020) + np.cos(time.time() / 60) * base_pressure_vol
-    
-    vibration = np.random.uniform(0.1, 0.5) + np.random.rand() * 0.1
-    methane = np.random.uniform(1.8, 2.2) + np.random.rand() * 0.05
-
-    if params['anomaly_injected']:
-        st.session_state.anomaly_log.insert(0, {'desc': 'Manually Injected Temperature Anomaly', 'time': datetime.now()})
-        params['anomaly_injected'] = False # Reset after injection
-
-    return temp, pressure, vibration, methane
-
-def generate_smart_solutions():
-    solutions = [
-        {"title": "Optimize Cooling System", "desc": "Adjust coolant flow rate based on predictive temperature analysis to prevent overheating.", "priority": "high", "time": "2 hours", "effectiveness": 95, "cost_saving": 5000},
-        {"title": "Inspect Pipeline Section 3B", "desc": "Vibration levels are trending upwards. A physical inspection is recommended within 48 hours.", "priority": "medium", "time": "4 hours", "effectiveness": 80, "cost_saving": 2500},
-        {"title": "Calibrate Methane Sensor #7", "desc": "Sensor readings show minor drift. Calibration will ensure data accuracy.", "priority": "low", "time": "1 hour", "effectiveness": 90, "cost_saving": 700},
-        {"title": "Review Pressure Valve Protocols", "desc": "Forecasted pressure spikes require a review of automated pressure release valve settings.", "priority": "high", "time": "3 hours", "effectiveness": 92, "cost_saving": 6200}
-    ]
-    st.session_state.solutions = [np.random.choice(solutions)] # Generate one solution
-
-# (Other data functions like get_historical_data, get_future_forecast, get_real_time_alerts remain similar)
-
-# --- Page Rendering Functions ---
-
-def render_main_dashboard():
-    # (Largely the same, but uses updated simulation)
-    pass
-
-def render_predictive_analysis():
-    # (No major changes)
-    pass
-
-def render_smart_solutions():
-    st.header(get_text("solutions_header"))
-    if st.button(get_text("generate_solutions_button")) or not st.session_state.solutions:
-        generate_smart_solutions()
-
-    for sol in st.session_state.solutions:
-        # (Display solution details)
-        if st.button(get_text("schedule_maintenance"), key=sol['title']):
-            st.session_state.maintenance_log.insert(0, {"task": sol['title'], "status": "Pending", "scheduled_at": datetime.now()})
-            st.success(get_text("task_scheduled"))
-
-def render_sensor_locations():
-    # (No major changes)
-    pass
-
-def render_real_time_alerts():
-    # (No major changes)
-    pass
-
-def render_simulation_controls():
-    st.header(get_text("sim_controls_header"))
-    st.session_state.sim_params['temp_baseline'] = st.slider(get_text("temp_baseline"), 10.0, 50.0, st.session_state.sim_params['temp_baseline'])
-    st.session_state.sim_params['pressure_volatility'] = st.slider(get_text("pressure_volatility"), 5.0, 25.0, st.session_state.sim_params['pressure_volatility'])
-    if st.button(get_text("inject_anomaly")):
-        st.session_state.sim_params['anomaly_injected'] = True
-        st.rerun()
-
-def render_financial_impact():
-    st.header(get_text("financial_header"))
-    # (Display financial charts and metrics based on solutions)
-    pass
-
-def render_anomaly_log():
-    st.header(get_text("anomaly_log_header"))
-    st.write(get_text("anomaly_desc"))
-    st.dataframe(pd.DataFrame(st.session_state.anomaly_log), use_container_width=True)
-
-def render_3d_view():
-    st.header(get_text("view_3d_header"))
-    # (Use Plotly to render a 3D scatter plot with color-coded points)
-    pass
-
-def render_maintenance_scheduler():
-    st.header(get_text("maintenance_header"))
-    # (Display pending/completed tasks from st.session_state.maintenance_log)
-    pass
-
-def render_energy_dashboard():
-    st.header(get_text("energy_header"))
-    # (Display energy consumption charts)
-    pass
-
-def render_about_page():
-    st.header(get_text("about_header"))
-    st.markdown(get_text("about_text"))
-    st.header(get_text("team_header"))
-    # (Display developer contacts)
-
-def render_settings():
-    st.header(get_text("nav_settings"))
-    # (Language, Theme, and Auto-Refresh controls moved here)
-    pass
-
-# --- Main App Layout ---
-st.sidebar.title(get_text("title"))
-
-page_options = {
-    "nav_dashboard": ("🏠", get_text("nav_dashboard"), render_main_dashboard),
-    "nav_predictive": ("📈", get_text("nav_predictive"), render_predictive_analysis),
-    "nav_solutions": ("💡", get_text("nav_solutions"), render_smart_solutions),
-    "nav_energy": ("⚡", get_text("nav_energy"), render_energy_dashboard),
-    "nav_financial": ("💰", get_text("nav_financial"), render_financial_impact),
-    "nav_maintenance": ("🛠️", get_text("nav_maintenance"), render_maintenance_scheduler),
-    "nav_3d": ("🧊", get_text("nav_3d"), render_3d_view),
-    "nav_locations": ("🗺️", get_text("nav_locations"), render_sensor_locations),
-    "nav_alerts": ("🔔", get_text("nav_alerts"), render_real_time_alerts),
-    "nav_anomaly": ("🔬", get_text("nav_anomaly"), render_anomaly_log),
-    "nav_sim_controls": ("🎛️", get_text("nav_sim_controls"), render_simulation_controls),
-    "nav_about": ("ℹ️", get_text("nav_about"), render_about_page),
-    "nav_settings": ("⚙️", get_text("nav_settings"), render_settings),
-}
-
-# Create lists for the radio widget
-page_keys = list(page_options.keys())
-formatted_options = [f"{icon} {text}" for icon, text, func in page_options.values()]
-
-# Find the index of the current page to set as default
-try:
-    current_index = page_keys.index(st.session_state.get('page', 'nav_dashboard'))
-except ValueError:
-    current_index = 0 # Default to dashboard if key not found
-
-# Create the radio button for navigation
-selected_option_formatted = st.sidebar.radio(
-    "Navigation",
-    formatted_options,
-    index=current_index,
-    label_visibility="collapsed" # Hides the "Navigation" label
+selected = st.selectbox(
+    "🚦 اختر القسم" if st.session_state.lang == "ar" else "🚦 Select Section",
+    menu,
+    key="menu_select"
 )
+page = keys[menu.index(selected)]
 
-# Get the key corresponding to the selected formatted option and update state
-selected_index = formatted_options.index(selected_option_formatted)
-st.session_state.page = page_keys[selected_index]
+if page == "dashboard":
+    st.markdown(f"<div class='main-title'>{pages_ar['dashboard'] if st.session_state.lang == 'ar' else pages['dashboard']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+    st.write("#### " + ("مخطط القيم الحية (72 ساعة)" if st.session_state.lang == "ar" else "Live Sensor Trends (72h)"))
+    fig = px.line(df, x="Timestamp", y=["Temp", "Pressure", "Vibration", "Gas", "Current", "Level", "Humidity"],
+                  labels={"value": "Value", "variable": "Sensor", "Timestamp": "Time"},
+                  title="Sensor Data Over Time")
+    st.plotly_chart(fig, use_container_width=True)
+    st.write("#### " + ("خريطة الحرارة (الشذوذات)" if st.session_state.lang == "ar" else "Heatmap (Anomalies)"))
+    fig2 = px.density_heatmap(df, x="Timestamp", y="Temp", z="AnomalyScore", nbinsx=32, nbinsy=12,
+                              color_continuous_scale="Hot", title="Anomaly Heatmap")
+    st.plotly_chart(fig2, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Page Dispatcher ---
-# The page has already been set in session_state by the radio button's interaction
-page_options[st.session_state.page][2]()
+elif page == "predictive":
+    st.markdown(f"<div class='main-title'>{pages_ar['predictive'] if st.session_state.lang == 'ar' else pages['predictive']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+    st.write("#### " + ("توقع القيم القادمة (ذكاء اصطناعي)" if st.session_state.lang == "ar" else "Predicting Future Values (AI)"))
+    preds = df[["Temp", "Pressure", "Vibration", "Gas"]].iloc[-1] + np.random.normal(0, 1, 4)
+    future = pd.date_range(df["Timestamp"].max(), periods=13, freq="H")[1:]
+    pred_df = pd.DataFrame({
+        "Timestamp": future,
+        "Temp": preds["Temp"] + np.cumsum(np.random.normal(0, 0.2, 12)),
+        "Pressure": preds["Pressure"] + np.cumsum(np.random.normal(0, 0.3, 12)),
+        "Vibration": preds["Vibration"] + np.cumsum(np.random.normal(0, 0.03, 12)),
+        "Gas": preds["Gas"] + np.cumsum(np.random.normal(0, 0.2, 12))
+    })
+    fig3 = px.line(pred_df, x="Timestamp", y=["Temp", "Pressure", "Vibration", "Gas"],
+                   title="Predicted Sensor Values Next 12 Hours")
+    st.plotly_chart(fig3, use_container_width=True)
+    st.write("##### " + ("تحليل شذوذ الذكاء الاصطناعي" if st.session_state.lang == "ar" else "AI Anomaly Analysis"))
+    st.dataframe(df[["Timestamp", "Temp", "Pressure", "Vibration", "Gas", "AnomalyScore", "Anomaly"]].tail(20))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "solutions":
+    st.markdown(f"<div class='main-title'>{pages_ar['solutions'] if st.session_state.lang == 'ar' else pages['solutions']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+    st.write("#### " + ("الحلول الذكية حسب الحالة" if st.session_state.lang == "ar" else "AI-based Smart Actions"))
+    current_row = df.iloc[-1]
+    recommendation = ""
+    details = ""
+    time_needed = ""
+    importance = ""
+    efficiency = ""
+    if st.button("🚀 توليد حل ذكي" if st.session_state.lang == "ar" else "🚀 Generate Solution"):
+        if current_row["Temp"] > 60:
+            recommendation = "تفعيل نظام التبريد" if st.session_state.lang == "ar" else "Activate Cooling System"
+            details = "ارتفاع حرارة خطير" if st.session_state.lang == "ar" else "Critical temperature detected"
+            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
+            importance = "عالية جداً" if st.session_state.lang == "ar" else "Very High"
+            efficiency = "99%"
+        elif current_row["Pressure"] < 15:
+            recommendation = "إغلاق الصمام الرئيسي" if st.session_state.lang == "ar" else "Shut Main Valve"
+            details = "انخفاض ضغط خطير" if st.session_state.lang == "ar" else "Critical pressure drop"
+            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
+            importance = "مرتفعة" if st.session_state.lang == "ar" else "High"
+            efficiency = "97%"
+        elif current_row["Gas"] > 400:
+            recommendation = "إخلاء المنطقة فوراً" if st.session_state.lang == "ar" else "Evacuate Area Immediately"
+            details = "تسرب غاز شديد" if st.session_state.lang == "ar" else "Severe gas leak"
+            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
+            importance = "قصوى" if st.session_state.lang == "ar" else "Critical"
+            efficiency = "100%"
+        else:
+            recommendation = "استمرار المراقبة" if st.session_state.lang == "ar" else "Continue Monitoring"
+            details = "لا توجد مؤشرات خطر حالياً" if st.session_state.lang == "ar" else "No current risk detected"
+            time_needed = "-" 
+            importance = "عادية" if st.session_state.lang == "ar" else "Normal"
+            efficiency = "N/A"
+        st.success((f"🟢 الحل: {recommendation}\n\n🔎 التفاصيل: {details}\n⏰ الزمن: {time_needed}\n‼️ الأهمية: {importance}\n⚡ الفعالية: {efficiency}")
+                   if st.session_state.lang == "ar" 
+                   else 
+                   (f"🟢 Solution: {recommendation}\n\n🔎 Details: {details}\n⏰ Time Needed: {time_needed}\n‼️ Importance: {importance}\n⚡ Efficiency: {efficiency}"))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "log":
+    st.markdown(f"<div class='main-title'>{pages_ar['log'] if st.session_state.lang == 'ar' else pages['log']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+    st.write("#### " + ("سجل الأحداث" if st.session_state.lang == "ar" else "Event Log"))
+    logdf = df[df["Anomaly"]][["Timestamp", "Temp", "Pressure", "Vibration", "Gas", "AnomalyScore"]]
+    st.dataframe(logdf.tail(30))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "report":
+    st.markdown(f"<div class='main-title'>{pages_ar['report'] if st.session_state.lang == 'ar' else pages['report']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+    st.write("#### " + ("ملخص التقرير الذكي (قابل للتصدير)" if st.session_state.lang == "ar" else "Smart Report Summary (Exportable)"))
+    total_anomalies = df["Anomaly"].sum()
+    max_temp = df["Temp"].max()
+    min_press = df["Pressure"].min()
+    max_gas = df["Gas"].max()
+    summary = (
+        f"عدد الشذوذات المكتشفة: {total_anomalies}\n"
+        f"أعلى حرارة مسجلة: {max_temp:.2f}\n"
+        f"أقل ضغط مسجل: {min_press:.2f}\n"
+        f"أعلى غاز مسجل: {max_gas:.2f}"
+        if st.session_state.lang == "ar" else
+        f"Total Anomalies Detected: {total_anomalies}\n"
+        f"Max Temperature: {max_temp:.2f}\n"
+        f"Min Pressure: {min_press:.2f}\n"
+        f"Max Gas: {max_gas:.2f}"
+    )
+    st.info(summary)
+    if st.button("⬇️ تحميل CSV" if st.session_state.lang == "ar" else "⬇️ Download CSV"):
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download", csv, "smart_digital_twin_report.csv", "text/csv")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+elif page == "settings":
+    settings_panel()
+
+elif page == "about":
+    st.markdown(f"<div class='main-title'>{pages_ar['about'] if st.session_state.lang == 'ar' else pages['about']}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
+
+    if st.session_state.lang == "en":
+        st.markdown("""
+        <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
+            “Disasters don't wait.. and neither do we.”
+        </div>
+        <div style="font-size:1.15em;color:#00A8CC;text-align:center;margin-bottom:1.5em;">
+            <b>Predict. Prevent. Protect.</b>
+        </div>
+        <hr>
+        <h3>👨‍💻 Lead Developers</h3>
+        <div style="background:#e3f2fd;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
+        <b>Rakan Almarri</b> — rakan.almarri.2@aramco.com — 0532559664<br>
+        <b>Abdulrahman Alzahrani</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
+        </div>
+
+        ### 💡 About the Project
+
+        **Smart Neural Digital Twin** is an advanced prototype for oilfield safety, powered by AI and IoT.<br>
+        <ul>
+        <li>Real-time dashboard & predictive analytics for all sensors</li>
+        <li>AI anomaly detection (Isolation Forest)</li>
+        <li>Automated smart recommendations at the click of a button</li>
+        <li>Full bilingual support (Arabic & English) with total translation</li>
+        <li>Customizable UI (Ocean/Forest/Classic) with instant interface switching</li>
+        <li>Exportable smart reports (CSV)</li>
+        <li>Comprehensive log of anomalies and alerts</li>
+        <li>Responsive design for mobile and desktop</li>
+        <li>Designed for future integration with Aramco’s platforms</li>
+        </ul>
+
+        <b>Vision:</b> To revolutionize industrial safety by transforming raw data into actionable insights, ensuring a safer and more efficient operational environment.
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
+            "الكوارث لا تنتظر... ونحن أيضًا لا ننتظر"
+        </div>
+        <div style="font-size:1.15em;color:#45B39D;text-align:center;margin-bottom:1.5em;">
+            <b>🔮 توقّع • 🛡️ وقاية • 🧯 حماية</b>
+        </div>
+        <hr>
+        <h3>👨‍💻 المطورون الرئيسيون</h3>
+        <div style="background:#e8f5e9;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
+        <b>راكان المري</b> — rakan.almarri.2@aramco.com — 0532559664<br>
+        <b>عبدالرحمن الزهراني</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
+        </div>
+
+        ### 💡 حول المشروع
+
+        **التوأم الرقمي الذكي** هو نموذج أولي متطور لرفع مستوى الأمان في حقول النفط باستخدام الذكاء الاصطناعي وإنترنت الأشياء.<br>
+        <ul>
+        <li>لوحة بيانات وتوقعات لحظية لجميع المستشعرات</li>
+        <li>كشف الشذوذات بأنظمة الذكاء الاصطناعي (Isolation Forest)</li>
+        <li>حلول وتوصيات ذكية أوتوماتيكية بضغطة زر</li>
+        <li>دعم لغتين بالكامل (العربية والإنجليزية) مع تعريب شامل</li>
+        <li>تخصيص المظهر (بحري/غابة/تقليدي) مع تغيير فوري للواجهة</li>
+        <li>تقارير ذكية قابلة للتصدير (CSV)</li>
+        <li>سجل كامل للحوادث والشذوذات والتنبيهات</li>
+        <li>تصميم تفاعلي يدعم الجوال والكمبيوتر</li>
+        <li>مصمم للتكامل مستقبلاً مع منصات أرامكو الصناعية</li>
+        </ul>
+
+        <b>رؤيتنا:</b> تحويل البيانات الصناعية إلى رؤى قابلة للتنفيذ لضمان بيئة تشغيل أكثر أمانًا وكفاءة.
