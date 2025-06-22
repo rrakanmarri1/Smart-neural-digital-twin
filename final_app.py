@@ -260,65 +260,70 @@ elif page == "about":
     st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
 
     if st.session_state.lang == "en":
-        st.markdown("""
-        <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
-            “Disasters don't wait.. and neither do we.”
-        </div>
-        <div style="font-size:1.15em;color:#00A8CC;text-align:center;margin-bottom:1.5em;">
-            <b>Predict. Prevent. Protect.</b>
-        </div>
-        <hr>
-        <h3>👨‍💻 Lead Developers</h3>
-        <div style="background:#e3f2fd;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
-        <b>Rakan Almarri</b> — rakan.almarri.2@aramco.com — 0532559664<br>
-        <b>Abdulrahman Alzahrani</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
-        </div>
+        st.markdown(
+            """
+            <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
+                “Disasters don't wait.. and neither do we.”
+            </div>
+            <div style="font-size:1.15em;color:#00A8CC;text-align:center;margin-bottom:1.5em;">
+                <b>Predict. Prevent. Protect.</b>
+            </div>
+            <hr>
+            <h3>👨‍💻 Lead Developers</h3>
+            <div style="background:#e3f2fd;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
+            <b>Rakan Almarri</b> — rakan.almarri.2@aramco.com — 0532559664<br>
+            <b>Abdulrahman Alzahrani</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
+            </div>
 
-        ### 💡 About the Project
+            ### 💡 About the Project
 
-        **Smart Neural Digital Twin** is an advanced prototype for oilfield safety, powered by AI and IoT.<br>
-        <ul>
-        <li>Real-time dashboard & predictive analytics for all sensors</li>
-        <li>AI anomaly detection (Isolation Forest)</li>
-        <li>Automated smart recommendations at the click of a button</li>
-        <li>Full bilingual support (Arabic & English) with total translation</li>
-        <li>Customizable UI (Ocean/Forest/Classic) with instant interface switching</li>
-        <li>Exportable smart reports (CSV)</li>
-        <li>Comprehensive log of anomalies and alerts</li>
-        <li>Responsive design for mobile and desktop</li>
-        <li>Designed for future integration with Aramco’s platforms</li>
-        </ul>
+            **Smart Neural Digital Twin** is an advanced prototype for oilfield safety, powered by AI and IoT.<br>
+            <ul>
+            <li>Real-time dashboard & predictive analytics for all sensors</li>
+            <li>AI anomaly detection (Isolation Forest)</li>
+            <li>Automated smart recommendations at the click of a button</li>
+            <li>Full bilingual support (Arabic & English) with total translation</li>
+            <li>Customizable UI (Ocean/Forest/Classic) with instant interface switching</li>
+            <li>Exportable smart reports (CSV)</li>
+            <li>Comprehensive log of anomalies and alerts</li>
+            <li>Responsive design for mobile and desktop</li>
+            <li>Designed for future integration with Aramco’s platforms</li>
+            </ul>
 
-        <b>Vision:</b> To revolutionize industrial safety by transforming raw data into actionable insights, ensuring a safer and more efficient operational environment.
-        """, unsafe_allow_html=True)
+            <b>Vision:</b> To revolutionize industrial safety by transforming raw data into actionable insights, ensuring a safer and more efficient operational environment.
+            """, unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
-            "الكوارث لا تنتظر... ونحن أيضًا لا ننتظر"
-        </div>
-        <div style="font-size:1.15em;color:#45B39D;text-align:center;margin-bottom:1.5em;">
-            <b>🔮 توقّع • 🛡️ وقاية • 🧯 حماية</b>
-        </div>
-        <hr>
-        <h3>👨‍💻 المطورون الرئيسيون</h3>
-        <div style="background:#e8f5e9;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
-        <b>راكان المري</b> — rakan.almarri.2@aramco.com — 0532559664<br>
-        <b>عبدالرحمن الزهراني</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
-        </div>
+        st.markdown(
+            """
+            <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
+                "الكوارث لا تنتظر... ونحن أيضًا لا ننتظر"
+            </div>
+            <div style="font-size:1.15em;color:#45B39D;text-align:center;margin-bottom:1.5em;">
+                <b>🔮 توقّع • 🛡️ وقاية • 🧯 حماية</b>
+            </div>
+            <hr>
+            <h3>👨‍💻 المطورون الرئيسيون</h3>
+            <div style="background:#e8f5e9;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
+            <b>راكان المري</b> — rakan.almarri.2@aramco.com — 0532559664<br>
+            <b>عبدالرحمن الزهراني</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
+            </div>
 
-        ### 💡 حول المشروع
+            ### 💡 حول المشروع
 
-        **التوأم الرقمي الذكي** هو نموذج أولي متطور لرفع مستوى الأمان في حقول النفط باستخدام الذكاء الاصطناعي وإنترنت الأشياء.<br>
-        <ul>
-        <li>لوحة بيانات وتوقعات لحظية لجميع المستشعرات</li>
-        <li>كشف الشذوذات بأنظمة الذكاء الاصطناعي (Isolation Forest)</li>
-        <li>حلول وتوصيات ذكية أوتوماتيكية بضغطة زر</li>
-        <li>دعم لغتين بالكامل (العربية والإنجليزية) مع تعريب شامل</li>
-        <li>تخصيص المظهر (بحري/غابة/تقليدي) مع تغيير فوري للواجهة</li>
-        <li>تقارير ذكية قابلة للتصدير (CSV)</li>
-        <li>سجل كامل للحوادث والشذوذات والتنبيهات</li>
-        <li>تصميم تفاعلي يدعم الجوال والكمبيوتر</li>
-        <li>مصمم للتكامل مستقبلاً مع منصات أرامكو الصناعية</li>
-        </ul>
+            **التوأم الرقمي الذكي** هو نموذج أولي متطور لرفع مستوى الأمان في حقول النفط باستخدام الذكاء الاصطناعي وإنترنت الأشياء.<br>
+            <ul>
+            <li>لوحة بيانات وتوقعات لحظية لجميع المستشعرات</li>
+            <li>كشف الشذوذات بأنظمة الذكاء الاصطناعي (Isolation Forest)</li>
+            <li>حلول وتوصيات ذكية أوتوماتيكية بضغطة زر</li>
+            <li>دعم لغتين بالكامل (العربية والإنجليزية) مع تعريب شامل</li>
+            <li>تخصيص المظهر (بحري/غابة/تقليدي) مع تغيير فوري للواجهة</li>
+            <li>تقارير ذكية قابلة للتصدير (CSV)</li>
+            <li>سجل كامل للحوادث والشذوذات والتنبيهات</li>
+            <li>تصميم تفاعلي يدعم الجوال والكمبيوتر</li>
+            <li>مصمم للتكامل مستقبلاً مع منصات أرامكو الصناعية</li>
+            </ul>
 
-        <b>رؤيتنا:</b> تحويل البيانات الصناعية إلى رؤى قابلة للتنفيذ لضمان بيئة تشغيل أكثر أمانًا وكفاءة.
+            <b>رؤيتنا:</b> تحويل البيانات الصناعية إلى رؤى قابلة للتنفيذ لضمان بيئة تشغيل أكثر أمانًا وكفاءة.
+            """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
