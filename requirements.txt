@@ -6,3 +6,4 @@ reportlab
 folium
 streamlit-folium
 streamlit-autorefresh
+scikit_learn
