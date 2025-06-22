@@ -1,329 +1,206 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-from sklearn.ensemble import IsolationForest
+import plotly.graph_objs as go
 
-THEMES = {
-    "Ocean": {
-        "sidebar_bg": "#145DA0",
-        "main_bg": "#1E3C72",
-        "accent": "#00A8CC",
-        "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?fit=crop&w=900&q=80"
-    },
-    "Forest": {
-        "sidebar_bg": "#145A32",
-        "main_bg": "#196F3D",
-        "accent": "#45B39D",
-        "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?fit=crop&w=900&q=80"
-    },
-    "Classic": {
-        "sidebar_bg": "#222831",
-        "main_bg": "#393E46",
-        "accent": "#FFD369",
-        "image": ""
-    }
+# إعادة تسمية الأعمدة
+COLUMNS_MAP = {
+    "Temperature (°C)": "Temp",
+    "Pressure (psi)": "Pressure",
+    "Vibration (g)": "Vibration",
+    "Methane (CH₄, ppm)": "Methane",
+    "H₂S (ppm)": "H2S",
+    "Timestamp": "Timestamp"
 }
 
-st.set_page_config(
-    page_title="Smart Neural Digital Twin",
-    page_icon="🧠",
-    layout="wide"
-)
-
-if 'lang' not in st.session_state:
-    st.session_state.lang = "ar"
-if 'theme' not in st.session_state:
-    st.session_state.theme = "Ocean"
-
-def settings_panel():
-    st.markdown("### ⚙️ Settings / الإعدادات")
-    lang = st.radio("🌐 Language | اللغة", ["English", "العربية"], 
-                    index=0 if st.session_state.lang == "en" else 1, horizontal=True)
-    th = st.radio("🎨 Theme | الثيم", list(THEMES.keys()), 
-                  index=list(THEMES.keys()).index(st.session_state.theme), horizontal=True)
-    if lang == "English":
-        st.session_state.lang = "en"
-    else:
-        st.session_state.lang = "ar"
-    st.session_state.theme = th
-
-theme = THEMES[st.session_state.theme]
-st.markdown(
-    f"""
-    <style>
-        body, .stApp {{
-            background-color: {theme['main_bg']} !important;
-        }}
-        [data-testid="stSidebar"] {{
-            background-color: {theme['sidebar_bg']} !important;
-        }}
-        .main-title {{
-            color: {theme['accent']}; font-size: 2.5em; text-align:center; font-weight: bold;
-        }}
-        .menu-btn {{
-            background: {theme['accent']}; color: #fff; border-radius:12px; padding:0.7em 1.3em; font-size:1.15em; margin: 0.5em 1em 0.5em 0;
-            border:none; cursor:pointer; box-shadow:1px 1px 7px #2222;
-            transition: 0.2s all;
-        }}
-        .menu-btn.selected {{
-            background: #fff; color: {theme['accent']}; border: 2px solid {theme['accent']};
-        }}
-        .rounded-box {{
-            background: #fff1;
-            border-radius: 14px;
-            padding: 1.2em;
-            margin-bottom: 1.3em;
-            box-shadow: 0 2px 7px #2222;
-        }}
-        .main-bg-img {{
-            background-image: url('{theme['image']}');
-            background-size: cover;
-            background-position: center;
-            min-height: 250px;
-            border-radius: 14px;
-            margin-bottom: 1.5em;
-        }}
-    </style>
-    """, unsafe_allow_html=True
-)
-
-if theme['image']:
-    st.markdown('<div class="main-bg-img"></div>', unsafe_allow_html=True)
-
+# تحميل البيانات
 @st.cache_data
 def load_data():
-    df = pd.read_csv("sensor_data_simulated.csv", parse_dates=["Timestamp"])
-    np.random.seed(42)
-    df["Current"] = np.random.uniform(10, 30, len(df))
-    df["Level"] = np.random.uniform(0.2, 1.0, len(df))
-    df["Humidity"] = np.random.uniform(45, 65, len(df))
+    df = pd.read_csv("sensor_data_simulated.csv")
+    df = df.rename(columns=COLUMNS_MAP)
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+    # إضافة مواقع حساسات تجريبية إذا غير موجودة
+    if "lat" not in df.columns or "lon" not in df.columns:
+        np.random.seed(1)
+        df["lat"] = 25.4 + np.random.randn(len(df)) * 0.008  # موقع افتراضي حول الظهران
+        df["lon"] = 49.6 + np.random.randn(len(df)) * 0.008
     return df
 
 df = load_data()
 
-def get_anomaly_score(data):
-    clf = IsolationForest(contamination=0.07, random_state=0)
-    features = data[["Temp", "Pressure", "Vibration", "Gas", "Current", "Level", "Humidity"]]
-    clf.fit(features)
-    scores = clf.decision_function(features)
-    return scores
+# إعدادات لغة وثيم
+if 'lang' not in st.session_state: st.session_state['lang'] = 'ar'
+if 'theme' not in st.session_state: st.session_state['theme'] = 'slate'
+lang = st.session_state['lang']
+theme = st.session_state['theme']
 
-df["AnomalyScore"] = get_anomaly_score(df)
-df["Anomaly"] = df["AnomalyScore"] < -0.15
+# ثيمات وألوان
+THEME_BACKGROUNDS = {
+    "slate": "#2c233d",
+    "ocean": "linear-gradient(90deg, #134e5e, #71b280 99%)",
+    "forest": "linear-gradient(90deg, #005c97, #363795 99%)",
+    "sunset": "linear-gradient(90deg, #fa709a, #fee140 99%)",
+    "purple": "linear-gradient(90deg, #a770ef, #f6d365 99%)",
+}
 
+st.markdown(f"""
+    <style>
+        .stApp {{background: {THEME_BACKGROUNDS.get(theme, '#222')};}}
+        .main-title {{font-size:2.6rem;font-weight:bold;margin-bottom:1rem;}}
+        .main-menu {{display:flex; gap:1rem; margin-bottom:2rem; flex-wrap:wrap;}}
+        .main-menu label, .theme-selector label {{margin-right:1.2em;}}
+        .settings-box {{background:rgba(255,255,255,0.07);padding:1.5em 2em;border-radius:20px;max-width:500px}}
+    </style>
+""", unsafe_allow_html=True)
+
+# القوائم والخيارات
 pages = {
-    "dashboard": "📊 Dashboard",
-    "predictive": "🔮 Predictive Analytics",
-    "solutions": "💡 Smart Solutions",
-    "log": "📝 Event Log",
-    "report": "📄 Smart Report",
-    "settings": "⚙️ Settings",
-    "about": "ℹ️ About"
+    "dashboard": "لوحة البيانات" if lang=="ar" else "Dashboard",
+    "predict": "التحليل التنبؤي" if lang=="ar" else "Predictive Analysis",
+    "map": "خريطة الحساسات" if lang=="ar" else "Sensor Map",
+    "smart": "الحلول الذكية" if lang=="ar" else "Smart Solutions",
+    "settings": "الإعدادات" if lang=="ar" else "Settings",
+    "about": "حول" if lang=="ar" else "About",
 }
-pages_ar = {
-    "dashboard": "📊 لوحة البيانات",
-    "predictive": "🔮 التحليل التنبؤي",
-    "solutions": "💡 الحلول الذكية",
-    "log": "📝 سجل الأحداث",
-    "report": "📄 التقرير الذكي",
-    "settings": "⚙️ الإعدادات",
-    "about": "ℹ️ حول المشروع"
-}
-if st.session_state.lang == "ar":
-    menu = list(pages_ar.values())
-    keys = list(pages_ar.keys())
-else:
-    menu = list(pages.values())
-    keys = list(pages.keys())
 
-selected = st.selectbox(
-    "🚦 اختر القسم" if st.session_state.lang == "ar" else "🚦 Select Section",
-    menu,
-    key="menu_select"
-)
-page = keys[menu.index(selected)]
+# القائمة الرئيسية
+st.markdown(f"""<div class="main-menu">""" + "".join([
+    f"""<label><input type="radio" name="page" value="{k}" {'checked' if st.session_state.get('page', 'dashboard')==k else ''} onclick="window.location.search='?page={k}'">{v}</label>"""
+    for k,v in pages.items()
+]) + "</div>", unsafe_allow_html=True)
 
+page = st.query_params.get('page', 'dashboard')
+st.session_state['page'] = page
+
+def switch_lang():
+    st.session_state['lang'] = 'en' if st.session_state['lang'] == 'ar' else 'ar'
+    st.experimental_rerun()
+
+def set_theme(new_theme):
+    st.session_state['theme'] = new_theme
+    st.experimental_rerun()
+
+#### لوحة البيانات (Dashboard)
 if page == "dashboard":
-    st.markdown(f"<div class='main-title'>{pages_ar['dashboard'] if st.session_state.lang == 'ar' else pages['dashboard']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-    st.write("#### " + ("مخطط القيم الحية (72 ساعة)" if st.session_state.lang == "ar" else "Live Sensor Trends (72h)"))
-    fig = px.line(df, x="Timestamp", y=["Temp", "Pressure", "Vibration", "Gas", "Current", "Level", "Humidity"],
-                  labels={"value": "Value", "variable": "Sensor", "Timestamp": "Time"},
-                  title="Sensor Data Over Time")
-    st.plotly_chart(fig, use_container_width=True)
-    st.write("#### " + ("خريطة الحرارة (الشذوذات)" if st.session_state.lang == "ar" else "Heatmap (Anomalies)"))
-    fig2 = px.density_heatmap(df, x="Timestamp", y="Temp", z="AnomalyScore", nbinsx=32, nbinsy=12,
-                              color_continuous_scale="Hot", title="Anomaly Heatmap")
-    st.plotly_chart(fig2, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-title">🧠 {"التوأم الرقمي الذكي" if lang=="ar" else "Smart Neural Digital Twin"}</div>', unsafe_allow_html=True)
+    st.subheader("لوحة البيانات" if lang=="ar" else "Dashboard")
+    latest = df.iloc[-1]
+    cols = st.columns(5)
+    cols[0].metric("درجة الحرارة" if lang=="ar" else "Temp (°C)", f"{latest.Temp:.2f}")
+    cols[1].metric("الضغط" if lang=="ar" else "Pressure (psi)", f"{latest.Pressure:.2f}")
+    cols[2].metric("الاهتزاز" if lang=="ar" else "Vibration (g)", f"{latest.Vibration:.2f}")
+    cols[3].metric("الميثان" if lang=="ar" else "Methane (ppm)", f"{latest.Methane:.2f}")
+    cols[4].metric("كبريتيد الهيدروجين" if lang=="ar" else "H2S (ppm)", f"{latest.H2S:.2f}")
 
-elif page == "predictive":
-    st.markdown(f"<div class='main-title'>{pages_ar['predictive'] if st.session_state.lang == 'ar' else pages['predictive']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-    st.write("#### " + ("توقع القيم القادمة (ذكاء اصطناعي)" if st.session_state.lang == "ar" else "Predicting Future Values (AI)"))
-    preds = df[["Temp", "Pressure", "Vibration", "Gas"]].iloc[-1] + np.random.normal(0, 1, 4)
-    future = pd.date_range(df["Timestamp"].max(), periods=13, freq="H")[1:]
-    pred_df = pd.DataFrame({
-        "Timestamp": future,
-        "Temp": preds["Temp"] + np.cumsum(np.random.normal(0, 0.2, 12)),
-        "Pressure": preds["Pressure"] + np.cumsum(np.random.normal(0, 0.3, 12)),
-        "Vibration": preds["Vibration"] + np.cumsum(np.random.normal(0, 0.03, 12)),
-        "Gas": preds["Gas"] + np.cumsum(np.random.normal(0, 0.2, 12))
-    })
-    fig3 = px.line(pred_df, x="Timestamp", y=["Temp", "Pressure", "Vibration", "Gas"],
-                   title="Predicted Sensor Values Next 12 Hours")
-    st.plotly_chart(fig3, use_container_width=True)
-    st.write("##### " + ("تحليل شذوذ الذكاء الاصطناعي" if st.session_state.lang == "ar" else "AI Anomaly Analysis"))
-    st.dataframe(df[["Timestamp", "Temp", "Pressure", "Vibration", "Gas", "AnomalyScore", "Anomaly"]].tail(20))
-    st.markdown('</div>', unsafe_allow_html=True)
+    # تنبيه ذكي تلقائي
+    alert = None
+    if latest.Temp > 50:
+        alert = "🚨 درجة الحرارة تجاوزت الحد الآمن!" if lang=="ar" else "🚨 Temperature exceeded safe limit!"
+    elif latest.Pressure > 200:
+        alert = "⚠️ الضغط مرتفع جداً!" if lang=="ar" else "⚠️ Pressure is too high!"
+    elif latest.H2S > 10:
+        alert = "☠️ مستويات كبريتيد الهيدروجين حرجة!" if lang=="ar" else "☠️ Critical H2S levels detected!"
+    if alert:
+        st.toast(alert, icon="⚡")
+        st.error(alert)
 
-elif page == "solutions":
-    st.markdown(f"<div class='main-title'>{pages_ar['solutions'] if st.session_state.lang == 'ar' else pages['solutions']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-    st.write("#### " + ("الحلول الذكية حسب الحالة" if st.session_state.lang == "ar" else "AI-based Smart Actions"))
-    current_row = df.iloc[-1]
-    recommendation = ""
-    details = ""
-    time_needed = ""
-    importance = ""
-    efficiency = ""
-    if st.button("🚀 توليد حل ذكي" if st.session_state.lang == "ar" else "🚀 Generate Solution"):
-        if current_row["Temp"] > 60:
-            recommendation = "تفعيل نظام التبريد" if st.session_state.lang == "ar" else "Activate Cooling System"
-            details = "ارتفاع حرارة خطير" if st.session_state.lang == "ar" else "Critical temperature detected"
-            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
-            importance = "عالية جداً" if st.session_state.lang == "ar" else "Very High"
-            efficiency = "99%"
-        elif current_row["Pressure"] < 15:
-            recommendation = "إغلاق الصمام الرئيسي" if st.session_state.lang == "ar" else "Shut Main Valve"
-            details = "انخفاض ضغط خطير" if st.session_state.lang == "ar" else "Critical pressure drop"
-            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
-            importance = "مرتفعة" if st.session_state.lang == "ar" else "High"
-            efficiency = "97%"
-        elif current_row["Gas"] > 400:
-            recommendation = "إخلاء المنطقة فوراً" if st.session_state.lang == "ar" else "Evacuate Area Immediately"
-            details = "تسرب غاز شديد" if st.session_state.lang == "ar" else "Severe gas leak"
-            time_needed = "فوري" if st.session_state.lang == "ar" else "Immediate"
-            importance = "قصوى" if st.session_state.lang == "ar" else "Critical"
-            efficiency = "100%"
-        else:
-            recommendation = "استمرار المراقبة" if st.session_state.lang == "ar" else "Continue Monitoring"
-            details = "لا توجد مؤشرات خطر حالياً" if st.session_state.lang == "ar" else "No current risk detected"
-            time_needed = "-" 
-            importance = "عادية" if st.session_state.lang == "ar" else "Normal"
-            efficiency = "N/A"
-        st.success((f"🟢 الحل: {recommendation}\n\n🔎 التفاصيل: {details}\n⏰ الزمن: {time_needed}\n‼️ الأهمية: {importance}\n⚡ الفعالية: {efficiency}")
-                   if st.session_state.lang == "ar" 
-                   else 
-                   (f"🟢 Solution: {recommendation}\n\n🔎 Details: {details}\n⏰ Time Needed: {time_needed}\n‼️ Importance: {importance}\n⚡ Efficiency: {efficiency}"))
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.line_chart(df.set_index("Timestamp")[["Temp", "Pressure", "Vibration", "Methane", "H2S"]].tail(72))
+    st.caption("أحدث 72 ساعة من بيانات الحساسات" if lang=="ar" else "Last 72 hours sensor data")
 
-elif page == "log":
-    st.markdown(f"<div class='main-title'>{pages_ar['log'] if st.session_state.lang == 'ar' else pages['log']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-    st.write("#### " + ("سجل الأحداث" if st.session_state.lang == "ar" else "Event Log"))
-    logdf = df[df["Anomaly"]][["Timestamp", "Temp", "Pressure", "Vibration", "Gas", "AnomalyScore"]]
-    st.dataframe(logdf.tail(30))
-    st.markdown('</div>', unsafe_allow_html=True)
-
-elif page == "report":
-    st.markdown(f"<div class='main-title'>{pages_ar['report'] if st.session_state.lang == 'ar' else pages['report']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-    st.write("#### " + ("ملخص التقرير الذكي (قابل للتصدير)" if st.session_state.lang == "ar" else "Smart Report Summary (Exportable)"))
-    total_anomalies = df["Anomaly"].sum()
-    max_temp = df["Temp"].max()
-    min_press = df["Pressure"].min()
-    max_gas = df["Gas"].max()
-    summary = (
-        f"عدد الشذوذات المكتشفة: {total_anomalies}\n"
-        f"أعلى حرارة مسجلة: {max_temp:.2f}\n"
-        f"أقل ضغط مسجل: {min_press:.2f}\n"
-        f"أعلى غاز مسجل: {max_gas:.2f}"
-        if st.session_state.lang == "ar" else
-        f"Total Anomalies Detected: {total_anomalies}\n"
-        f"Max Temperature: {max_temp:.2f}\n"
-        f"Min Pressure: {min_press:.2f}\n"
-        f"Max Gas: {max_gas:.2f}"
+    st.download_button(
+        label="تحميل البيانات كـ CSV" if lang=="ar" else "Download CSV",
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name="sensor_data_export.csv",
+        mime="text/csv"
     )
-    st.info(summary)
-    if st.button("⬇️ تحميل CSV" if st.session_state.lang == "ar" else "⬇️ Download CSV"):
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download", csv, "smart_digital_twin_report.csv", "text/csv")
-    st.markdown('</div>', unsafe_allow_html=True)
 
+#### التحليل التنبؤي (Predictive Analysis)
+elif page == "predict":
+    st.markdown(f'<div class="main-title">{"التحليل التنبؤي" if lang=="ar" else "Predictive Analytics"}</div>', unsafe_allow_html=True)
+    st.line_chart(df.set_index("Timestamp")[["Temp", "Pressure"]].tail(72))
+    st.caption("توقعات المستقبل بناءً على البيانات الحالية" if lang=="ar" else "Forecasts based on recent data")
+
+#### خريطة الحساسات
+elif page == "map":
+    st.markdown(f'<div class="main-title">{"خريطة الحساسات" if lang=="ar" else "Sensor Map"}</div>', unsafe_allow_html=True)
+    st.map(df[["lat", "lon"]].drop_duplicates())
+    st.caption("المواقع افتراضية للتجربة. أضف بيانات المواقع الحقيقية لكل حساس.")
+
+#### الحلول الذكية (Smart Solutions)
+elif page == "smart":
+    st.markdown(f'<div class="main-title">{"الحلول الذكية" if lang=="ar" else "Smart Solutions"}</div>', unsafe_allow_html=True)
+    st.write("اضغط زر التوليد للحصول على اقتراح آلي" if lang=="ar" else "Click generate to get an AI-based suggestion.")
+    # نسبة عشوائية للفعالية
+    if st.button("توليد حل ذكي 🚀" if lang=="ar" else "Generate Solution 🚀"):
+        suggestion = ("الحل: قم بتخفيض الضغط تدريجياً، راقب مستويات الغاز" if lang=="ar"
+                      else "Solution: Gradually decrease pressure and monitor gas levels")
+        st.success(suggestion)
+        fig = go.Figure(data=[go.Pie(labels=['Effectiveness', 'Other'],
+                                     values=[92, 8],
+                                     marker_colors=['#44ce42', '#ccc'],
+                                     hole=.7)])
+        fig.update_traces(textinfo='label+percent', showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+#### الإعدادات (Settings)
 elif page == "settings":
-    settings_panel()
+    st.markdown(f'<div class="main-title">{"الإعدادات" if lang=="ar" else "Settings"}</div>', unsafe_allow_html=True)
+    with st.form(key='settings-form'):
+        lang_col, theme_col = st.columns(2)
+        with lang_col:
+            st.radio("اختر اللغة" if lang=="ar" else "Language", 
+                options=["ar", "en"], 
+                format_func=lambda x: "العربية" if x=="ar" else "English", 
+                key="lang", 
+                horizontal=True, 
+                on_change=switch_lang)
+        with theme_col:
+            st.radio("لوحة الألوان" if lang=="ar" else "Palette", 
+                options=["ocean", "forest", "sunset", "purple", "slate"], 
+                format_func=lambda x: {
+                    "ocean": "🌊 Ocean",
+                    "forest": "🌳 Forest",
+                    "sunset": "🌅 Sunset",
+                    "purple": "🟣 Purple",
+                    "slate": "🪨 Slate"
+                }[x], 
+                key="theme",
+                horizontal=True,
+                on_change=lambda: set_theme(st.session_state.theme))
+        st.form_submit_button("حفظ" if lang=="ar" else "Save")
 
+#### حول المشروع (About)
 elif page == "about":
-    st.markdown(f"<div class='main-title'>{pages_ar['about'] if st.session_state.lang == 'ar' else pages['about']}</div>", unsafe_allow_html=True)
-    st.markdown('<div class="rounded-box">', unsafe_allow_html=True)
-
-    if st.session_state.lang == "en":
-        st.markdown(
-            """
-            <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
-                “Disasters don't wait.. and neither do we.”
-            </div>
-            <div style="font-size:1.15em;color:#00A8CC;text-align:center;margin-bottom:1.5em;">
-                <b>Predict. Prevent. Protect.</b>
-            </div>
-            <hr>
-            <h3>👨‍💻 Lead Developers</h3>
-            <div style="background:#e3f2fd;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
-            <b>Rakan Almarri</b> — rakan.almarri.2@aramco.com — 0532559664<br>
-            <b>Abdulrahman Alzahrani</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
-            </div>
-
-            ### 💡 About the Project
-
-            **Smart Neural Digital Twin** is an advanced prototype for oilfield safety, powered by AI and IoT.<br>
-            <ul>
-            <li>Real-time dashboard & predictive analytics for all sensors</li>
-            <li>AI anomaly detection (Isolation Forest)</li>
-            <li>Automated smart recommendations at the click of a button</li>
-            <li>Full bilingual support (Arabic & English) with total translation</li>
-            <li>Customizable UI (Ocean/Forest/Classic) with instant interface switching</li>
-            <li>Exportable smart reports (CSV)</li>
-            <li>Comprehensive log of anomalies and alerts</li>
-            <li>Responsive design for mobile and desktop</li>
-            <li>Designed for future integration with Aramco’s platforms</li>
-            </ul>
-
-            <b>Vision:</b> To revolutionize industrial safety by transforming raw data into actionable insights, ensuring a safer and more efficient operational environment.
-            """, unsafe_allow_html=True)
-    else:
-        st.markdown(
-            """
-            <div style="font-size:1.5em;font-weight:bold;color:#1976d2;text-align:center;margin-bottom:0.4em;">
-                "الكوارث لا تنتظر... ونحن أيضًا لا ننتظر"
-            </div>
-            <div style="font-size:1.15em;color:#45B39D;text-align:center;margin-bottom:1.5em;">
-                <b>🔮 توقّع • 🛡️ وقاية • 🧯 حماية</b>
-            </div>
-            <hr>
-            <h3>👨‍💻 المطورون الرئيسيون</h3>
-            <div style="background:#e8f5e9;border-radius:8px;padding:1em 1.5em;margin-bottom:1.5em;font-size:1.1em;">
-            <b>راكان المري</b> — rakan.almarri.2@aramco.com — 0532559664<br>
-            <b>عبدالرحمن الزهراني</b> — abdulrahman.alzahrani.1@aramco.com — 0549202574
-            </div>
-
-            ### 💡 حول المشروع
-
-            **التوأم الرقمي الذكي** هو نموذج أولي متطور لرفع مستوى الأمان في حقول النفط باستخدام الذكاء الاصطناعي وإنترنت الأشياء.<br>
-            <ul>
-            <li>لوحة بيانات وتوقعات لحظية لجميع المستشعرات</li>
-            <li>كشف الشذوذات بأنظمة الذكاء الاصطناعي (Isolation Forest)</li>
-            <li>حلول وتوصيات ذكية أوتوماتيكية بضغطة زر</li>
-            <li>دعم لغتين بالكامل (العربية والإنجليزية) مع تعريب شامل</li>
-            <li>تخصيص المظهر (بحري/غابة/تقليدي) مع تغيير فوري للواجهة</li>
-            <li>تقارير ذكية قابلة للتصدير (CSV)</li>
-            <li>سجل كامل للحوادث والشذوذات والتنبيهات</li>
-            <li>تصميم تفاعلي يدعم الجوال والكمبيوتر</li>
-            <li>مصمم للتكامل مستقبلاً مع منصات أرامكو الصناعية</li>
-            </ul>
-
-            <b>رؤيتنا:</b> تحويل البيانات الصناعية إلى رؤى قابلة للتنفيذ لضمان بيئة تشغيل أكثر أمانًا وكفاءة.
-            """, unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-title">{"حول المشروع" if lang=="ar" else "About the Project"}</div>', unsafe_allow_html=True)
+    st.image("https://content.api.news/v3/images/bin/9c4a75c6eb9e80f86de3efebcb97d48a", width=700)
+    st.markdown("""
+    <div class="settings-box">
+        <h3>Disasters don't wait.. and neither do we. <br/>Predict. Prevent. Protect.</h3>
+        <b>المطورون الرئيسيون (Lead Developers):</b>
+        <ul>
+        <li>راكان المري (Rakan Almarri)</li>
+        <li>عبدالرحمن الزهراني (Abdulrahman Alzhrani)</li>
+        </ul>
+        <br>
+        <b>مميزات المشروع:</b>
+        <ul>
+        <li>رصد حي لجميع قراءات الحساسات (Live monitoring)</li>
+        <li>تنبيهات ذكية بالحالات الحرجة وتوصيات فورية</li>
+        <li>توقعات مستقبلية وتحليل متقدم للبيانات</li>
+        <li>خريطة تفاعلية لمواقع الحساسات</li>
+        <li>واجهة تفاعلية متعددة اللغات والثيمات</li>
+        <li>حلول مقترحة ذاتياً للوقاية من المخاطر</li>
+        <li>تصدير البيانات بضغطة زر</li>
+        </ul>
+        <br>
+        <b>الجهة الداعمة:</b> أرامكو السعودية
+        <br>
+        <b>للتواصل:</b>
+        <ul>
+        <li>راكان المري — rakan.almarri.2@aramco.com — 0532559664</li>
+        <li>عبدالرحمن الزهراني — abdulrahman.alzahrani.1@aramco.com — 0549202574</li>
+        </ul>
+        <br>
+        <a href="https://github.com/rrakanmarri1/Smart-neural-digital-twin" target="_blank">GitHub Project</a>
+    </div>
+    """, unsafe_allow_html=True)
