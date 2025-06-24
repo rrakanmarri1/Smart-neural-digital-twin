@@ -431,4 +431,4 @@ routes = {
     "explorer": show_explorer,
     "about": show_about
 }
-routes[st.session_state.page_radio[0][0]]()
+routes[st.session_state.page_radio[0]]()
