@@ -4,7 +4,9 @@ import numpy as np
 import plotly.graph_objs as go
 import joblib
 import os
+import time
 
+# --- SESSION STATE INIT ---
 if "simulate_disaster" not in st.session_state:
     st.session_state["simulate_disaster"] = False
 if "simulate_time" not in st.session_state:
@@ -48,7 +50,7 @@ if "theme_set" not in st.session_state:
     st.session_state["theme_set"] = DEFAULT_THEME
 theme = THEME_SETS[st.session_state["theme_set"]]
 
-# --- TRANSLATIONS (extend as needed) ---
+# --- TRANSLATIONS ---
 translations = {
     "en": {
         "Settings": "Settings", "Choose Language": "Choose Language",
@@ -94,14 +96,22 @@ translations = {
         "energy efficiency improvement": "energy efficiency improvement", "Innovation Award, Best Digital Twin": "Innovation Award, Best Digital Twin",
         "Downtime (hrs)": "Downtime (hrs)", "Summary Table": "Summary Table",
         "Metric": "Metric", "Change": "Change", "Reduce Pressure in Line 3": "Reduce Pressure in Line 3",
+        "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "Schedule Pump Maintenance": "Schedule Pump Maintenance",
-        "Temperature rising above normal.": "Temperature rising above normal."
-        "Emergency Vent Gas!": "Emergency Vent Gas!"
+        "Temperature rising above normal.": "Temperature rising above normal.",
+        "Emergency Vent Gas!": "Emergency Vent Gas!",
         "Immediate venting required in Tank 2 due to critical methane spike.": "Immediate venting required in Tank 2 due to critical methane spike.",
         "Critical disaster detected during simulation.": "Critical disaster detected during simulation.",
         "URGENT": "URGENT",
         "Now": "Now",
+        "High": "High",
+        "15 minutes": "15 minutes",
+        "95%": "95%",
+        "99%": "99%",
+        "Medium": "Medium",
+        "2 hours": "2 hours",
+        "Low": "Low"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -140,13 +150,22 @@ translations = {
         "Amount (SAR)": "المبلغ (ريال)", "Milestones": "الإنجازات", "months zero downtime": "أشهر بدون توقف",
         "energy efficiency improvement": "تحسين كفاءة الطاقة", "Innovation Award, Best Digital Twin": "جائزة الابتكار - أفضل توأم رقمي",
         "Downtime (hrs)": "التوقف (ساعات)", "Summary Table": "جدول ملخص", "Metric": "المقياس", "Change": "التغير",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
-        "Schedule Pump Maintenance": "جدولة صيانة المضخة", "Temperature rising above normal.": "ارتفاع درجة الحرارة عن الحد الطبيعي."
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!"
-         "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع خطير في الميثان.",
-         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-          "URGENT": "عاجل",
-          "Now": "الآن",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣",
+        "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط 3 ونبّه فريق الصيانة للفحص.",
+        "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
+        "Schedule Pump Maintenance": "جدولة صيانة المضخة", "Temperature rising above normal.": "ارتفاع درجة الحرارة عن الحد الطبيعي.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!",
+        "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع خطير في الميثان.",
+        "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
+        "URGENT": "عاجل",
+        "Now": "الآن",
+        "High": "مرتفع",
+        "15 minutes": "15 دقيقة",
+        "95%": "٩٥٪",
+        "99%": "٩٩٪",
+        "Medium": "متوسط",
+        "2 hours": "ساعتان",
+        "Low": "منخفض"
     }
 }
 def get_lang():
@@ -189,7 +208,7 @@ with st.sidebar:
         theme_set = st.selectbox("Theme Set", options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
         if theme_set != st.session_state["theme_set"]:
             st.session_state["theme_set"] = theme_set
-            st.rerun()  # THEME SWITCH: THIS LINE FIXES THE ERROR
+            st.rerun()
     st.markdown("---")
     pages = [
         ("dashboard", _("Dashboard")),
@@ -209,33 +228,20 @@ def rtl_wrap(html):
 
 # --- DASHBOARD ---
 def show_dashboard():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}</div>'), unsafe_allow_html=True)
-    
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}'), unsafe_allow_html=True)
     colA, colB = st.columns([4,1])
     with colB:
         if st.button("🚨 Simulate Disaster"):
             st.session_state["simulate_disaster"] = True
             st.session_state["simulate_time"] = time.time()
-    
-    # Simulate disaster for 30 seconds
     if st.session_state.get("simulate_disaster", False):
         if time.time() - st.session_state.get("simulate_time", 0) > 30:
             st.session_state["simulate_disaster"] = False
-    
-    # Choose what to display
+    # Display sensor data
     if st.session_state.get("simulate_disaster", False):
-        temp = 120
-        pressure = 340
-        vib = 2.3
-        methane = 9.5
-        h2s = 1.2
+        temp = 120; pressure = 340; vib = 2.3; methane = 9.5; h2s = 1.2
     else:
-        temp = 82.7
-        pressure = 202.2
-        vib = 0.61
-        methane = 2.85
-        h2s = 0.30
-
+        temp = 82.7; pressure = 202.2; vib = 0.61; methane = 2.85; h2s = 0.30
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.markdown(rtl_wrap(f'<div class="card"><div class="metric">{temp}°C</div><div class="metric-label">{_("Temperature")}</div></div>'), unsafe_allow_html=True)
     col2.markdown(rtl_wrap(f'<div class="card"><div class="metric">{pressure} psi</div><div class="metric-label">{_("Pressure")}</div></div>'), unsafe_allow_html=True)
@@ -250,7 +256,6 @@ def show_predictive():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="card"><b>{_("Temperature")}</b>: 84.2°C<br><b>{_("Pressure")}</b>: 205 psi<br><b>{_("Methane")}</b>: 3.1 ppm<br><span class="badge">High Risk Area: Tank 3</span></div>'), unsafe_allow_html=True)
-    # Dummy forecast chart
     x = np.arange(0, 7)
     temp_pred = 82 + 2 * np.sin(0.5 * x)
     pressure_pred = 200 + 3 * np.cos(0.5 * x)
@@ -269,10 +274,8 @@ def show_predictive():
 # --- SMART SOLUTIONS ---
 def show_solutions():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Solutions")}</div>'), unsafe_allow_html=True)
-    
     generate = st.button(_("Generate Solution"))
     simulate = st.session_state.get("simulate_disaster", False)
-    
     if generate or simulate:
         with st.spinner(_("Generating solution...")):
             if simulate:
@@ -287,7 +290,7 @@ def show_solutions():
             else:
                 solutions = [{
                     "title": _("Reduce Pressure in Line 3"),
-                    "details": _("Automated system will decrease valve pressure by 15% in Line 3 and alert maintenance crew for inspection."),
+                    "details": _("Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection."),
                     "reason": _("Abnormal vibration detected. This reduces risk."),
                     "priority": _("High"),
                     "effectiveness": _("95%"),
@@ -314,18 +317,17 @@ def show_alerts():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Alerts")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Current Alerts")}</div>'), unsafe_allow_html=True)
     alerts = [
-        {"timestamp": "2025-06-24 13:45", "location": "Tank 3", "msg": _("Methane Spike"), "severity": "High"},
-        {"timestamp": "2025-06-24 13:20", "location": "Pipeline 1", "msg": _("Pressure Drop"), "severity": "Medium"},
-        {"timestamp": "2025-06-24 12:55", "location": "Tank 1", "msg": _("Vibration Anomaly"), "severity": "Low"},
-        {"timestamp": "2025-06-24 12:45", "location": "Compressor B", "msg": _("High Temperature"), "severity": "High"}
+        {"timestamp": "2025-06-24 13:45", "location": "Tank 3", "msg": _("Methane Spike"), "severity": _("High")},
+        {"timestamp": "2025-06-24 13:20", "location": "Pipeline 1", "msg": _("Pressure Drop"), "severity": _("Medium")},
+        {"timestamp": "2025-06-24 12:55", "location": "Tank 1", "msg": _("Vibration Anomaly"), "severity": _("Low")},
+        {"timestamp": "2025-06-24 12:45", "location": "Compressor B", "msg": _("High Temperature"), "severity": _("High")}
     ]
-    # If simulated, show a critical alert!
     if st.session_state.get("simulate_disaster", False):
-        alerts.insert(0, {"timestamp": "NOW", "location": "Tank 2", "msg": _("Methane Spike"), "severity": "High"})
+        alerts.insert(0, {"timestamp": "NOW", "location": "Tank 2", "msg": _("Methane Spike"), "severity": _("High")})
     if alerts:
         df_alerts = pd.DataFrame(alerts)
         df_alerts["severity_color"] = df_alerts["severity"].map({
-            "High": "🔴", "Medium": "🟠", "Low": "🟢"
+            _("High"): "🔴", _("Medium"): "🟠", _("Low"): "🟢"
         })
         df_alerts = df_alerts[["severity_color", "severity", "timestamp", "location", "msg"]]
         df_alerts.columns = ["", _("Severity"), _("Time"), _("Location"), _("Message")]
@@ -429,4 +431,4 @@ routes = {
     "explorer": show_explorer,
     "about": show_about
 }
-routes[st.session_state.page_radio[0]]()
+routes[st.session_state.page_radio[0][0]]()
