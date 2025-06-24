@@ -52,18 +52,75 @@ theme = THEME_SETS.get(st.session_state["theme_set"], THEME_SETS[DEFAULT_THEME])
 
 # --- TRANSLATIONS ---
 translations = {
-    # ... (as in your code)
+    "en": {
+        "Settings": "Settings",
+        "Choose Language": "Choose Language",
+        "Dashboard": "Dashboard",
+        "Predictive Analysis": "Predictive Analysis",
+        "Smart Solutions": "Smart Solutions",
+        "Smart Alerts": "Smart Alerts",
+        "Cost & Savings": "Cost & Savings",
+        "Achievements": "Achievements",
+        "Performance Comparison": "Performance Comparison",
+        "Data Explorer": "Data Explorer",
+        "About": "About",
+        "Navigate to": "Navigate to",
+        "Welcome to your Smart Digital Twin!": "Welcome to your Smart Digital Twin!",
+        "Simulate Disaster": "Simulate Disaster",
+        "Temperature": "Temperature",
+        "Pressure": "Pressure",
+        "Vibration": "Vibration",
+        "Methane": "Methane",
+        "H2S": "H2S",
+        "Live Data": "Live Data",
+        "Time": "Time",
+        "Trend": "Trend",
+        "Theme Set": "Theme Set",
+        "ar": "Arabic",
+        "en": "English"
+    },
+    # Example for Arabic (add more keys as needed)
+    "ar": {
+        "Settings": "الإعدادات",
+        "Choose Language": "اختر اللغة",
+        "Dashboard": "لوحة القيادة",
+        "Predictive Analysis": "التحليل التنبؤي",
+        "Smart Solutions": "الحلول الذكية",
+        "Smart Alerts": "التنبيهات الذكية",
+        "Cost & Savings": "التكلفة والمدخرات",
+        "Achievements": "الإنجازات",
+        "Performance Comparison": "مقارنة الأداء",
+        "Data Explorer": "مستكشف البيانات",
+        "About": "حول",
+        "Navigate to": "انتقل إلى",
+        "Welcome to your Smart Digital Twin!": "مرحبًا بك في التوأم الرقمي الذكي!",
+        "Simulate Disaster": "محاكاة كارثة",
+        "Temperature": "درجة الحرارة",
+        "Pressure": "الضغط",
+        "Vibration": "الاهتزاز",
+        "Methane": "الميثان",
+        "H2S": "كبريتيد الهيدروجين",
+        "Live Data": "بيانات حية",
+        "Time": "الوقت",
+        "Trend": "الاتجاه",
+        "Theme Set": "سمة العرض",
+        "ar": "العربية",
+        "en": "الإنجليزية"
+    }
 }
 
 def get_lang():
     if "lang" not in st.session_state:
         st.session_state["lang"] = "ar"
     return st.session_state["lang"]
+
 def set_lang(lang):
     st.session_state["lang"] = lang
+
 def _(key):
     lang = get_lang()
-    return translations.get(lang, translations["en"]).get(key, key)
+    translation_dict = translations.get(lang, translations.get("en", {}))
+    return translation_dict.get(key, key)
 
 # --- CSS for THEME + Responsive ---
 st.markdown(f"""
@@ -102,12 +159,12 @@ with st.sidebar:
         lang_choice = st.radio(
             _("Choose Language"),
             options=["ar", "en"],
-            format_func=lambda x: _(x.capitalize()),
+            format_func=lambda x: _(x),
             index=0 if get_lang() == "ar" else 1,
             key="lang_radio"
         )
         set_lang(lang_choice)
-        theme_set = st.selectbox("Theme Set", options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
+        theme_set = st.selectbox(_("Theme Set"), options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
         if theme_set != st.session_state["theme_set"]:
             st.session_state["theme_set"] = theme_set
             st.rerun()
@@ -131,8 +188,6 @@ def rtl_wrap(html):
 # --- DASHBOARD ---
 def show_dashboard():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}'), unsafe_allow_html=True)
-    # Responsive: stack columns on mobile
-    # -- FIX: Remove non-existent attribute check and use a simple layout
     cols = st.columns(5)
     colA, colB = st.columns([4,1])
     with colB:
@@ -175,6 +230,15 @@ def show_dashboard():
     st.plotly_chart(fig, use_container_width=True)
 
 # --- ROUTING ---
+def show_predictive(): pass
+def show_solutions(): pass
+def show_alerts(): pass
+def show_cost(): pass
+def show_achievements(): pass
+def show_comparison(): pass
+def show_explorer(): pass
+def show_about(): pass
+
 routes = {
     "dashboard": show_dashboard,
     "predictive": show_predictive,
