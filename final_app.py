@@ -431,4 +431,5 @@ routes = {
     "explorer": show_explorer,
     "about": show_about
 }
-routes[st.session_state.page_radio[0]]()
+selected_page = st.session_state.page_radio  # This is a tuple like ('dashboard', 'Dashboard')
+routes[selected_page[0]]()
