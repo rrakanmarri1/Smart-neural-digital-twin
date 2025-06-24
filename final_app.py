@@ -1,362 +1,369 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-from datetime import timedelta
+import plotly.graph_objs as go
+import os
 
-# إعداد الصفحة
-st.set_page_config(
-    page_title="Smart Neural Digital Twin",
-    page_icon="🧠",
-    layout="wide"
-)
+# Import your real prediction engine
+import prediction_engine
+import joblib
 
-# Session State للإعدادات
-if "language" not in st.session_state:
-    st.session_state.language = "ar"
-if "theme" not in st.session_state:
-    st.session_state.theme = "aramco"
-if "thresholds" not in st.session_state:
-    st.session_state.thresholds = {
-        "Temperature (°C)": 45,
-        "Pressure (psi)": 110,
-        "Vibration (g)": 0.7,
-        # update the methane column key below as needed
-        "Methane (CH₄ ppm)": 12,   # <-- update this if your CSV changes again
-        "H₂S (ppm)": 5
-    }
-
-THEMES = {
-    "forest": {
-        "name": {"en": "Forest", "ar": "الغابة"},
-        "sidebar": "#295135", "main": "#183c24", "accent": "#4caf50"
+# --- TRANSLATIONS ---
+translations = {
+    "en": {
+        "Settings": "Settings",
+        "Choose Language": "Choose Language",
+        "Arabic": "Arabic",
+        "English": "English",
+        "Navigate to": "Navigate to",
+        "Dashboard": "Dashboard",
+        "Predictive Analysis": "Predictive Analysis",
+        "Smart Solutions": "Smart Solutions",
+        "Smart Alerts": "Smart Alerts",
+        "Cost & Savings": "Cost & Savings",
+        "Achievements": "Achievements",
+        "Performance Comparison": "Performance Comparison",
+        "Data Explorer": "Data Explorer",
+        "About": "About",
+        "Welcome to your Smart Digital Twin!": "Welcome to your Smart Digital Twin!",
+        "System Status": "System Status",
+        "Temperature": "Temperature",
+        "Pressure": "Pressure",
+        "Vibration": "Vibration",
+        "Methane": "Methane",
+        "H2S": "H2S",
+        "Live Data": "Live Data",
+        "View Details": "View Details",
+        "Trend": "Trend",
+        "Risk Level": "Risk Level",
+        "Forecast": "Forecast",
+        "Savings": "Savings",
+        "Monthly Savings": "Monthly Savings",
+        "Yearly Savings": "Yearly Savings",
+        "Milestone": "Milestone",
+        "Congratulations!": "Congratulations!",
+        "You have achieved": "You have achieved",
+        "Compared to last period": "Compared to last period",
+        "Data Filters": "Data Filters",
+        "Select Metric": "Select Metric",
+        "About the Project": "About the Project",
+        "Features": "Features",
+        "Contact": "Contact",
+        "No data available.": "No data available.",
+        "Download Report": "Download Report",
+        "Generate Solution": "Generate Solution",
+        "Generating solution...": "Generating solution...",
+        "Press 'Generate Solution' for intelligent suggestions.": "Press 'Generate Solution' for intelligent suggestions.",
+        "Best Solution": "Best Solution",
+        "Reason": "Reason",
+        "Apply": "Apply",
+        "Export": "Export",
+        "Feedback": "Feedback",
+        "Contact Us": "Contact Us",
+        "Project Features": "Project Features",
+        "Alerts": "Alerts",
+        "Current Alerts": "Current Alerts",
+        "No alerts at the moment.": "No alerts at the moment.",
+        "Smart Recommendations": "Smart Recommendations"
     },
-    "ocean": {
-        "name": {"en": "Ocean", "ar": "المحيط"},
-        "sidebar": "#184060", "main": "#162a40", "accent": "#2196f3"
-    },
-    "desert": {
-        "name": {"en": "Desert", "ar": "الصحراء"},
-        "sidebar": "#7b5c2e", "main": "#543913", "accent": "#ffb300"
-    },
-    "night": {
-        "name": {"en": "Night", "ar": "الليل"},
-        "sidebar": "#262626", "main": "#181818", "accent": "#7e57c2"
-    },
-    "aramco": {
-        "name": {"en": "Aramco", "ar": "أرامكو"},
-        "sidebar": "#174766", "main": "#142c3e", "accent": "#36c0a7"
+    "ar": {
+        "Settings": "الإعدادات",
+        "Choose Language": "اختر اللغة",
+        "Arabic": "العربية",
+        "English": "الإنجليزية",
+        "Navigate to": "انتقل إلى",
+        "Dashboard": "لوحة البيانات",
+        "Predictive Analysis": "التحليل التنبؤي",
+        "Smart Solutions": "الحلول الذكية",
+        "Smart Alerts": "تنبيهات ذكية",
+        "Cost & Savings": "التكلفة والتوفير",
+        "Achievements": "لوحة الإنجازات",
+        "Performance Comparison": "مقارنة الأداء",
+        "Data Explorer": "استكشاف البيانات",
+        "About": "حول",
+        "Welcome to your Smart Digital Twin!": "مرحبًا بك في التوأم الرقمي الذكي!",
+        "System Status": "حالة النظام",
+        "Temperature": "درجة الحرارة",
+        "Pressure": "الضغط",
+        "Vibration": "الاهتزاز",
+        "Methane": "الميثان",
+        "H2S": "كبريتيد الهيدروجين",
+        "Live Data": "بيانات حية",
+        "View Details": "عرض التفاصيل",
+        "Trend": "الاتجاه",
+        "Risk Level": "مستوى الخطورة",
+        "Forecast": "توقعات",
+        "Savings": "التوفير",
+        "Monthly Savings": "التوفير الشهري",
+        "Yearly Savings": "التوفير السنوي",
+        "Milestone": "الإنجاز",
+        "Congratulations!": "مبروك!",
+        "You have achieved": "لقد حققت",
+        "Compared to last period": "مقارنة بالفترة السابقة",
+        "Data Filters": "مرشحات البيانات",
+        "Select Metric": "اختر المقياس",
+        "About the Project": "حول المشروع",
+        "Features": "المميزات",
+        "Contact": "تواصل",
+        "No data available.": "لا توجد بيانات متاحة.",
+        "Download Report": "تنزيل التقرير",
+        "Generate Solution": "توليد الحل",
+        "Generating solution...": "جاري توليد الحل...",
+        "Press 'Generate Solution' for intelligent suggestions.": "اضغط على 'توليد الحل' للحصول على اقتراحات ذكية.",
+        "Best Solution": "أفضل حل",
+        "Reason": "السبب",
+        "Apply": "تطبيق",
+        "Export": "تصدير",
+        "Feedback": "ملاحظات",
+        "Contact Us": "تواصل معنا",
+        "Project Features": "مميزات المشروع",
+        "Alerts": "تنبيهات",
+        "Current Alerts": "التنبيهات الحالية",
+        "No alerts at the moment.": "لا توجد تنبيهات حالياً.",
+        "Smart Recommendations": "التوصيات الذكية"
     }
 }
 
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_csv("sensor_data_simulated_long.csv", parse_dates=["Timestamp"])
-        df = df.sort_values("Timestamp").reset_index(drop=True)
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
+def get_lang():
+    if "lang" not in st.session_state:
+        st.session_state["lang"] = "ar"
+    return st.session_state["lang"]
 
-df = load_data()
-st.write("بيانات الأعمدة:", df.columns.tolist())  # Show columns for debugging
+def set_lang(lang):
+    st.session_state["lang"] = lang
 
 def _(key):
-    d = {
-        "ar": {
-            "dashboard": "لوحة البيانات",
-            "predictive": "التحليل التنبؤي",
-            "sensor_map": "خريطة الحساسات",
-            "incident_log": "سجل الحوادث",
-            "solutions": "الحلول الذكية",
-            "report": "التقارير والتصدير",
-            "cost": "التكلفة والتوفير",
-            "settings": "الإعدادات",
-            "about": "حول",
-            "temperature": "درجة الحرارة",
-            "pressure": "الضغط",
-            "vibration": "الاهتزاز",
-            "methane": "الميثان",
-            "h2s": "كبريتيد الهيدروجين",
-            "trend": "الاتجاهات",
-            "lang": "اللغة",
-            "theme": "الثيم",
-            "set_thresholds": "تخصيص العتبات",
-            "download_csv": "تحميل البيانات كـ CSV",
-            "incident": "نوع الحادث",
-            "time": "الوقت",
-            "details": "التفاصيل",
-            "generate_solution": "توليد حل",
-            "smart_recommendation": "توصية ذكية",
-            "no_incidents": "لا توجد حوادث مسجلة.",
-            "prediction_days": "اختر عدد أيام التوقع",
-            "disasters": "الكوارث لا تنتظر... ونحن أيضًا لا ننتظر. توقّع. وقاية. حماية.",
-            "our_vision": "رؤيتنا",
-            "about_body": """
-مشروع التوأم الرقمي الذكي منصة تفاعلية لمراقبة وتحليل بيانات السلامة في المنشآت الصناعية. يوفر:
-- مراقبة لحظية لقراءات الحساسات الحيوية.
-- تنبؤ دقيق للمخاطر حتى 14 يومًا (قابل للتخصيص).
-- توصيات ذكية مع الأولوية والمدة والفعالية.
-- سجل كامل للحوادث والتنبيهات.
-- تقارير سريعة وتصدير CSV بضغطة زر.
-- حساب تقديري للتوفير المالي بفضل الكشف المبكر.
+    lang = get_lang()
+    return translations[lang].get(key, key)
 
-للتواصل:
-راكان المري – rakan.almarri.2@aramco.com – 0532559664
-عبدالرحمن الزهراني – abdulrahman.alzhrani.1@aramco.com – 0549202574
-"""
-        },
-        "en": {
-            "dashboard": "Dashboard",
-            "predictive": "Predictive Analysis",
-            "sensor_map": "Sensor Map",
-            "incident_log": "Incident Log",
-            "solutions": "Smart Solutions",
-            "report": "Report & Export",
-            "cost": "Cost Savings",
-            "settings": "Settings",
-            "about": "About",
-            "temperature": "Temperature",
-            "pressure": "Pressure",
-            "vibration": "Vibration",
-            "methane": "Methane",
-            "h2s": "H₂S",
-            "trend": "Trends",
-            "lang": "Language",
-            "theme": "Theme",
-            "set_thresholds": "Customize Thresholds",
-            "download_csv": "Download CSV",
-            "incident": "Incident Type",
-            "time": "Time",
-            "details": "Details",
-            "generate_solution": "Generate Solution",
-            "smart_recommendation": "Smart Recommendation",
-            "no_incidents": "No incidents recorded.",
-            "prediction_days": "Prediction days",
-            "disasters": "Disasters don't wait... and neither do we. Predict. Prevent. Protect.",
-            "our_vision": "Our Vision",
-            "about_body": """
-Smart Neural Digital Twin is an interactive platform for monitoring and analyzing safety data in industrial sites. It offers:
-- Real-time monitoring of critical sensor readings.
-- Accurate risk forecasting up to 14 days ahead (configurable).
-- Smart recommendations with priority, duration & effectiveness.
-- Full incident log and alert history.
-- Quick reports and one-click CSV export.
-- Estimated cost savings via early incident detection.
+st.set_page_config(page_title="Smart Digital Twin", layout="wide", page_icon="🌐")
 
-Contact:
-Rakan Almarri – rakan.almarri.2@aramco.com – 0532559664
-Abdulrahman Alzhrani – abdulrahman.alzhrani.1@aramco.com – 0549202574
-"""
-        }
-    }
-    try:
-        return d[st.session_state.language][key]
-    except KeyError:
-        return key
-
-theme = THEMES[st.session_state.theme]
-st.markdown(f"""
+st.markdown("""
     <style>
-    body {{ background: {theme['main']} !important; color: #fff; }}
-    [data-testid="stSidebar"] {{ background: {theme['sidebar']} !important; color: #fff; }}
-    .stApp {{ background-color: {theme['main']} !important; }}
-    .main-header {{ font-size:2.3em; font-weight:bold; text-align:center; color: {theme['accent']}; padding:0.3em 0; }}
-    .stButton > button {{ color: white !important; background: {theme['accent']} !important; border-radius: 2em; }}
-    .stRadio > div, .stRadio > label {{ color: #fff !important; font-size: 1.1em; }}
+    body, .stApp { background-color: #153243 !important; }
+    .big-title { color: #21e6c1; font-size:2.3rem; font-weight:bold; margin-bottom:10px;}
+    .sub-title { color: #21e6c1; font-size:1.4rem; margin-bottom:10px;}
+    .card { background: #278ea5; border-radius: 16px; padding: 18px 24px; margin-bottom:16px; color: #fff; }
+    .metric {font-size:2.1rem; font-weight:bold;}
+    .metric-label {font-size:1.1rem; color:#21e6c1;}
+    .alert {background:#ff3e3e; color:#fff; border-radius:12px; padding:12px;}
+    .badge { background: #21e6c1; color:#153243; padding: 2px 12px; border-radius: 20px; margin-right: 10px;}
+    .rtl { direction: rtl; }
     </style>
 """, unsafe_allow_html=True)
 
-PAGES = [
-    ("dashboard", "📊"),
-    ("predictive", "📈"),
-    ("sensor_map", "🗺️"),
-    ("incident_log", "🛑"),
-    ("solutions", "🤖"),
-    ("report", "📑"),
-    ("cost", "💰"),
-    ("settings", "⚙️"),
-    ("about", "ℹ️")
-]
+with st.sidebar:
+    st.title(_("Settings"))
+    lang_choice = st.radio(
+        _("Choose Language"),
+        options=["ar", "en"],
+        format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
+        index=0 if get_lang() == "ar" else 1
+    )
+    set_lang(lang_choice)
+    st.markdown("---")
+    pages = [
+        ("dashboard", _("Dashboard")),
+        ("predictive", _("Predictive Analysis")),
+        ("solutions", _("Smart Solutions")),
+        ("alerts", _("Smart Alerts")),
+        ("cost", _("Cost & Savings")),
+        ("achievements", _("Achievements")),
+        ("comparison", _("Performance Comparison")),
+        ("explorer", _("Data Explorer")),
+        ("about", _("About")),
+    ]
+    page = st.selectbox(_("Navigate to"), options=pages, format_func=lambda x: x[1])
 
-def menu_layout():
-    st.markdown(f"<div class='main-header'>{_('our_vision')}</div>", unsafe_allow_html=True)
-    cols = st.columns(len(PAGES))
-    sel = None
-    for i, (pg, emoji) in enumerate(PAGES):
-        if cols[i].button(f"{emoji} {_(''+pg)}"):
-            sel = pg
-    if not sel:
-        sel = PAGES[0][0]
-    return sel
+def rtl_wrap(html):
+    return f'<div class="rtl">{html}</div>' if get_lang() == "ar" else html
 
-page = menu_layout()
+# --- Load prediction models on startup (cache for performance) ---
+@st.cache_resource
+def load_models():
+    model_path = "prediction_models.pkl"
+    if os.path.exists(model_path):
+        return joblib.load(model_path)
+    else:
+        return None
 
-if df.empty:
-    st.error("No data loaded. Check if the CSV file exists and has the required columns.")
-else:
-    if page == "dashboard":
-        st.subheader(f"🟢 {_('dashboard')}")
-        last = df.iloc[-1]
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric(_("temperature"), f"{last['Temperature (°C)']:.2f} °C")
-        c2.metric(_("pressure"), f"{last['Pressure (psi)']:.2f} psi")
-        c3.metric(_("vibration"), f"{last['Vibration (g)']:.2f} g")
-        c4.metric(_("methane"), f"{last['Methane (CH₄ ppm)']:.2f} ppm")  # methane key here
-        c5.metric(_("h2s"), f"{last['H₂S (ppm)']:.2f} ppm")
-        st.plotly_chart(
-            px.line(df, x="Timestamp", y=[
-                "Temperature (°C)", "Pressure (psi)", "Vibration (g)",
-                "Methane (CH₄ ppm)", "H₂S (ppm)"
-            ], title=_("trend"), template="plotly_dark"),
-            use_container_width=True
-        )
+prediction_models = load_models()
 
-    elif page == "predictive":
-        st.subheader(f"🔮 {_('predictive')}")
-        pred_days = st.slider(_("prediction_days"), 1, 14, 3)
-        n_pred = pred_days * 24
-        last_time = df["Timestamp"].iloc[-1]
-        dt = df["Timestamp"].diff().median()
-        future_times = [last_time + i*dt for i in range(1, n_pred+1)]
-        pred = {col: [df[col].rolling(24, min_periods=1).mean().iloc[-1]]*n_pred
-                for col in ["Temperature (°C)", "Pressure (psi)", "Vibration (g)", "Methane (CH₄ ppm)", "H₂S (ppm)"]}
-        pred_df = pd.DataFrame(pred)
-        pred_df["Timestamp"] = future_times
-        plot_df = pd.concat([df.tail(48), pred_df]).reset_index(drop=True)
-        fig = px.line(
-            plot_df, x="Timestamp",
-            y=["Temperature (°C)", "Pressure (psi)", "Vibration (g)", "Methane (CH₄ ppm)", "H₂S (ppm)"],
-            title=f"{_('trend')} ({pred_days} days ahead)", template="plotly_dark"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        st.info(_("disasters"))
+def show_dashboard():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}</div>'), unsafe_allow_html=True)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.markdown(rtl_wrap(f'<div class="card"><div class="metric">82.7°C</div><div class="metric-label">{_("Temperature")}</div></div>'), unsafe_allow_html=True)
+    col2.markdown(rtl_wrap(f'<div class="card"><div class="metric">202.2 psi</div><div class="metric-label">{_("Pressure")}</div></div>'), unsafe_allow_html=True)
+    col3.markdown(rtl_wrap(f'<div class="card"><div class="metric">0.61 g</div><div class="metric-label">{_("Vibration")}</div></div>'), unsafe_allow_html=True)
+    col4.markdown(rtl_wrap(f'<div class="card"><div class="metric">2.85 ppm</div><div class="metric-label">{_("Methane")}</div></div>'), unsafe_allow_html=True)
+    col5.markdown(rtl_wrap(f'<div class="card"><div class="metric">0.30 ppm</div><div class="metric-label">{_("H2S")}</div></div>'), unsafe_allow_html=True)
+    st.markdown("")
 
-    elif page == "sensor_map":
-        st.subheader(f"🗺️ {_('sensor_map')}")
-        st.info("مواقع الحساسات افتراضية للنموذج.")
-        coords = df.assign(
-            lat=lambda d: 25 + np.sin(np.arange(len(d))/30)*0.05,
-            lon=lambda d: 49 + np.cos(np.arange(len(d))/30)*0.05
-        ).iloc[::24]
-        st.map(coords.rename(columns={"lat":"lat","lon":"lon"})[["lat","lon"]])
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
+    df = pd.DataFrame({
+        _("Temperature"): 82 + 2 * pd.np.sin(pd.np.linspace(0, 3.14, 40)),
+        _("Pressure"): 200 + 4 * pd.np.cos(pd.np.linspace(0, 3.14, 40)),
+        _("Vibration"): 0.6 + 0.05 * pd.np.sin(pd.np.linspace(0, 6.28, 40)),
+        _("Methane"): 2.8 + 0.1 * pd.np.random.rand(40),
+        _("H2S"): 0.3 + 0.05 * pd.np.random.rand(40),
+    })
+    fig = go.Figure()
+    for col in df.columns:
+        fig.add_trace(go.Scatter(y=df[col], mode='lines', name=col))
+    fig.update_layout(
+        xaxis_title="Time",
+        yaxis_title=_("Trend"),
+        plot_bgcolor="#153243",
+        paper_bgcolor="#153243",
+        font=dict(color="#21e6c1"),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-    elif page == "incident_log":
-        st.subheader(f"🛑 {_('incident_log')}")
-        incidents = [
-            {"Timestamp": r["Timestamp"], "Incident": key, "Value": r[key]}
-            for _, r in df.iterrows()
-            for key, th in st.session_state.thresholds.items()
-            if r[key] > th
-        ]
-        if not incidents:
-            st.success(_("no_incidents"))
-        else:
-            st.dataframe(pd.DataFrame(incidents))
+def show_predictive():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
 
-    elif page == "solutions":
-        st.subheader(f"🤖 {_('solutions')}")
-        last = df.iloc[-1]
-        sols = []
-        thr = st.session_state.thresholds
-        if last["Temperature (°C)"] > thr["Temperature (°C)"]:
-            sols.append({"solution": "تفعيل التبريد", "duration":"5m","priority":"High","effectiveness":"95%"})
-        if last["Pressure (psi)"] > thr["Pressure (psi)"]:
-            sols.append({"solution": "مراجعة الصمامات", "duration":"10m","priority":"Medium","effectiveness":"80%"})
-        if last["Methane (CH₄ ppm)"] > thr["Methane (CH₄ ppm)"]:
-            sols.append({"solution": "عزل المنطقة", "duration":"2m","priority":"High","effectiveness":"97%"})
-        if last["H₂S (ppm)"] > thr["H₂S (ppm)"]:
-            sols.append({"solution": "إخلاء فوري", "duration":"1m","priority":"Critical","effectiveness":"99%"})
-        if last["Vibration (g)"] > thr["Vibration (g)"]:
-            sols.append({"solution": "فحص المضخات", "duration":"7m","priority":"Medium","effectiveness":"88%"})
-        if sols:
-            if st.button(_("generate_solution")):
-                st.dataframe(pd.DataFrame(sols))
-        else:
-            st.success(_("smart_recommendation") + ": الوضع مستقر.")
+    if not prediction_models:
+        st.error("Prediction model not found! Please train your model and place prediction_models.pkl in the app directory.")
+        return
 
-    elif page == "report":
-        st.subheader(f"📑 {_('report')}")
-        st.download_button(_("download_csv"), df.to_csv(index=False), file_name="report.csv", mime="text/csv")
-        st.dataframe(df.tail(168))
+    try:
+        predictions = prediction_engine.predict_future_values(prediction_models, hours_ahead=6)
+    except Exception as e:
+        st.error(f"Prediction engine error: {e}")
+        return
 
-    elif page == "cost":
-        st.subheader(f"💰 {_('cost')}")
-        count = sum(1 for _, r in df.iterrows() for key, th in st.session_state.thresholds.items() if r[key] > th)
-        saved = count * 35000
-        st.metric(_("cost"), f"{saved:,.0f} SAR")
-        st.write(_("disasters"))
+    # Map repo sensor names to display names
+    sensor_map = {
+        'Temperature (°C)': _("Temperature"),
+        'Pressure (psi)': _("Pressure"),
+        'Vibration (g)': _("Vibration"),
+        'Methane (CH₄ ppm)': _("Methane"),
+        'H₂S (ppm)': _("H2S")
+    }
 
-    elif page == "settings":
-        st.subheader(f"⚙️ {_('settings')}")
-        lang = st.radio(_("lang"), ["ar", "en"], index=0 if st.session_state.language=="ar" else 1, horizontal=True)
-        if lang != st.session_state.language:
-            st.session_state.language = lang
-            st.experimental_rerun()
-        theme_keys = list(THEMES.keys())
-        idx = theme_keys.index(st.session_state.theme)
-        th = st.radio(_("theme"), theme_keys, index=idx, horizontal=True, format_func=lambda x: THEMES[x]["name"][st.session_state.language])
-        if th != st.session_state.theme:
-            st.session_state.theme = th
-            st.experimental_rerun()
-        st.markdown(f"### {_('set_thresholds')}")
-        for key in st.session_state.thresholds:
-            st.session_state.thresholds[key] = st.slider(
-                key, float(df[key].min()), float(df[key].max()), float(st.session_state.thresholds[key])
-            )
+    display_selected = [_("Temperature"), _("Pressure"), _("Methane")]
 
-    elif page == "about":
-        st.subheader(f"ℹ️ {_('about')}")
-        st.markdown(f"### 💡 {_('our_vision')}")
-        st.markdown(f"> {_('disasters')}")
-        st.markdown(_ ("about_body"))
-        st.markdown("---")
-        if st.session_state.language == "ar":
-            st.markdown("## ✨ مميزات المشروع")
-            st.markdown("""
-- مراقبة لحظية لقراءات الحساسات الحيوية.
-- تنبؤ دقيق للمخاطر حتى 14 يومًا (قابل للتخصيص).
-- توصيات ذكية مع الأولوية والمدة والفعالية.
-- سجل كامل للحوادث والتنبيهات.
-- تقارير سريعة وتصدير CSV بضغطة زر.
-- حساب تقديري للتوفير المالي بفضل الكشف المبكر.
-""")
-            st.markdown("## 📞 تواصل معنا")
-            st.markdown("""
-**راكان المري**  
-rakan.almarri.2@aramco.com  
-0532559664  
+    # For each sensor, show predictions
+    for repo_sensor, display_sensor in sensor_map.items():
+        if display_sensor not in display_selected:
+            continue
+        future_list = predictions.get(repo_sensor, [])
+        if not future_list:
+            continue
+        risk = "Low"
+        if display_sensor == _("Methane"):
+            risk = "High"
+        elif display_sensor == _("Pressure"):
+            risk = "Medium"
+        risk_badge = f'<span class="badge">{_("Risk Level")}: {risk}</span>'
+        # Show only the last prediction for card
+        last_pred = future_list[-1]
+        st.markdown(rtl_wrap(f'<div class="card">{risk_badge}<br><b>{display_sensor}:</b> {last_pred["value"]:.2f} {repo_sensor.split()[-1]}</div>'), unsafe_allow_html=True)
 
-**عبدالرحمن الزهراني**  
-abdulrahman.alzhrani.1@aramco.com  
-0549202574
-""")
-        else:
-            st.markdown("## ✨ Key Features")
-            st.markdown("""
-- Real-time monitoring of critical sensor readings.
-- Accurate risk forecasting up to 14 days ahead (configurable).
-- Smart recommendations with priority, duration & effectiveness.
-- Full incident log and alert history.
-- Quick reports and one-click CSV export.
-- Estimated cost savings via early incident detection.
-""")
-            st.markdown("## 📞 Contact Us")
-            st.markdown("""
-**Rakan Almarri**  
-rakan.almarri.2@aramco.com  
-0532559664  
+    # Plot all predictions
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Trend")}</div>'), unsafe_allow_html=True)
+    fig = go.Figure()
+    for repo_sensor, display_sensor in sensor_map.items():
+        if display_sensor not in display_selected:
+            continue
+        y = [x["value"] for x in predictions.get(repo_sensor, [])]
+        x = [x["hours_ahead"] for x in predictions.get(repo_sensor, [])]
+        fig.add_trace(go.Scatter(x=x, y=y, mode='lines+markers', name=display_sensor))
+    fig.update_layout(
+        xaxis_title="Hours Ahead",
+        yaxis_title=_("Forecast"),
+        plot_bgcolor="#153243",
+        paper_bgcolor="#153243",
+        font=dict(color="#21e6c1"),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-**Abdulrahman Alzhrani**  
-abdulrahman.alzhrani.1@aramco.com  
-0549202574
-""")
+def show_solutions():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Solutions")}</div>'), unsafe_allow_html=True)
+    if st.button(_("Generate Solution")):
+        with st.spinner(_("Generating solution...")):
+            solutions = [
+                {"title": _("Reduce Pressure in Line 3"), "reason": _("Abnormal vibration detected. This reduces risk.")},
+                {"title": _("Schedule Pump Maintenance"), "reason": _("Temperature rising above normal.")},
+            ]
+        for idx, sol in enumerate(solutions):
+            badge = f'<span class="badge">{_("Best Solution") if idx==0 else _("Smart Recommendations")}</span>'
+            st.markdown(rtl_wrap(f'<div class="card">{badge}<br><b>{sol["title"]}</b><br>{_("Reason")}: {sol["reason"]}<br>'
+                        f'<button style="margin-top:8px;background:#21e6c1;color:#153243;border:none;border-radius:8px;padding:5px 12px;">{_("Apply")}</button> '
+                        f'<button style="margin-top:8px;background:#278ea5;color:#fff;border:none;border-radius:8px;padding:5px 12px;">{_("Export")}</button> '
+                        f'<button style="margin-top:8px;background:transparent;color:#21e6c1;border:1px solid #21e6c1;border-radius:8px;padding:5px 12px;">{_("Feedback")}</button>'
+                        f'</div>'), unsafe_allow_html=True)
+    else:
+        st.info(_("Press 'Generate Solution' for intelligent suggestions."))
 
-        st.markdown("---")
-        st.markdown(
-            f"<div style='text-align:center; color:{theme['accent']}; padding:1em;'>"
-            f"🧠 Smart Neural Digital Twin | © 2025"
-            "</div>",
-            unsafe_allow_html=True
-        )
+def show_alerts():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Alerts")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Current Alerts")}</div>'), unsafe_allow_html=True)
+    alerts = [
+        {"msg": _("High Pressure Detected in Zone 2!"), "severity": "high"},
+        {"msg": _("Methane levels rising in Tank 1."), "severity": "medium"},
+    ]
+    if alerts:
+        for a in alerts:
+            col = "#ff3e3e" if a["severity"]=="high" else "#ffc107"
+            st.markdown(rtl_wrap(f'<div class="alert" style="background:{col}">{a["msg"]}</div>'), unsafe_allow_html=True)
+    else:
+        st.info(_("No alerts at the moment."))
+
+def show_cost():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Cost & Savings")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><div class="metric">5,215,000 SAR</div><div class="metric-label">{_("Yearly Savings")}</div></div>'), unsafe_allow_html=True)
+    months = [f"{i+1}/2025" for i in range(6)]
+    savings = [400000, 450000, 500000, 550000, 600000, 650000]
+    fig = go.Figure(go.Bar(x=months, y=savings, marker_color="#21e6c1"))
+    fig.update_layout(
+        xaxis_title=_("Monthly Savings"),
+        yaxis_title=_("Savings"),
+        plot_bgcolor="#153243",
+        paper_bgcolor="#153243",
+        font=dict(color="#21e6c1"),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+def show_achievements():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Achievements")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Milestone")}</span><br>{_("Congratulations!")}<br>{_("You have achieved")} <b>100</b> {"days without incidents"}!</div>'), unsafe_allow_html=True)
+    st.progress(0.85, text=_("Compared to last period"))
+
+def show_comparison():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Performance Comparison")}</div>'), unsafe_allow_html=True)
+    metrics = [_("Temperature"), _("Pressure"), _("Savings")]
+    values_now = [82.7, 202.2, 650000]
+    values_prev = [85, 204, 500000]
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=metrics, y=values_now, name=_("Current")))
+    fig.add_trace(go.Bar(x=metrics, y=values_prev, name=_("Previous")))
+    fig.update_layout(barmode='group', plot_bgcolor="#153243", paper_bgcolor="#153243", font=dict(color="#21e6c1"))
+    st.plotly_chart(fig, use_container_width=True)
+
+def show_explorer():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Data Explorer")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Data Filters")}</div>'), unsafe_allow_html=True)
+    metrics = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
+    metric = st.selectbox(_("Select Metric"), options=metrics)
+    data = pd.DataFrame({metric: 80 + 5 * pd.np.random.rand(30)})
+    st.line_chart(data)
+
+def show_about():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<div class='card'><b>{_('Project Features')}</b><ul><li>{_('AI-powered predictive analytics')}</li><li>{_('Instant smart solutions')}</li><li>{_('Live alerts and monitoring')}</li><li>{_('Multi-language support')}</li><li>{_('Stunning, responsive UI')}</li></ul></div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<div class='card'><b>{_('Contact Us')}</b><br>rrakanmarri1@gmail.com</div>"), unsafe_allow_html=True)
+
+routes = {
+    "dashboard": show_dashboard,
+    "predictive": show_predictive,
+    "solutions": show_solutions,
+    "alerts": show_alerts,
+    "cost": show_cost,
+    "achievements": show_achievements,
+    "comparison": show_comparison,
+    "explorer": show_explorer,
+    "about": show_about
+}
+routes[page[0]]()
