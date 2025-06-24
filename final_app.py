@@ -5,6 +5,11 @@ import plotly.graph_objs as go
 import joblib
 import os
 
+if "simulate_disaster" not in st.session_state:
+    st.session_state["simulate_disaster"] = False
+if "simulate_time" not in st.session_state:
+    st.session_state["simulate_time"] = 0
+
 # --- COLOR THEMES ---
 THEME_SETS = {
     "Ocean": {
@@ -92,6 +97,11 @@ translations = {
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "Schedule Pump Maintenance": "Schedule Pump Maintenance",
         "Temperature rising above normal.": "Temperature rising above normal."
+        "Emergency Vent Gas!": "Emergency Vent Gas!"
+        "Immediate venting required in Tank 2 due to critical methane spike.": "Immediate venting required in Tank 2 due to critical methane spike.",
+        "Critical disaster detected during simulation.": "Critical disaster detected during simulation.",
+        "URGENT": "URGENT",
+        "Now": "Now",
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -132,6 +142,11 @@ translations = {
         "Downtime (hrs)": "التوقف (ساعات)", "Summary Table": "جدول ملخص", "Metric": "المقياس", "Change": "التغير",
         "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "Schedule Pump Maintenance": "جدولة صيانة المضخة", "Temperature rising above normal.": "ارتفاع درجة الحرارة عن الحد الطبيعي."
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!"
+         "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع خطير في الميثان.",
+         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
+          "URGENT": "عاجل",
+          "Now": "الآن",
     }
 }
 def get_lang():
@@ -196,7 +211,6 @@ def rtl_wrap(html):
 def show_dashboard():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}</div>'), unsafe_allow_html=True)
     
-    # Simulate Disaster Button
     colA, colB = st.columns([4,1])
     with colB:
         if st.button("🚨 Simulate Disaster"):
@@ -204,12 +218,12 @@ def show_dashboard():
             st.session_state["simulate_time"] = time.time()
     
     # Simulate disaster for 30 seconds
-    if st.session_state["simulate_disaster"]:
-        if time.time() - st.session_state["simulate_time"] > 30:
+    if st.session_state.get("simulate_disaster", False):
+        if time.time() - st.session_state.get("simulate_time", 0) > 30:
             st.session_state["simulate_disaster"] = False
     
     # Choose what to display
-    if st.session_state["simulate_disaster"]:
+    if st.session_state.get("simulate_disaster", False):
         temp = 120
         pressure = 340
         vib = 2.3
@@ -255,35 +269,30 @@ def show_predictive():
 # --- SMART SOLUTIONS ---
 def show_solutions():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Solutions")}</div>'), unsafe_allow_html=True)
-    if st.button(_("Generate Solution")) or st.session_state.get("simulate_disaster", False):
+    
+    generate = st.button(_("Generate Solution"))
+    simulate = st.session_state.get("simulate_disaster", False)
+    
+    if generate or simulate:
         with st.spinner(_("Generating solution...")):
-            solutions = [
-                {
+            if simulate:
+                solutions = [{
                     "title": _("Emergency Vent Gas!"),
                     "details": _("Immediate venting required in Tank 2 due to critical methane spike."),
                     "reason": _("Critical disaster detected during simulation."),
                     "priority": _("URGENT"),
                     "effectiveness": _("99%"),
                     "estimated_time": _("Now")
-                }
-            ] if st.session_state.get("simulate_disaster", False) else [
-                {
+                }]
+            else:
+                solutions = [{
                     "title": _("Reduce Pressure in Line 3"),
                     "details": _("Automated system will decrease valve pressure by 15% in Line 3 and alert maintenance crew for inspection."),
                     "reason": _("Abnormal vibration detected. This reduces risk."),
                     "priority": _("High"),
                     "effectiveness": _("95%"),
                     "estimated_time": _("15 minutes")
-                },
-                {
-                    "title": _("Schedule Pump Maintenance"),
-                    "details": _("Predictive models indicate wear in Pump A. Schedule preventive maintenance to avoid future failure."),
-                    "reason": _("Temperature rising above normal."),
-                    "priority": _("Medium"),
-                    "effectiveness": _("85%"),
-                    "estimated_time": _("2 hours")
-                }
-            ]
+                }]
         for sol in solutions:
             badge = f'<span class="badge">{_("Smart Recommendations")}</span>'
             st.markdown(rtl_wrap(
