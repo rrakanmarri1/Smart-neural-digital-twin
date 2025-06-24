@@ -74,12 +74,8 @@ translations = {
         "H2S": "H2S",
         "Live Data": "Live Data",
         "Time": "Time",
-        "Trend": "Trend",
-        "Theme Set": "Theme Set",
-        "ar": "Arabic",
-        "en": "English"
+        "Trend": "Trend"
     },
-    # Example for Arabic (add more keys as needed)
     "ar": {
         "Settings": "الإعدادات",
         "Choose Language": "اختر اللغة",
@@ -102,10 +98,7 @@ translations = {
         "H2S": "كبريتيد الهيدروجين",
         "Live Data": "بيانات حية",
         "Time": "الوقت",
-        "Trend": "الاتجاه",
-        "Theme Set": "سمة العرض",
-        "ar": "العربية",
-        "en": "الإنجليزية"
+        "Trend": "الاتجاه"
     }
 }
 
@@ -164,7 +157,7 @@ with st.sidebar:
             key="lang_radio"
         )
         set_lang(lang_choice)
-        theme_set = st.selectbox(_("Theme Set"), options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
+        theme_set = st.selectbox("Theme Set", options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
         if theme_set != st.session_state["theme_set"]:
             st.session_state["theme_set"] = theme_set
             st.rerun()
