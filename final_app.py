@@ -112,6 +112,8 @@ translations = {
         "Medium": "Medium",
         "2 hours": "2 hours",
         "Low": "Low"
+        "Simulate Disaster": "Simulate Disaster"
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts anomalies, generates instant smart solutions, and helps operators prevent accidents, downtime, and losses. The platform features multi-language support and interactive dashboards, making it accessible and actionable for everyone."
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -166,6 +168,8 @@ translations = {
         "Medium": "متوسط",
         "2 hours": "ساعتان",
         "Low": "منخفض"
+        "simulate disaster": "محاكاة الخطر"
+       "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية والحقول النفطية. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالحالات الشاذة ويولد حلولاً فورية ذكية، ويساعد المشغلين على منع الحوادث والتوقفات والخسائر. يتميز النظام بدعم لغات متعددة ولوحات بيانات تفاعلية، مما يجعله سهل الوصول ومفيدًا للجميع."
     }
 }
 def get_lang():
@@ -231,7 +235,7 @@ def show_dashboard():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}'), unsafe_allow_html=True)
     colA, colB = st.columns([4,1])
     with colB:
-        if st.button("🚨 Simulate Disaster"):
+        if st.button("🚨 " + _("Simulate Disaster")):
             st.session_state["simulate_disaster"] = True
             st.session_state["simulate_time"] = time.time()
     if st.session_state.get("simulate_disaster", False):
@@ -248,8 +252,27 @@ def show_dashboard():
     col3.markdown(rtl_wrap(f'<div class="card"><div class="metric">{vib} g</div><div class="metric-label">{_("Vibration")}</div></div>'), unsafe_allow_html=True)
     col4.markdown(rtl_wrap(f'<div class="card"><div class="metric">{methane} ppm</div><div class="metric-label">{_("Methane")}</div></div>'), unsafe_allow_html=True)
     col5.markdown(rtl_wrap(f'<div class="card"><div class="metric">{h2s} ppm</div><div class="metric-label">{_("H2S")}</div></div>'), unsafe_allow_html=True)
-    st.markdown("")
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
+   st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
+# Dummy trend chart for demo
+import plotly.graph_objs as go
+dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
+df = pd.DataFrame({
+    _("Temperature"): 80 + 5 * np.random.rand(40),
+    _("Pressure"): 200 + 10 * np.random.rand(40),
+    _("Methane"): 2.5 + 0.5 * np.random.rand(40),
+    _("Vibration"): 0.6 + 0.1 * np.random.rand(40),
+    _("H2S"): 0.3 + 0.05 * np.random.rand(40)
+}, index=dates)
+fig = go.Figure()
+for col in df.columns:
+    fig.add_trace(go.Scatter(y=df[col], x=df.index, mode='lines', name=col, line=dict(width=3)))
+fig.update_layout(
+    xaxis_title=_("Time"), yaxis_title=_("Trend"),
+    plot_bgcolor=theme['plot_bg'], paper_bgcolor=theme['plot_bg'],
+    font=dict(color=theme['text_on_primary']),
+    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+)
+st.plotly_chart(fig, use_container_width=True)
 
 # --- PREDICTIVE ANALYSIS ---
 def show_predictive():
@@ -403,9 +426,7 @@ def show_explorer():
 # --- ABOUT PAGE ---
 def show_about():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(
-        "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts anomalies, generates instant smart solutions, and helps operators prevent accidents, downtime, and losses. The platform features multi-language support and interactive dashboards, making it accessible and actionable for everyone."
-    ), unsafe_allow_html=True)
+st.markdown(rtl_wrap(_("About Project Description")), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Our Vision")}</span><br><i>{_("Disasters don\'t wait.. and neither do we.")}</i></div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Features')}</span><ul>"
         f"<li>{_('AI-powered predictive analytics')}</li>"
