@@ -1,11 +1,46 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objs as go
 import os
 
-# Import your real prediction engine
 import prediction_engine
 import joblib
+
+# --- THEME SETTINGS ---
+DEFAULT_THEME = "dark"
+DEFAULT_ACCENT = "teal"
+
+THEMES = {
+    "dark": {
+        "background": "#153243",
+        "foreground": "#21e6c1",
+        "card": "#278ea5",
+        "text": "#fff",
+        "alert_high": "#ff3e3e",
+        "alert_med": "#ffc107",
+        "badge": "#21e6c1",
+        "secondary_bg": "#18465b"
+    },
+    "light": {
+        "background": "#f6f6f6",
+        "foreground": "#278ea5",
+        "card": "#fff",
+        "text": "#153243",
+        "alert_high": "#ff3e3e",
+        "alert_med": "#ffc107",
+        "badge": "#278ea5",
+        "secondary_bg": "#e6f0f3"
+    }
+}
+
+ACCENT_COLORS = {
+    "teal": "#21e6c1",
+    "blue": "#278ea5",
+    "orange": "#ffa726",
+    "green": "#43e97b",
+    "purple": "#9d50bb"
+}
 
 # --- TRANSLATIONS ---
 translations = {
@@ -14,6 +49,8 @@ translations = {
         "Choose Language": "Choose Language",
         "Arabic": "Arabic",
         "English": "English",
+        "Theme": "Theme",
+        "Accent Color": "Accent Color",
         "Navigate to": "Navigate to",
         "Dashboard": "Dashboard",
         "Predictive Analysis": "Predictive Analysis",
@@ -63,13 +100,25 @@ translations = {
         "Alerts": "Alerts",
         "Current Alerts": "Current Alerts",
         "No alerts at the moment.": "No alerts at the moment.",
-        "Smart Recommendations": "Smart Recommendations"
+        "Smart Recommendations": "Smart Recommendations",
+        "Our Vision": "Our Vision",
+        "Main Developers": "Main Developers",
+        "Disasters don't wait.. and neither do we.": "Disasters don't wait.. and neither do we.",
+        "What does it do?": "What does it do?",
+        "AI-powered predictive analytics": "AI-powered predictive analytics",
+        "Instant smart solutions": "Instant smart solutions",
+        "Live alerts and monitoring": "Live alerts and monitoring",
+        "Multi-language support": "Multi-language support",
+        "Stunning, responsive UI": "Stunning, responsive UI",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen."
     },
     "ar": {
         "Settings": "الإعدادات",
         "Choose Language": "اختر اللغة",
         "Arabic": "العربية",
         "English": "الإنجليزية",
+        "Theme": "السمة",
+        "Accent Color": "لون التمييز",
         "Navigate to": "انتقل إلى",
         "Dashboard": "لوحة البيانات",
         "Predictive Analysis": "التحليل التنبؤي",
@@ -119,7 +168,17 @@ translations = {
         "Alerts": "تنبيهات",
         "Current Alerts": "التنبيهات الحالية",
         "No alerts at the moment.": "لا توجد تنبيهات حالياً.",
-        "Smart Recommendations": "التوصيات الذكية"
+        "Smart Recommendations": "التوصيات الذكية",
+        "Our Vision": "رؤيتنا",
+        "Main Developers": "المطورون الرئيسيون",
+        "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ونحن أيضاً لا ننتظر.",
+        "What does it do?": "ماذا يفعل؟",
+        "AI-powered predictive analytics": "تحليلات تنبؤية مدعومة بالذكاء الاصطناعي",
+        "Instant smart solutions": "حلول ذكية فورية",
+        "Live alerts and monitoring": "تنبيهات ومراقبة حية",
+        "Multi-language support": "دعم متعدد اللغات",
+        "Stunning, responsive UI": "واجهة مستخدم مذهلة وسريعة الاستجابة",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "التوأم الرقمي الذكي هو منصة متقدمة لسلامة الحقول النفطية تتصل بأجهزة استشعار حقيقية، وتتنبأ بالشذوذ، وتقدم رؤى قابلة للتنفيذ لمنع الكوارث قبل وقوعها."
     }
 }
 
@@ -135,31 +194,63 @@ def _(key):
     lang = get_lang()
     return translations[lang].get(key, key)
 
+def get_theme():
+    return st.session_state.get("theme", DEFAULT_THEME)
+
+def set_theme(theme):
+    st.session_state["theme"] = theme
+
+def get_accent():
+    return st.session_state.get("accent", DEFAULT_ACCENT)
+
+def set_accent(accent):
+    st.session_state["accent"] = accent
+
+if "theme" not in st.session_state:
+    st.session_state["theme"] = DEFAULT_THEME
+if "accent" not in st.session_state:
+    st.session_state["accent"] = DEFAULT_ACCENT
+
+theme = THEMES[get_theme()]
+accent = ACCENT_COLORS[get_accent()]
+
 st.set_page_config(page_title="Smart Digital Twin", layout="wide", page_icon="🌐")
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    body, .stApp { background-color: #153243 !important; }
-    .big-title { color: #21e6c1; font-size:2.3rem; font-weight:bold; margin-bottom:10px;}
-    .sub-title { color: #21e6c1; font-size:1.4rem; margin-bottom:10px;}
-    .card { background: #278ea5; border-radius: 16px; padding: 18px 24px; margin-bottom:16px; color: #fff; }
-    .metric {font-size:2.1rem; font-weight:bold;}
-    .metric-label {font-size:1.1rem; color:#21e6c1;}
-    .alert {background:#ff3e3e; color:#fff; border-radius:12px; padding:12px;}
-    .badge { background: #21e6c1; color:#153243; padding: 2px 12px; border-radius: 20px; margin-right: 10px;}
-    .rtl { direction: rtl; }
+    body, .stApp {{ background-color: {theme['background']} !important; }}
+    .big-title {{ color: {accent}; font-size:2.3rem; font-weight:bold; margin-bottom:10px; }}
+    .sub-title {{ color: {theme['foreground']}; font-size:1.4rem; margin-bottom:10px; }}
+    .card {{ background: {theme['card']}; border-radius: 16px; padding: 18px 24px; margin-bottom:16px; color: {theme['text']}; }}
+    .metric {{font-size:2.1rem; font-weight:bold;}}
+    .metric-label {{font-size:1.1rem; color:{accent};}}
+    .alert {{background:{theme['alert_high']}; color:#fff; border-radius:12px; padding:12px;}}
+    .badge {{ background: {accent}; color:{theme['background']}; padding: 2px 12px; border-radius: 20px; margin-right: 10px;}}
+    .rtl {{ direction: rtl; }}
     </style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.title(_("Settings"))
-    lang_choice = st.radio(
-        _("Choose Language"),
-        options=["ar", "en"],
-        format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
-        index=0 if get_lang() == "ar" else 1
-    )
-    set_lang(lang_choice)
+    with st.expander(_("Settings"), expanded=True):
+        lang_choice = st.radio(
+            _("Choose Language"),
+            options=["ar", "en"],
+            format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
+            index=0 if get_lang() == "ar" else 1
+        )
+        set_lang(lang_choice)
+        theme_choice = st.radio(
+            _("Theme"), options=["dark", "light"],
+            format_func=lambda x: "🌚 Dark" if x == "dark" else "🌞 Light",
+            index=0 if get_theme() == "dark" else 1,
+            key="theme_radio"
+        )
+        set_theme(theme_choice)
+        accent_choice = st.selectbox(
+            _("Accent Color"), options=list(ACCENT_COLORS.keys()),
+            format_func=lambda c: c.capitalize(), index=list(ACCENT_COLORS.keys()).index(get_accent())
+        )
+        set_accent(accent_choice)
     st.markdown("---")
     pages = [
         ("dashboard", _("Dashboard")),
@@ -172,12 +263,11 @@ with st.sidebar:
         ("explorer", _("Data Explorer")),
         ("about", _("About")),
     ]
-    page = st.selectbox(_("Navigate to"), options=pages, format_func=lambda x: x[1])
+    page = st.radio(_("Navigate to"), options=pages, format_func=lambda x: x[1], index=0, key="page_radio")
 
 def rtl_wrap(html):
     return f'<div class="rtl">{html}</div>' if get_lang() == "ar" else html
 
-# --- Load prediction models on startup (cache for performance) ---
 @st.cache_resource
 def load_models():
     model_path = "prediction_models.pkl"
@@ -197,14 +287,13 @@ def show_dashboard():
     col4.markdown(rtl_wrap(f'<div class="card"><div class="metric">2.85 ppm</div><div class="metric-label">{_("Methane")}</div></div>'), unsafe_allow_html=True)
     col5.markdown(rtl_wrap(f'<div class="card"><div class="metric">0.30 ppm</div><div class="metric-label">{_("H2S")}</div></div>'), unsafe_allow_html=True)
     st.markdown("")
-
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
     df = pd.DataFrame({
-        _("Temperature"): 82 + 2 * pd.np.sin(pd.np.linspace(0, 3.14, 40)),
-        _("Pressure"): 200 + 4 * pd.np.cos(pd.np.linspace(0, 3.14, 40)),
-        _("Vibration"): 0.6 + 0.05 * pd.np.sin(pd.np.linspace(0, 6.28, 40)),
-        _("Methane"): 2.8 + 0.1 * pd.np.random.rand(40),
-        _("H2S"): 0.3 + 0.05 * pd.np.random.rand(40),
+        _("Temperature"): 82 + 2 * np.sin(np.linspace(0, 3.14, 40)),
+        _("Pressure"): 200 + 4 * np.cos(np.linspace(0, 3.14, 40)),
+        _("Vibration"): 0.6 + 0.05 * np.sin(np.linspace(0, 6.28, 40)),
+        _("Methane"): 2.8 + 0.1 * np.random.rand(40),
+        _("H2S"): 0.3 + 0.05 * np.random.rand(40),
     })
     fig = go.Figure()
     for col in df.columns:
@@ -212,9 +301,9 @@ def show_dashboard():
     fig.update_layout(
         xaxis_title="Time",
         yaxis_title=_("Trend"),
-        plot_bgcolor="#153243",
-        paper_bgcolor="#153243",
-        font=dict(color="#21e6c1"),
+        plot_bgcolor=theme['background'],
+        paper_bgcolor=theme['background'],
+        font=dict(color=accent),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -222,18 +311,14 @@ def show_dashboard():
 def show_predictive():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
-
     if not prediction_models:
         st.error("Prediction model not found! Please train your model and place prediction_models.pkl in the app directory.")
         return
-
     try:
         predictions = prediction_engine.predict_future_values(prediction_models, hours_ahead=6)
     except Exception as e:
         st.error(f"Prediction engine error: {e}")
         return
-
-    # Map repo sensor names to display names
     sensor_map = {
         'Temperature (°C)': _("Temperature"),
         'Pressure (psi)': _("Pressure"),
@@ -241,10 +326,7 @@ def show_predictive():
         'Methane (CH₄ ppm)': _("Methane"),
         'H₂S (ppm)': _("H2S")
     }
-
     display_selected = [_("Temperature"), _("Pressure"), _("Methane")]
-
-    # For each sensor, show predictions
     for repo_sensor, display_sensor in sensor_map.items():
         if display_sensor not in display_selected:
             continue
@@ -257,11 +339,8 @@ def show_predictive():
         elif display_sensor == _("Pressure"):
             risk = "Medium"
         risk_badge = f'<span class="badge">{_("Risk Level")}: {risk}</span>'
-        # Show only the last prediction for card
         last_pred = future_list[-1]
         st.markdown(rtl_wrap(f'<div class="card">{risk_badge}<br><b>{display_sensor}:</b> {last_pred["value"]:.2f} {repo_sensor.split()[-1]}</div>'), unsafe_allow_html=True)
-
-    # Plot all predictions
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Trend")}</div>'), unsafe_allow_html=True)
     fig = go.Figure()
     for repo_sensor, display_sensor in sensor_map.items():
@@ -273,9 +352,9 @@ def show_predictive():
     fig.update_layout(
         xaxis_title="Hours Ahead",
         yaxis_title=_("Forecast"),
-        plot_bgcolor="#153243",
-        paper_bgcolor="#153243",
-        font=dict(color="#21e6c1"),
+        plot_bgcolor=theme['background'],
+        paper_bgcolor=theme['background'],
+        font=dict(color=accent),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -290,9 +369,9 @@ def show_solutions():
         for idx, sol in enumerate(solutions):
             badge = f'<span class="badge">{_("Best Solution") if idx==0 else _("Smart Recommendations")}</span>'
             st.markdown(rtl_wrap(f'<div class="card">{badge}<br><b>{sol["title"]}</b><br>{_("Reason")}: {sol["reason"]}<br>'
-                        f'<button style="margin-top:8px;background:#21e6c1;color:#153243;border:none;border-radius:8px;padding:5px 12px;">{_("Apply")}</button> '
-                        f'<button style="margin-top:8px;background:#278ea5;color:#fff;border:none;border-radius:8px;padding:5px 12px;">{_("Export")}</button> '
-                        f'<button style="margin-top:8px;background:transparent;color:#21e6c1;border:1px solid #21e6c1;border-radius:8px;padding:5px 12px;">{_("Feedback")}</button>'
+                        f'<button style="margin-top:8px;background:{accent};color:{theme["background"]};border:none;border-radius:8px;padding:5px 12px;">{_("Apply")}</button> '
+                        f'<button style="margin-top:8px;background:{theme["foreground"]};color:{theme["text"]};border:none;border-radius:8px;padding:5px 12px;">{_("Export")}</button> '
+                        f'<button style="margin-top:8px;background:transparent;color:{accent};border:1px solid {accent};border-radius:8px;padding:5px 12px;">{_("Feedback")}</button>'
                         f'</div>'), unsafe_allow_html=True)
     else:
         st.info(_("Press 'Generate Solution' for intelligent suggestions."))
@@ -306,7 +385,7 @@ def show_alerts():
     ]
     if alerts:
         for a in alerts:
-            col = "#ff3e3e" if a["severity"]=="high" else "#ffc107"
+            col = theme["alert_high"] if a["severity"]=="high" else theme["alert_med"]
             st.markdown(rtl_wrap(f'<div class="alert" style="background:{col}">{a["msg"]}</div>'), unsafe_allow_html=True)
     else:
         st.info(_("No alerts at the moment."))
@@ -316,13 +395,13 @@ def show_cost():
     st.markdown(rtl_wrap(f'<div class="card"><div class="metric">5,215,000 SAR</div><div class="metric-label">{_("Yearly Savings")}</div></div>'), unsafe_allow_html=True)
     months = [f"{i+1}/2025" for i in range(6)]
     savings = [400000, 450000, 500000, 550000, 600000, 650000]
-    fig = go.Figure(go.Bar(x=months, y=savings, marker_color="#21e6c1"))
+    fig = go.Figure(go.Bar(x=months, y=savings, marker_color=accent))
     fig.update_layout(
         xaxis_title=_("Monthly Savings"),
         yaxis_title=_("Savings"),
-        plot_bgcolor="#153243",
-        paper_bgcolor="#153243",
-        font=dict(color="#21e6c1"),
+        plot_bgcolor=theme['background'],
+        paper_bgcolor=theme['background'],
+        font=dict(color=accent),
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -337,9 +416,9 @@ def show_comparison():
     values_now = [82.7, 202.2, 650000]
     values_prev = [85, 204, 500000]
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=metrics, y=values_now, name=_("Current")))
-    fig.add_trace(go.Bar(x=metrics, y=values_prev, name=_("Previous")))
-    fig.update_layout(barmode='group', plot_bgcolor="#153243", paper_bgcolor="#153243", font=dict(color="#21e6c1"))
+    fig.add_trace(go.Bar(x=metrics, y=values_now, name=_("Current"), marker_color=accent))
+    fig.add_trace(go.Bar(x=metrics, y=values_prev, name=_("Previous"), marker_color=theme['foreground']))
+    fig.update_layout(barmode='group', plot_bgcolor=theme['background'], paper_bgcolor=theme['background'], font=dict(color=accent))
     st.plotly_chart(fig, use_container_width=True)
 
 def show_explorer():
@@ -347,13 +426,24 @@ def show_explorer():
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Data Filters")}</div>'), unsafe_allow_html=True)
     metrics = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
     metric = st.selectbox(_("Select Metric"), options=metrics)
-    data = pd.DataFrame({metric: 80 + 5 * pd.np.random.rand(30)})
+    data = pd.DataFrame({metric: 80 + 5 * np.random.rand(30)})
     st.line_chart(data)
 
 def show_about():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<div class='card'><b>{_('Project Features')}</b><ul><li>{_('AI-powered predictive analytics')}</li><li>{_('Instant smart solutions')}</li><li>{_('Live alerts and monitoring')}</li><li>{_('Multi-language support')}</li><li>{_('Stunning, responsive UI')}</li></ul></div>"), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<div class='card'><b>{_('Contact Us')}</b><br>rrakanmarri1@gmail.com</div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Our Vision")}</span><br><i>{_("Disasters don\'t wait.. and neither do we.")}</i></div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("What does it do?")}</span><br>{_("Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Features')}</span><ul>"
+        f"<li>{_('AI-powered predictive analytics')}</li>"
+        f"<li>{_('Instant smart solutions')}</li>"
+        f"<li>{_('Live alerts and monitoring')}</li>"
+        f"<li>{_('Multi-language support')}</li>"
+        f"<li>{_('Stunning, responsive UI')}</li>"
+        "</ul></div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Main Developers')}</span><br>"
+        "<b>Rakan Almarri:</b> rakan.almarri.2@aramco.com &nbsp; <b>Phone:</b> 0532559664<br>"
+        "<b>Abdulrahman Alzhrani:</b> abdulrahman.alzhrani.1@aramco.com &nbsp; <b>Phone:</b> 0549202574"
+        "</div>"), unsafe_allow_html=True)
 
 routes = {
     "dashboard": show_dashboard,
@@ -366,4 +456,4 @@ routes = {
     "explorer": show_explorer,
     "about": show_about
 }
-routes[page[0]]()
+routes[st.session_state.page_radio[0]]()
