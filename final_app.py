@@ -48,7 +48,7 @@ THEME_SETS = {
 DEFAULT_THEME = "Ocean"
 if "theme_set" not in st.session_state:
     st.session_state["theme_set"] = DEFAULT_THEME
-theme = THEME_SETS[st.session_state["theme_set"]]
+theme = THEME_SETS.get(st.session_state["theme_set"], THEME_SETS[DEFAULT_THEME])
 
 # --- TRANSLATIONS ---
 translations = {
@@ -83,7 +83,7 @@ translations = {
         "Multi-language support": "Multi-language support", "Stunning, responsive UI": "Stunning, responsive UI",
         "Main Developers": "Main Developers", "Contact information available upon request.": "Contact information available upon request.",
         "Disasters don't wait.. and neither do we.": "Disasters don't wait.. and neither do we.",
-        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "...",
         "Details": "Details", "Priority": "Priority", "Effectiveness": "Effectiveness",
         "Estimated Time": "Estimated Time", "Severity": "Severity", "Time": "Time",
         "Location": "Location", "Message": "Message", "Methane Spike": "Methane Spike",
@@ -111,9 +111,10 @@ translations = {
         "99%": "99%",
         "Medium": "Medium",
         "2 hours": "2 hours",
-        "Low": "Low"
-        "Simulate Disaster": "Simulate Disaster"
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts anomalies, generates instant smart solutions, and helps operators prevent accidents, downtime, and losses. The platform features multi-language support and interactive dashboards, making it accessible and actionable for everyone."
+        "Low": "Low",
+        "Simulate Disaster": "Simulate Disaster",
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin...",
+        "Arabic": "Arabic", "English": "English"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -142,7 +143,7 @@ translations = {
         "Multi-language support": "دعم تعدد اللغات", "Stunning, responsive UI": "واجهة مستخدم مذهلة وتفاعلية",
         "Main Developers": "المطورون الرئيسيون", "Contact information available upon request.": "معلومات التواصل متوفرة عند الطلب.",
         "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ولا نحن أيضاً.",
-        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "التوأم الرقمي الذكي هو منصة متقدمة لسلامة الحقول النفطية تتصل بحساسات حقيقية وتتنبأ بالحالات الشاذة وتقدم حلولًا ذكية لمنع الكوارث قبل وقوعها.",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "...",
         "Details": "التفاصيل", "Priority": "الأولوية", "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Severity": "الخطورة", "Time": "الوقت", "Location": "الموقع", "Message": "الرسالة",
         "Methane Spike": "ارتفاع الميثان", "Pressure Drop": "انخفاض الضغط", "Vibration Anomaly": "شذوذ الاهتزاز",
@@ -167,9 +168,10 @@ translations = {
         "99%": "٩٩٪",
         "Medium": "متوسط",
         "2 hours": "ساعتان",
-        "Low": "منخفض"
-        "Simulate disaster": "محاكاة الخطر"
-       "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية والحقول النفطية. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالحالات الشاذة ويولد حلولاً فورية ذكية، ويساعد المشغلين على منع الحوادث والتوقفات والخسائر. يتميز النظام بدعم لغات متعددة ولوحات بيانات تفاعلية، مما يجعله سهل الوصول ومفيدًا للجميع."
+        "Low": "منخفض",
+        "Simulate Disaster": "محاكاة الخطر",
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط...",
+        "Arabic": "العربية", "English": "الإنجليزية"
     }
 }
 def get_lang():
@@ -182,7 +184,7 @@ def _(key):
     lang = get_lang()
     return translations.get(lang, translations["en"]).get(key, key)
 
-# --- CSS for THEME ---
+# --- CSS for THEME + Responsive ---
 st.markdown(f"""
     <style>
     body, .stApp {{ background-color: {theme['primary']} !important; }}
@@ -195,6 +197,21 @@ st.markdown(f"""
     .alert-custom {{background:{theme['alert']}; color:{theme['alert_text']}; border-radius:12px; padding:12px; font-weight:bold;}}
     .badge {{ background: {theme['badge_bg']}; color:{theme['text_on_accent']}; padding: 2px 12px; border-radius: 20px; margin-right: 10px;}}
     .rtl {{ direction: rtl; }}
+
+    /* Responsive adjustments */
+    @media (max-width: 900px) {{
+      .big-title {{ font-size: 1.7rem; }}
+      .sub-title {{ font-size: 1.1rem; }}
+      .metric {{ font-size: 1.3rem; }}
+      .card {{ padding: 12px 10px; }}
+    }}
+    @media (max-width: 600px) {{
+      .big-title {{ font-size: 1.2rem; }}
+      .sub-title {{ font-size: 1rem; }}
+      .card {{ padding: 7px 5px; }}
+      .metric-label {{ font-size: 0.9rem; }}
+      .metric {{ font-size: 1.05rem; }}
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -204,7 +221,7 @@ with st.sidebar:
         lang_choice = st.radio(
             _("Choose Language"),
             options=["ar", "en"],
-            format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
+            format_func=lambda x: _(x.capitalize()),
             index=0 if get_lang() == "ar" else 1,
             key="lang_radio"
         )
@@ -233,6 +250,11 @@ def rtl_wrap(html):
 # --- DASHBOARD ---
 def show_dashboard():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}'), unsafe_allow_html=True)
+    # Responsive: stack columns on mobile
+    if st.runtime.scriptrunner.is_running_with_streamlit:
+        cols = st.columns(5 if st.sidebar and st.sidebar._is_expanded else 1)
+    else:
+        cols = st.columns(5)
     colA, colB = st.columns([4,1])
     with colB:
         if st.button("🚨 " + _("Simulate Disaster")):
@@ -246,33 +268,32 @@ def show_dashboard():
         temp = 120; pressure = 340; vib = 2.3; methane = 9.5; h2s = 1.2
     else:
         temp = 82.7; pressure = 202.2; vib = 0.61; methane = 2.85; h2s = 0.30
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5 = st.columns(5) if st.columns else [st]
     col1.markdown(rtl_wrap(f'<div class="card"><div class="metric">{temp}°C</div><div class="metric-label">{_("Temperature")}</div></div>'), unsafe_allow_html=True)
     col2.markdown(rtl_wrap(f'<div class="card"><div class="metric">{pressure} psi</div><div class="metric-label">{_("Pressure")}</div></div>'), unsafe_allow_html=True)
     col3.markdown(rtl_wrap(f'<div class="card"><div class="metric">{vib} g</div><div class="metric-label">{_("Vibration")}</div></div>'), unsafe_allow_html=True)
     col4.markdown(rtl_wrap(f'<div class="card"><div class="metric">{methane} ppm</div><div class="metric-label">{_("Methane")}</div></div>'), unsafe_allow_html=True)
     col5.markdown(rtl_wrap(f'<div class="card"><div class="metric">{h2s} ppm</div><div class="metric-label">{_("H2S")}</div></div>'), unsafe_allow_html=True)
-   st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
-# Dummy trend chart for demo
-import plotly.graph_objs as go
-dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
-df = pd.DataFrame({
-    _("Temperature"): 80 + 5 * np.random.rand(40),
-    _("Pressure"): 200 + 10 * np.random.rand(40),
-    _("Methane"): 2.5 + 0.5 * np.random.rand(40),
-    _("Vibration"): 0.6 + 0.1 * np.random.rand(40),
-    _("H2S"): 0.3 + 0.05 * np.random.rand(40)
-}, index=dates)
-fig = go.Figure()
-for col in df.columns:
-    fig.add_trace(go.Scatter(y=df[col], x=df.index, mode='lines', name=col, line=dict(width=3)))
-fig.update_layout(
-    xaxis_title=_("Time"), yaxis_title=_("Trend"),
-    plot_bgcolor=theme['plot_bg'], paper_bgcolor=theme['plot_bg'],
-    font=dict(color=theme['text_on_primary']),
-    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
-)
-st.plotly_chart(fig, use_container_width=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
+    # Dummy trend chart for demo
+    dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
+    df = pd.DataFrame({
+        _("Temperature"): 80 + 5 * np.random.rand(40),
+        _("Pressure"): 200 + 10 * np.random.rand(40),
+        _("Methane"): 2.5 + 0.5 * np.random.rand(40),
+        _("Vibration"): 0.6 + 0.1 * np.random.rand(40),
+        _("H2S"): 0.3 + 0.05 * np.random.rand(40)
+    }, index=dates)
+    fig = go.Figure()
+    for col in df.columns:
+        fig.add_trace(go.Scatter(y=df[col], x=df.index, mode='lines', name=col, line=dict(width=3)))
+    fig.update_layout(
+        xaxis_title=_("Time"), yaxis_title=_("Trend"),
+        plot_bgcolor=theme['plot_bg'], paper_bgcolor=theme['plot_bg'],
+        font=dict(color=theme['text_on_primary']),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # --- PREDICTIVE ANALYSIS ---
 def show_predictive():
@@ -426,7 +447,7 @@ def show_explorer():
 # --- ABOUT PAGE ---
 def show_about():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
-st.markdown(rtl_wrap(_("About Project Description")), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(_("About Project Description")), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Our Vision")}</span><br><i>{_("Disasters don\'t wait.. and neither do we.")}</i></div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Features')}</span><ul>"
         f"<li>{_('AI-powered predictive analytics')}</li>"
