@@ -2,94 +2,177 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objs as go
-import os
-import prediction_engine
 import joblib
+import os
 
 # --- COLOR THEMES ---
 THEME_SETS = {
     "Ocean": {
-        "primary": "#153243",
-        "secondary": "#278ea5",
-        "accent": "#21e6c1",
-        "text_on_primary": "#fff",
-        "text_on_secondary": "#fff",
-        "text_on_accent": "#153243",
-        "sidebar_bg": "#18465b",
-        "card_bg": "#278ea5",
-        "badge_bg": "#21e6c1",
-        "alert": "#ff3e3e",
-        "alert_text": "#fff",
-        "plot_bg": "#153243"
+        "primary": "#153243", "secondary": "#278ea5", "accent": "#21e6c1",
+        "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#153243",
+        "sidebar_bg": "#18465b", "card_bg": "#278ea5", "badge_bg": "#21e6c1",
+        "alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#153243"
     },
     "Sunset": {
-        "primary": "#ff7043",
-        "secondary": "#ffa726",
-        "accent": "#ffd54f",
-        "text_on_primary": "#fff",
-        "text_on_secondary": "#232526",
-        "text_on_accent": "#232526",
-        "sidebar_bg": "#ffb28f",
-        "card_bg": "#ffa726",
-        "badge_bg": "#ff7043",
-        "alert": "#d7263d",
-        "alert_text": "#fff",
-        "plot_bg": "#fff3e0"
+        "primary": "#ff7043", "secondary": "#ffa726", "accent": "#ffd54f",
+        "text_on_primary": "#fff", "text_on_secondary": "#232526", "text_on_accent": "#232526",
+        "sidebar_bg": "#ffb28f", "card_bg": "#ffa726", "badge_bg": "#ff7043",
+        "alert": "#d7263d", "alert_text": "#fff", "plot_bg": "#fff3e0"
     },
     "Emerald": {
-        "primary": "#154734",
-        "secondary": "#43e97b",
-        "accent": "#38f9d7",
-        "text_on_primary": "#fff",
-        "text_on_secondary": "#153243",
-        "text_on_accent": "#154734",
-        "sidebar_bg": "#1d5c41",
-        "card_bg": "#43e97b",
-        "badge_bg": "#38f9d7",
-        "alert": "#ff1744",
-        "alert_text": "#fff",
-        "plot_bg": "#e0f2f1"
+        "primary": "#154734", "secondary": "#43e97b", "accent": "#38f9d7",
+        "text_on_primary": "#fff", "text_on_secondary": "#153243", "text_on_accent": "#154734",
+        "sidebar_bg": "#1d5c41", "card_bg": "#43e97b", "badge_bg": "#38f9d7",
+        "alert": "#ff1744", "alert_text": "#fff", "plot_bg": "#e0f2f1"
     },
     "Night": {
-        "primary": "#232526",
-        "secondary": "#414345",
-        "accent": "#e96443",
-        "text_on_primary": "#fff",
-        "text_on_secondary": "#fff",
-        "text_on_accent": "#232526",
-        "sidebar_bg": "#414345",
-        "card_bg": "#232526",
-        "badge_bg": "#e96443",
-        "alert": "#ff3e3e",
-        "alert_text": "#fff",
-        "plot_bg": "#232526"
+        "primary": "#232526", "secondary": "#414345", "accent": "#e96443",
+        "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#232526",
+        "sidebar_bg": "#414345", "card_bg": "#232526", "badge_bg": "#e96443",
+        "alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#232526"
     },
     "Blossom": {
-        "primary": "#fbd3e9",
-        "secondary": "#bb377d",
-        "accent": "#fa709a",
-        "text_on_primary": "#232526",
-        "text_on_secondary": "#fff",
-        "text_on_accent": "#fff",
-        "sidebar_bg": "#fcb7d4",
-        "card_bg": "#fa709a",
-        "badge_bg": "#bb377d",
-        "alert": "#d7263d",
-        "alert_text": "#fff",
-        "plot_bg": "#fce4ec"
+        "primary": "#fbd3e9", "secondary": "#bb377d", "accent": "#fa709a",
+        "text_on_primary": "#232526", "text_on_secondary": "#fff", "text_on_accent": "#fff",
+        "sidebar_bg": "#fcb7d4", "card_bg": "#fa709a", "badge_bg": "#bb377d",
+        "alert": "#d7263d", "alert_text": "#fff", "plot_bg": "#fce4ec"
     }
 }
-
 DEFAULT_THEME = "Ocean"
 if "theme_set" not in st.session_state:
     st.session_state["theme_set"] = DEFAULT_THEME
-
 theme = THEME_SETS[st.session_state["theme_set"]]
 
-# --- TRANSLATIONS & LANGUAGE LOGIC ---
-# Use your previous translations and language logic here
+# --- TRANSLATIONS (add more as needed) ---
 translations = {
-    # ... (same as before)
+    "en": {
+        "Settings": "Settings",
+        "Choose Language": "Choose Language",
+        "Dashboard": "Dashboard",
+        "Predictive Analysis": "Predictive Analysis",
+        "Smart Solutions": "Smart Solutions",
+        "Smart Alerts": "Smart Alerts",
+        "Cost & Savings": "Cost & Savings",
+        "Achievements": "Achievements",
+        "Performance Comparison": "Performance Comparison",
+        "Data Explorer": "Data Explorer",
+        "About": "About",
+        "Navigate to": "Navigate to",
+        "Welcome to your Smart Digital Twin!": "Welcome to your Smart Digital Twin!",
+        "Temperature": "Temperature",
+        "Pressure": "Pressure",
+        "Vibration": "Vibration",
+        "Methane": "Methane",
+        "H2S": "H2S",
+        "Live Data": "Live Data",
+        "Trend": "Trend",
+        "Forecast": "Forecast",
+        "Risk Level": "Risk Level",
+        "Best Solution": "Best Solution",
+        "Smart Recommendations": "Smart Recommendations",
+        "Reason": "Reason",
+        "Apply": "Apply",
+        "Export": "Export",
+        "Feedback": "Feedback",
+        "No alerts at the moment.": "No alerts at the moment.",
+        "Generate Solution": "Generate Solution",
+        "Generating solution...": "Generating solution...",
+        "Press 'Generate Solution' for intelligent suggestions.": "Press 'Generate Solution' for intelligent suggestions.",
+        "High Pressure Detected in Zone 2!": "High Pressure Detected in Zone 2!",
+        "Methane levels rising in Tank 1.": "Methane levels rising in Tank 1.",
+        "Yearly Savings": "Yearly Savings",
+        "Monthly Savings": "Monthly Savings",
+        "Savings": "Savings",
+        "Milestone": "Milestone",
+        "Congratulations!": "Congratulations!",
+        "You have achieved": "You have achieved",
+        "days without incidents": "days without incidents",
+        "Compared to last period": "Compared to last period",
+        "Current": "Current",
+        "Previous": "Previous",
+        "Select Metric": "Select Metric",
+        "Data Filters": "Data Filters",
+        "About the Project": "About the Project",
+        "Our Vision": "Our Vision",
+        "Project Summary": "Project Summary",
+        "What does it do?": "What does it do?",
+        "Features": "Features",
+        "AI-powered predictive analytics": "AI-powered predictive analytics",
+        "Instant smart solutions": "Instant smart solutions",
+        "Live alerts and monitoring": "Live alerts and monitoring",
+        "Multi-language support": "Multi-language support",
+        "Stunning, responsive UI": "Stunning, responsive UI",
+        "Main Developers": "Main Developers",
+        "Contact information available upon request.": "Contact information available upon request.",
+        "Disasters don't wait.. and neither do we.": "Disasters don't wait.. and neither do we.",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen."
+    },
+    "ar": {
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣",
+        "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
+        "Schedule Pump Maintenance": "جدولة صيانة المضخة",
+        "Temperature rising above normal.": "ارتفاع درجة الحرارة عن الحد الطبيعي.",
+        "Settings": "الإعدادات",
+        "Choose Language": "اختر اللغة",
+        "Dashboard": "لوحة التحكم",
+        "Predictive Analysis": "تحليل تنبؤي",
+        "Smart Solutions": "حلول ذكية",
+        "Smart Alerts": "تنبيهات ذكية",
+        "Cost & Savings": "التكلفة والتوفير",
+        "Achievements": "الإنجازات",
+        "Performance Comparison": "مقارنة الأداء",
+        "Data Explorer": "استكشاف البيانات",
+        "About": "حول",
+        "Navigate to": "انتقل إلى",
+        "Welcome to your Smart Digital Twin!": "مرحبًا بك في التوأم الرقمي الذكي!",
+        "Temperature": "درجة الحرارة",
+        "Pressure": "الضغط",
+        "Vibration": "الاهتزاز",
+        "Methane": "الميثان",
+        "H2S": "كبريتيد الهيدروجين",
+        "Live Data": "بيانات مباشرة",
+        "Trend": "الاتجاه",
+        "Forecast": "التوقعات",
+        "Risk Level": "مستوى الخطر",
+        "Best Solution": "أفضل حل",
+        "Smart Recommendations": "توصيات ذكية",
+        "Reason": "السبب",
+        "Apply": "تطبيق",
+        "Export": "تصدير",
+        "Feedback": "ملاحظات",
+        "No alerts at the moment.": "لا توجد تنبيهات حالياً.",
+        "Generate Solution": "توليد حل",
+        "Generating solution...": "جاري توليد الحل...",
+        "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
+        "High Pressure Detected in Zone 2!": "تم رصد ضغط مرتفع في المنطقة 2!",
+        "Methane levels rising in Tank 1.": "ارتفاع مستويات الميثان في الخزان 1.",
+        "Yearly Savings": "التوفير السنوي",
+        "Monthly Savings": "التوفير الشهري",
+        "Savings": "التوفير",
+        "Milestone": "إنجاز",
+        "Congratulations!": "تهانينا!",
+        "You have achieved": "لقد حققت",
+        "days without incidents": "يوماً بدون حوادث",
+        "Compared to last period": "مقارنة بالفترة السابقة",
+        "Current": "الحالي",
+        "Previous": "السابق",
+        "Select Metric": "اختر المقياس",
+        "Data Filters": "تصفية البيانات",
+        "About the Project": "عن المشروع",
+        "Our Vision": "رؤيتنا",
+        "Project Summary": "ملخص المشروع",
+        "What does it do?": "ماذا يقدم؟",
+        "Features": "الميزات",
+        "AI-powered predictive analytics": "تحليلات تنبؤية مدعومة بالذكاء الاصطناعي",
+        "Instant smart solutions": "حلول ذكية فورية",
+        "Live alerts and monitoring": "تنبيهات ومراقبة مباشرة",
+        "Multi-language support": "دعم تعدد اللغات",
+        "Stunning, responsive UI": "واجهة مستخدم مذهلة وتفاعلية",
+        "Main Developers": "المطورون الرئيسيون",
+        "Contact information available upon request.": "معلومات التواصل متوفرة عند الطلب.",
+        "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ولا نحن أيضاً.",
+        "Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.": "التوأم الرقمي الذكي هو منصة متقدمة لسلامة الحقول النفطية تتصل بحساسات حقيقية وتتنبأ بالحالات الشاذة وتقدم حلولًا ذكية لمنع الكوارث قبل وقوعها."
+    }
 }
 def get_lang():
     if "lang" not in st.session_state:
@@ -99,7 +182,7 @@ def set_lang(lang):
     st.session_state["lang"] = lang
 def _(key):
     lang = get_lang()
-    return translations[lang].get(key, key)
+    return translations.get(lang, translations["en"]).get(key, key)
 
 # --- CSS for THEME ---
 st.markdown(f"""
@@ -131,7 +214,7 @@ with st.sidebar:
         theme_set = st.selectbox("Theme Set", options=list(THEME_SETS.keys()), index=list(THEME_SETS.keys()).index(st.session_state["theme_set"]))
         if theme_set != st.session_state["theme_set"]:
             st.session_state["theme_set"] = theme_set
-            st.experimental_rerun()  # Instantly update theme on select change!
+            st.experimental_rerun()
     st.markdown("---")
     pages = [
         ("dashboard", _("Dashboard")),
@@ -159,6 +242,13 @@ def load_models():
         return None
 prediction_models = load_models()
 
+# --- Connect to Engines ---
+try:
+    import prediction_engine  # Your engine file!
+except:
+    prediction_engine = None
+
+# --- DASHBOARD ---
 def show_dashboard():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Welcome to your Smart Digital Twin!")}</div>'), unsafe_allow_html=True)
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -169,13 +259,16 @@ def show_dashboard():
     col5.markdown(rtl_wrap(f'<div class="card"><div class="metric">0.30 ppm</div><div class="metric-label">{_("H2S")}</div></div>'), unsafe_allow_html=True)
     st.markdown("")
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Live Data")}</div>'), unsafe_allow_html=True)
-    df = pd.DataFrame({
-        _("Temperature"): 82 + 2 * np.sin(np.linspace(0, 3.14, 40)),
-        _("Pressure"): 200 + 4 * np.cos(np.linspace(0, 3.14, 40)),
-        _("Vibration"): 0.6 + 0.05 * np.sin(np.linspace(0, 6.28, 40)),
-        _("Methane"): 2.8 + 0.1 * np.random.rand(40),
-        _("H2S"): 0.3 + 0.05 * np.random.rand(40),
-    })
+    if os.path.exists("sensor_data_simulated.xlsx"):
+        df = pd.read_excel("sensor_data_simulated.xlsx")
+    else:
+        df = pd.DataFrame({
+            _("Temperature"): 82 + 2 * np.sin(np.linspace(0, 3.14, 40)),
+            _("Pressure"): 200 + 4 * np.cos(np.linspace(0, 3.14, 40)),
+            _("Vibration"): 0.6 + 0.05 * np.sin(np.linspace(0, 6.28, 40)),
+            _("Methane"): 2.8 + 0.1 * np.random.rand(40),
+            _("H2S"): 0.3 + 0.05 * np.random.rand(40),
+        })
     fig = go.Figure()
     color_cycle = [theme['secondary'], theme['accent'], theme['badge_bg'], "#fa709a", "#ff7043"]
     for i, col in enumerate(df.columns):
@@ -193,8 +286,8 @@ def show_dashboard():
 def show_predictive():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
-    if not prediction_models:
-        st.markdown(f'<div class="alert-custom">Prediction model not found! Please train your model and place prediction_models.pkl in the app directory.</div>', unsafe_allow_html=True)
+    if not prediction_models or not prediction_engine:
+        st.markdown(f'<div class="alert-custom">Prediction model or engine not found! Please train your model and place prediction_models.pkl in the app directory.</div>', unsafe_allow_html=True)
         return
     try:
         predictions = prediction_engine.predict_future_values(prediction_models, hours_ahead=6)
@@ -238,13 +331,11 @@ def show_predictive():
     fig.update_layout(
         xaxis_title="Hours Ahead",
         yaxis_title=_("Forecast"),
-        plot_bgcolor=theme['plot_bg'],
-        paper_bgcolor=theme['plot_bg'],
-        font=dict(color=theme['text_on_primary']),
+        plot_bgcolor=theme["plot_bg"],
+        paper_bgcolor=theme["plot_bg"],
+        font=dict(color=theme["text_on_primary"]),
     )
     st.plotly_chart(fig, use_container_width=True)
-
-# -- Other show_* functions: update all color uses to use theme['...'] as above. Add alert-custom for error messages everywhere.
 
 def show_solutions():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Solutions")}</div>'), unsafe_allow_html=True)
@@ -298,7 +389,7 @@ def show_cost():
 
 def show_achievements():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Achievements")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Milestone")}</span><br>{_("Congratulations!")}<br>{_("You have achieved")} <b>100</b> {"days without incidents"}!</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Milestone")}</span><br>{_("Congratulations!")}<br>{_("You have achieved")} <b>100</b> {_("days without incidents")}!</div>'), unsafe_allow_html=True)
     st.progress(0.85, text=_("Compared to last period"))
 
 def show_comparison():
@@ -323,7 +414,7 @@ def show_explorer():
 def show_about():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Our Vision")}</span><br><i>{_("Disasters don\'t wait.. and neither do we.")}</i></div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("What does it do?")}</span><br>{_("Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Project Summary")}</span><br>{_("Smart Digital Twin is an advanced platform for oilfield safety that connects to real sensors, predicts anomalies, and offers actionable insights to prevent disasters before they happen.")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Features')}</span><ul>"
         f"<li>{_('AI-powered predictive analytics')}</li>"
         f"<li>{_('Instant smart solutions')}</li>"
@@ -336,6 +427,7 @@ def show_about():
         "<b>Abdulrahman Alzhrani:</b> abdulrahman.alzhrani.1@aramco.com &nbsp; <b>Phone:</b> 0549202574"
         "</div>"), unsafe_allow_html=True)
 
+# --- ROUTING ---
 routes = {
     "dashboard": show_dashboard,
     "predictive": show_predictive,
