@@ -315,29 +315,13 @@ def inject_css():
     </style>
     """, unsafe_allow_html=True)
 
-inject_css()
-
-def theme_selector():
-    theme_names = list(THEME_SETS.keys())
-    previews = [
-        f"<span class='theme-swatch' style='background:{THEME_SETS[name]['primary']}'></span> {_(name)}"
-        for name in theme_names
-    ]
-    theme_idx = theme_names.index(st.session_state["theme_set"])
-    choice = st.radio(
-        _( "Theme Set" ),
-        options=theme_names,
-        format_func=lambda x: _(x),
-        index=theme_idx,
-        key="theme_radio"
-    )
-    if choice != st.session_state["theme_set"]:
-        st.session_state["theme_set"] = choice
-        st.rerun()
-    st.markdown("<div style='margin-bottom:4px;'><b>"+_("Theme Preview")+"</b></div>", unsafe_allow_html=True)
-    for i, preview in enumerate(previews):
-        sel = "✅" if theme_names[i]==choice else ""
-        st.markdown(f"{preview} {sel}", unsafe_allow_html=True)
+pages = [
+    ("dashboard", _("Dashboard")), ("predictive", _("Predictive Analysis")),
+    ("solutions", _("Smart Solutions")), ("alerts", _("Smart Alerts")),
+    ("cost", _("Cost & Savings")), ("achievements", _("Achievements")),
+    ("comparison", _("Performance Comparison")), ("explorer", _("Data Explorer")),
+    ("about", _("About"))
+]
 
 def sidebar():
     with st.sidebar:
