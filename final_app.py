@@ -6,11 +6,13 @@ import joblib
 import os
 import time
 
+# --- Session State Defaults ---
 if "simulate_disaster" not in st.session_state:
     st.session_state["simulate_disaster"] = False
 if "simulate_time" not in st.session_state:
     st.session_state["simulate_time"] = 0
 
+# --- Theme & Translations ---
 THEME_SETS = {
     "Ocean": {"primary": "#153243", "secondary": "#278ea5", "accent": "#21e6c1",
               "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#153243",
@@ -38,6 +40,30 @@ if "theme_set" not in st.session_state:
     st.session_state["theme_set"] = DEFAULT_THEME
 theme = THEME_SETS[st.session_state["theme_set"]]
 
+# --- Insert CSS only once at the top ---
+st.markdown(f"""
+<style>
+body, .stApp {{ background-color: {theme['primary']} !important; }}
+.stSidebar {{ background-color: {theme['sidebar_bg']} !important; }}
+.big-title {{ color: {theme['secondary']}; font-size:2.3rem; font-weight:bold; margin-bottom:10px; }}
+.sub-title {{ color: {theme['accent']}; font-size:1.4rem; margin-bottom:10px; }}
+.card {{ 
+    background: {theme['card_bg']}; 
+    border-radius:16px; 
+    padding:18px 24px; 
+    margin-bottom:16px; 
+    color:{theme['text_on_secondary']}; 
+    display: inline-block; 
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}}
+.metric {{ font-size:2.1rem; font-weight:bold; }}
+.metric-label {{ font-size:1.1rem; color:{theme['accent']}; }}
+.badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:2px 12px; border-radius:20px; margin-right:10px; }}
+.rtl {{ direction:rtl; }}
+</style>
+""", unsafe_allow_html=True)
+
+# --- Translations ---
 translations = {
     "en": {
         "Settings": "Settings", "Choose Language": "Choose Language",
@@ -59,7 +85,53 @@ translations = {
         "Reduce Pressure in Line 3": "Reduce Pressure in Line 3", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "URGENT": "URGENT", "Now": "Now", "High": "High", "15 minutes": "15 minutes", "95%": "95%", "99%": "99%",
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts anomalies, generates instant smart solutions, and helps operators prevent accidents, downtime, and losses. The platform features multi-language support and interactive dashboards, making it accessible and actionable for everyone."
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin for continuous monitoring, prediction, and smart interventions.",
+        "High Risk Area: Tank 3": "High Risk Area: Tank 3",
+        "Monthly Savings": "Monthly Savings",
+        "Yearly Savings": "Yearly Savings",
+        "Reduction in Maintenance Costs": "Reduction in Maintenance Costs",
+        "Savings": "Savings",
+        "Source": "Source",
+        "Amount (SAR)": "Amount (SAR)",
+        "Savings Breakdown": "Savings Breakdown",
+        "Current Alerts": "Current Alerts",
+        "No alerts at the moment.": "No alerts at the moment.",
+        "Congratulations!": "Congratulations!",
+        "You have achieved": "You have achieved",
+        "days without incidents": "days without incidents",
+        "Compared to last period": "Compared to last period",
+        "Milestones": "Milestones",
+        "months zero downtime": "months zero downtime",
+        "energy efficiency improvement": "energy efficiency improvement",
+        "2025 Innovation Award, Best Digital Twin": "2025 Innovation Award, Best Digital Twin",
+        "Data Filters": "Data Filters",
+        "Select Metric": "Select Metric",
+        "Summary Table": "Summary Table",
+        "Current": "Current",
+        "Previous": "Previous",
+        "Change": "Change",
+        "Metric": "Metric",
+        "Month": "Month",
+        "Energy Efficiency": "Energy Efficiency",
+        "Maintenance Reduction": "Maintenance Reduction",
+        "Downtime Prevention": "Downtime Prevention",
+        "Smart Recommendations": "Smart Recommendations",
+        "Smart Alerts": "Smart Alerts",
+        "Severity": "Severity",
+        "Time": "Time",
+        "Location": "Location",
+        "Message": "Message",
+        "Medium": "Medium",
+        "Low": "Low",
+        "Main Developers": "Main Developers",
+        "Our Vision": "Our Vision",
+        "Disasters don't wait.. and neither do we.": "Disasters don't wait.. and neither do we.",
+        "Features": "Features",
+        "AI-powered predictive analytics": "AI-powered predictive analytics",
+        "Instant smart solutions": "Instant smart solutions",
+        "Live alerts and monitoring": "Live alerts and monitoring",
+        "Multi-language support": "Multi-language support",
+        "Stunning, responsive UI": "Stunning, responsive UI"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -76,35 +148,61 @@ translations = {
         "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
         "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع خطير في الميثان.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع الميثان.",
         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط 3 ونبّه فريق الصيانة للفحص.",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15% في الخط ٣ ونبّه فريق الصيانة للفحص.",
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "URGENT": "عاجل", "Now": "الآن", "High": "مرتفع", "15 minutes": "15 دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية والحقول النفطية. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالحالات الشاذة ويولد حلولاً فورية ذكية، ويساعد المشغلين على منع الحوادث والتوقفات والخسائر. يتميز النظام بدعم لغات متعددة ولوحات بيانات تفاعلية، مما يجعله سهل الوصول ومفيدًا للجميع."
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للمراقبة المستمرة والتوقع والتدخل الذكي.",
         "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
-"Monthly Savings": "التوفير الشهري",
-"Yearly Savings": "التوفير السنوي",
-"Reduction in Maintenance Costs": "تقليل تكلفة الصيانة",
-"Savings": "التوفير",
-"Source": "المصدر",
-"Amount (SAR)": "المبلغ (ريال)",
-"Savings Breakdown": "تفصيل التوفير",
-"Current Alerts": "التنبيهات الحالية",
-"No alerts at the moment.": "لا توجد تنبيهات حاليًا.",
-"Congratulations!": "مبروك!",
-"You have achieved": "لقد حققت",
-"days without incidents": "يوم بدون حوادث",
-"Compared to last period": "مقارنة بالفترة السابقة",
-"Milestones": "إنجازات",
-"months zero downtime": "شهور بدون توقف",
-"energy efficiency improvement": "تحسن كفاءة الطاقة",
-"2025 Innovation Award, Best Digital Twin": "جائزة الابتكار 2025 - أفضل توأم رقمي",
-"Data Filters": "فلاتر البيانات",
-"Select Metric": "اختر المقياس",
-"Summary Table": "جدول ملخص",
+        "Monthly Savings": "التوفير الشهري",
+        "Yearly Savings": "التوفير السنوي",
+        "Reduction in Maintenance Costs": "تقليل تكلفة الصيانة",
+        "Savings": "التوفير",
+        "Source": "المصدر",
+        "Amount (SAR)": "المبلغ (ريال)",
+        "Savings Breakdown": "تفصيل التوفير",
+        "Current Alerts": "التنبيهات الحالية",
+        "No alerts at the moment.": "لا توجد تنبيهات حاليًا.",
+        "Congratulations!": "مبروك!",
+        "You have achieved": "لقد حققت",
+        "days without incidents": "يوم بدون حوادث",
+        "Compared to last period": "مقارنة بالفترة السابقة",
+        "Milestones": "إنجازات",
+        "months zero downtime": "شهور بدون توقف",
+        "energy efficiency improvement": "تحسن كفاءة الطاقة",
+        "2025 Innovation Award, Best Digital Twin": "جائزة الابتكار 2025 - أفضل توأم رقمي",
+        "Data Filters": "فلاتر البيانات",
+        "Select Metric": "اختر المقياس",
+        "Summary Table": "جدول ملخص",
+        "Current": "الحالي",
+        "Previous": "السابق",
+        "Change": "التغير",
+        "Metric": "المؤشر",
+        "Month": "الشهر",
+        "Energy Efficiency": "كفاءة الطاقة",
+        "Maintenance Reduction": "خفض الصيانة",
+        "Downtime Prevention": "منع التوقف",
+        "Smart Recommendations": "توصيات ذكية",
+        "Smart Alerts": "تنبيهات ذكية",
+        "Severity": "درجة الخطورة",
+        "Time": "الوقت",
+        "Location": "الموقع",
+        "Message": "الرسالة",
+        "Medium": "متوسط",
+        "Low": "منخفض",
+        "Main Developers": "المطورون الرئيسيون",
+        "Our Vision": "رؤيتنا",
+        "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ونحن أيضًا لا ننتظر.",
+        "Features": "المميزات",
+        "AI-powered predictive analytics": "تحليلات تنبؤية مدعومة بالذكاء الاصطناعي",
+        "Instant smart solutions": "حلول ذكية فورية",
+        "Live alerts and monitoring": "تنبيهات ومراقبة حية",
+        "Multi-language support": "دعم متعدد اللغات",
+        "Stunning, responsive UI": "واجهة رائعة ومتجاوبة"
     }
- }
+}
+
 def get_lang():
     if "lang" not in st.session_state:
         st.session_state["lang"] = "ar"
@@ -114,21 +212,13 @@ def set_lang(lang):
     st.session_state["lang"] = lang
 
 def _(key):
+    # Default to English fallback if not found
     return translations.get(get_lang(), translations["en"]).get(key, key)
-    st.markdown(f"""
-<style>
-body, .stApp {{ background-color: {theme['primary']} !important; }}
-.stSidebar {{ background-color: {theme['sidebar_bg']} !important; }}
-.big-title {{ color: {theme['secondary']}; font-size:2.3rem; font-weight:bold; margin-bottom:10px; }}
-.sub-title {{ color: {theme['accent']}; font-size:1.4rem; margin-bottom:10px; }}
-.card {{ background: {theme['card_bg']}; border-radius:16px; padding:18px 24px; margin-bottom:16px; color:{theme['text_on_secondary']}; }}
-.metric {{ font-size:2.1rem; font-weight:bold; }}
-.metric-label {{ font-size:1.1rem; color:{theme['accent']}; }}
-.badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:2px 12px; border-radius:20px; margin-right:10px; }}
-.rtl {{ direction:rtl; }}
-</style>
-""", unsafe_allow_html=True)
 
+def rtl_wrap(html):
+    return f"<div class='rtl'>{html}</div>" if get_lang()=="ar" else html
+
+# --- Sidebar Navigation ---
 with st.sidebar:
     with st.expander(_("Settings"), expanded=True):
         lang_choice = st.radio(_("Choose Language"), options=["ar","en"],
@@ -148,35 +238,40 @@ with st.sidebar:
              ("about",_("About"))]
     st.radio(_("Navigate to"), options=pages, format_func=lambda x:x[1], index=0, key="page_radio")
 
-def rtl_wrap(html):
-    return f"<div class='rtl'>{html}</div>" if get_lang()=="ar" else html
+# ---- Page Functions ----
 
 def show_dashboard():
-    st.markdown(rtl_wrap(f"<div class='big-title'>{_('Welcome to your Smart Digital Twin!')}"), unsafe_allow_html=True)
-    colA,colB=st.columns([4,1])
+    st.markdown(rtl_wrap(f"<div class='big-title'>{_('Welcome to your Smart Digital Twin!')}</div>"), unsafe_allow_html=True)
+    colA, colB = st.columns([4,1])
     with colB:
         if st.button("🚨 "+_("Simulate Disaster")):
-            st.session_state["simulate_disaster"]=True
-            st.session_state["simulate_time"]=time.time()
+            st.session_state["simulate_disaster"] = True
+            st.session_state["simulate_time"] = time.time()
+    # Disaster simulation lasts for 30 seconds
     if st.session_state.get("simulate_disaster") and time.time()-st.session_state.get("simulate_time",0)>30:
-        st.session_state["simulate_disaster"]=False
+        st.session_state["simulate_disaster"] = False
     if st.session_state.get("simulate_disaster"):
-        temp,pressure,vib,methane,h2s=120,340,2.3,9.5,1.2
+        temp, pressure, vib, methane, h2s = 120, 340, 2.3, 9.5, 1.2
     else:
-        temp,pressure,vib,methane,h2s=82.7,202.2,0.61,2.85,0.30
-    cols=st.columns(5)
-    metrics=[temp,pressure,vib,methane,h2s]
-    labels=[_("Temperature"),_("Pressure"),_("Vibration"),_("Methane"),_("H2S")]
-    units=["°C","psi","g","ppm","ppm"]
-    for c,m,l,u in zip(cols,metrics,labels,units):
-        c.markdown(rtl_wrap(f"<div class='card'><div class='metric'>{m}{u}</div><div class='metric-label'>{l}</div></div>"),unsafe_allow_html=True)
+        temp, pressure, vib, methane, h2s = 82.7, 202.2, 0.61, 2.85, 0.30
+    cols = st.columns(5)
+    metrics = [temp, pressure, vib, methane, h2s]
+    labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
+    units = ["°C", "psi", "g", "ppm", "ppm"]
+    for c, m, l, u in zip(cols, metrics, labels, units):
+        c.markdown(rtl_wrap(f"<div class='card'><div class='metric'>{m}{u}</div><div class='metric-label'>{l}</div></div>"), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f"<div class='sub-title'>{_('Live Data')}</div>"), unsafe_allow_html=True)
 
-    dates=pd.date_range(end=pd.Timestamp.today(), periods=40)
-    df=pd.DataFrame({_("Temperature"):80+5*np.random.rand(40),_("Pressure"):200+10*np.random.rand(40),
-                     _("Methane"):2.5+0.5*np.random.rand(40),_("Vibration"):0.6+0.1*np.random.rand(40),
-                     _("H2S"):0.3+0.05*np.random.rand(40)}, index=dates)
-    fig=go.Figure()
+    # Random time series
+    dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
+    df = pd.DataFrame({
+        _("Temperature"): 80+5*np.random.rand(40),
+        _("Pressure"): 200+10*np.random.rand(40),
+        _("Methane"): 2.5+0.5*np.random.rand(40),
+        _("Vibration"): 0.6+0.1*np.random.rand(40),
+        _("H2S"): 0.3+0.05*np.random.rand(40)
+    }, index=dates)
+    fig = go.Figure()
     for col in df.columns:
         fig.add_trace(go.Scatter(y=df[col], x=df.index, mode='lines', name=col, line=dict(width=3)))
     fig.update_layout(xaxis_title=_("Time"), yaxis_title=_("Trend"),
@@ -187,7 +282,7 @@ def show_dashboard():
 def show_predictive():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="card"><b>{_("Temperature")}</b>: 84.2°C<br><b>{_("Pressure")}</b>: 205 psi<br><b>{_("Methane")}</b>: 3.1 ppm<br><span class="badge">High Risk Area: Tank 3</span></div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="card"><b>{_("Temperature")}</b>: 84.2°C<br><b>{_("Pressure")}</b>: 205 psi<br><b>{_("Methane")}</b>: 3.1 ppm<br><span class="badge">{_("High Risk Area: Tank 3")}</span></div>'), unsafe_allow_html=True)
     x = np.arange(0, 7)
     temp_pred = 82 + 2 * np.sin(0.5 * x)
     pressure_pred = 200 + 3 * np.cos(0.5 * x)
@@ -342,6 +437,7 @@ def show_about():
         "<b>Abdulrahman Alzhrani:</b> abdulrahman.alzhrani.1@aramco.com &nbsp; <b>Phone:</b> 0549202574"
         "</div>"), unsafe_allow_html=True)
 
+# ---- Routing ----
 routes = {
     "dashboard": show_dashboard,
     "predictive": show_predictive,
