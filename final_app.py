@@ -65,7 +65,7 @@ translations = {
         "Reduce Pressure in Line 3": "Reduce Pressure in Line 3", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "URGENT": "URGENT", "Now": "Now", "High": "High", "15 minutes": "15 minutes", "95%": "95%", "99%": "99%",
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts disasters, provides smart recommendations, and reduces maintenance costs.",
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin for real-time monitoring, predictions, and emergency response.",
         "High Risk Area: Tank 3": "High Risk Area: Tank 3",
         "Monthly Savings": "Monthly Savings",
         "Yearly Savings": "Yearly Savings",
@@ -124,7 +124,8 @@ translations = {
         "Methane Spike": "Methane Spike",
         "Pressure Drop": "Pressure Drop",
         "Vibration Anomaly": "Vibration Anomaly",
-        "High Temperature": "High Temperature"
+        "High Temperature": "High Temperature",
+        "About the Project": "About the Project"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -143,12 +144,12 @@ translations = {
         "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
         "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع حرج في الميثان.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع الميثان الحرج.",
         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ وأبلغ طاقم الصيانة للفحص.",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ وابلاغ فريق الصيانة للفحص.",
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "URGENT": "عاجل", "Now": "الآن", "High": "مرتفعة", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالكوارث، ويقدم توصيات ذكية، ويقلل من تكاليف الصيانة.",
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للمراقبة اللحظية والتنبؤات والاستجابة للطوارئ.",
         "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
         "Monthly Savings": "التوفير الشهري",
         "Yearly Savings": "التوفير السنوي",
@@ -207,7 +208,8 @@ translations = {
         "Methane Spike": "ارتفاع الميثان",
         "Pressure Drop": "انخفاض الضغط",
         "Vibration Anomaly": "خلل بالاهتزاز",
-        "High Temperature": "درجة حرارة عالية"
+        "High Temperature": "درجة حرارة عالية",
+        "About the Project": "عن المشروع"
     }
 }
 
@@ -225,10 +227,6 @@ def _(key: str) -> str:
 
 def rtl_wrap(html: str) -> str:
     return f"<div class='rtl'>{html}</div>" if get_lang() == "ar" else html
-
-# =========================
-# 3. Theme and CSS Injection (IMPROVED)
-# =========================
 
 def set_theme_in_session():
     if "theme_set" not in st.session_state:
@@ -319,10 +317,6 @@ def inject_css():
 
 inject_css()
 
-# =========================
-# 4. Sidebar & Navigation (IMPROVED)
-# =========================
-
 def theme_selector():
     theme_names = list(THEME_SETS.keys())
     previews = [
@@ -372,10 +366,6 @@ def sidebar():
         st.markdown('</div>', unsafe_allow_html=True)
 
 sidebar()
-
-# =========================
-# 5. Page Functions (ALL CONSISTENTLY UPDATED)
-# =========================
 
 def kpi_cards(values, labels, units, icons):
     kpi_blocks = []
