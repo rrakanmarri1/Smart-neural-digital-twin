@@ -379,7 +379,7 @@ def kpi_cards(values, labels, units, icons):
         """
         kpi_blocks.append(card)
     return rtl_wrap(f"""<div class="kpi-container">{''.join(kpi_blocks)}</div>""")
-
+    
 def show_dashboard():
     try:
         st.markdown(rtl_wrap(f"""
