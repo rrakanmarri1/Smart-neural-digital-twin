@@ -82,9 +82,29 @@ translations = {
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "URGENT": "عاجل", "Now": "الآن", "High": "مرتفع", "15 minutes": "15 دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
         "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية والحقول النفطية. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالحالات الشاذة ويولد حلولاً فورية ذكية، ويساعد المشغلين على منع الحوادث والتوقفات والخسائر. يتميز النظام بدعم لغات متعددة ولوحات بيانات تفاعلية، مما يجعله سهل الوصول ومفيدًا للجميع."
+        "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
+"Monthly Savings": "التوفير الشهري",
+"Yearly Savings": "التوفير السنوي",
+"Reduction in Maintenance Costs": "تقليل تكلفة الصيانة",
+"Savings": "التوفير",
+"Source": "المصدر",
+"Amount (SAR)": "المبلغ (ريال)",
+"Savings Breakdown": "تفصيل التوفير",
+"Current Alerts": "التنبيهات الحالية",
+"No alerts at the moment.": "لا توجد تنبيهات حاليًا.",
+"Congratulations!": "مبروك!",
+"You have achieved": "لقد حققت",
+"days without incidents": "يوم بدون حوادث",
+"Compared to last period": "مقارنة بالفترة السابقة",
+"Milestones": "إنجازات",
+"months zero downtime": "شهور بدون توقف",
+"energy efficiency improvement": "تحسن كفاءة الطاقة",
+"2025 Innovation Award, Best Digital Twin": "جائزة الابتكار 2025 - أفضل توأم رقمي",
+"Data Filters": "فلاتر البيانات",
+"Select Metric": "اختر المقياس",
+"Summary Table": "جدول ملخص",
     }
-}
-
+ }
 def get_lang():
     if "lang" not in st.session_state:
         st.session_state["lang"] = "ar"
