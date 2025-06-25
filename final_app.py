@@ -66,7 +66,7 @@ translations = {
         "Reduce Pressure in Line 3": "Reduce Pressure in Line 3", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "URGENT": "URGENT", "Now": "Now", "High": "High", "15 minutes": "15 minutes", "95%": "95%", "99%": "99%",
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin, predicting risks and suggesting instant smart solutions in real time.",
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin for real-time prediction, alerting, and actionable recommendations.",
         "High Risk Area: Tank 3": "High Risk Area: Tank 3",
         "Monthly Savings": "Monthly Savings",
         "Yearly Savings": "Yearly Savings",
@@ -114,12 +114,19 @@ translations = {
         "Stunning, responsive UI": "Stunning, responsive UI",
         "Dashboard loaded successfully!": "Dashboard loaded successfully!",
         "An error occurred loading the dashboard: ": "An error occurred loading the dashboard: ",
+        "Prediction": "Prediction",
+        "Live Monitoring": "Live Monitoring",
         # Themes
         "Ocean": "Ocean",
         "Sunset": "Sunset",
         "Emerald": "Emerald",
         "Night": "Night",
         "Blossom": "Blossom",
+        "AI-powered recommendations for safety and efficiency": "AI-powered recommendations for safety and efficiency",
+        "Methane Spike": "Methane Spike",
+        "Pressure Drop": "Pressure Drop",
+        "Vibration Anomaly": "Vibration Anomaly",
+        "High Temperature": "High Temperature"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -138,12 +145,12 @@ translations = {
         "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
         "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع خطير في الميثان.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع الميثان.",
         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ ونبه فريق الصيانة للفحص.",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15% في الخط ٣ وأبلغ طاقم الصيانة.",
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
-        "URGENT": "عاجل", "Now": "الآن", "High": "مرتفع", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط أجهزة الاستشعار الحية بتوأم رقمي ذكي يتنبأ بالمخاطر ويقترح حلولاً ذكية فورية.",
+        "URGENT": "عاجل", "Now": "الآن", "High": "مرتفعة", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للتنبؤ الفوري والتنبيه والتوصيات القابلة للتنفيذ.",
         "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
         "Monthly Savings": "التوفير الشهري",
         "Yearly Savings": "التوفير السنوي",
@@ -178,8 +185,8 @@ translations = {
         "Time": "الوقت",
         "Location": "الموقع",
         "Message": "الرسالة",
-        "Medium": "متوسط",
-        "Low": "منخفض",
+        "Medium": "متوسطة",
+        "Low": "منخفضة",
         "Main Developers": "المطورون الرئيسيون",
         "Our Vision": "رؤيتنا",
         "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ونحن أيضًا لا ننتظر.",
@@ -191,12 +198,19 @@ translations = {
         "Stunning, responsive UI": "واجهة رائعة ومتجاوبة",
         "Dashboard loaded successfully!": "تم تحميل لوحة التحكم بنجاح!",
         "An error occurred loading the dashboard: ": "حدث خطأ أثناء تحميل لوحة التحكم: ",
+        "Prediction": "تنبؤ",
+        "Live Monitoring": "مراقبة حية",
         # Themes
         "Ocean": "أوشن",
         "Sunset": "غروب الشمس",
         "Emerald": "زمردي",
         "Night": "ليلي",
         "Blossom": "إزهار",
+        "AI-powered recommendations for safety and efficiency": "توصيات ذكية مدعومة بالذكاء الاصطناعي للسلامة والكفاءة",
+        "Methane Spike": "ارتفاع الميثان",
+        "Pressure Drop": "انخفاض الضغط",
+        "Vibration Anomaly": "خلل بالاهتزاز",
+        "High Temperature": "درجة حرارة عالية"
     }
 }
 
@@ -319,29 +333,61 @@ sidebar()
 # =========================
 
 def show_dashboard():
-    """Dashboard page with error handling and accessibility."""
     try:
-        st.markdown(rtl_wrap(f"<div class='big-title'>{_('Welcome to your Smart Digital Twin!')}</div>"), unsafe_allow_html=True)
+        st.markdown(rtl_wrap(f"""
+        <div class="big-title" style="margin-bottom:0;">
+            <span>🧠 {_('Welcome to your Smart Digital Twin!')}</span>
+        </div>
+        <div style="margin-bottom:10px;">
+            <span class="badge" style="font-size:1.1rem;background:{theme['accent']};color:{theme['text_on_accent']};">
+                {_("Live Monitoring")} ⚡
+            </span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Top action and status
         colA, colB = st.columns([4, 1])
         with colB:
+            st.markdown(
+                f"<div style='margin-bottom:10px;'>"
+                f"<span class='badge' style='background:{theme['alert']};color:{theme['alert_text']};'>"
+                f"🔴 {'CRITICAL' if st.session_state.get('simulate_disaster') else 'ONLINE'}</span></div>",
+                unsafe_allow_html=True)
             if st.button("🚨 "+_("Simulate Disaster"), help=_("Trigger a simulated critical event.")):
                 st.session_state["simulate_disaster"] = True
                 st.session_state["simulate_time"] = time.time()
-        # Disaster simulation logic
+        # Disaster simulation
         if st.session_state.get("simulate_disaster") and time.time() - st.session_state.get("simulate_time", 0) > 30:
             st.session_state["simulate_disaster"] = False
         if st.session_state.get("simulate_disaster"):
             temp, pressure, vib, methane, h2s = 120, 340, 2.3, 9.5, 1.2
+            st.markdown(f"<div class='card' style='background:{theme['alert']};color:{theme['alert_text']};font-size:1.2rem;'>🔥 {_('Critical disaster detected during simulation.')}</div>", unsafe_allow_html=True)
         else:
             temp, pressure, vib, methane, h2s = 82.7, 202.2, 0.61, 2.85, 0.30
-        cols = st.columns(5)
-        metrics = [temp, pressure, vib, methane, h2s]
-        labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
-        units = ["°C", "psi", "g", "ppm", "ppm"]
-        for c, m, l, u in zip(cols, metrics, labels, units):
-            c.markdown(rtl_wrap(f"<div class='card'><div class='metric'>{m}{u}</div><div class='metric-label'>{l}</div></div>"), unsafe_allow_html=True)
-        st.markdown(rtl_wrap(f"<div class='sub-title'>{_('Live Data')}</div>"), unsafe_allow_html=True)
-        # Random time series
+
+        # Animated KPIs (using st.metric for effect)
+        kpi_cols = st.columns(5)
+        kpi_vals = [temp, pressure, vib, methane, h2s]
+        kpi_labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
+        kpi_units = ["°C", "psi", "g", "ppm", "ppm"]
+        kpi_icons = ["🌡️", "💧", "🌀", "🟢", "⚗️"]
+        for c, val, lbl, unit, icon in zip(kpi_cols, kpi_vals, kpi_labels, kpi_units, kpi_icons):
+            c.markdown(rtl_wrap(
+                f"<div class='card' style='min-width:115px;text-align:center;'>"
+                f"<div style='font-size:2.3rem'>{icon}</div>"
+                f"<div class='metric'>{val}{unit}</div>"
+                f"<div class='metric-label'>{lbl}</div>"
+                f"</div>"
+            ), unsafe_allow_html=True)
+
+        # Live Data Section
+        st.markdown(rtl_wrap(
+            f"""<div class="sub-title" style="margin-top:15px;margin-bottom:4px;">
+                📈 {_("Live Data")}
+            </div>"""
+        ), unsafe_allow_html=True)
+
+        # Fancy line chart (as before)
         dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
         df = pd.DataFrame({
             _("Temperature"): 80 + 5 * np.random.rand(40),
@@ -359,12 +405,34 @@ def show_dashboard():
             font=dict(color=theme['text_on_primary']), legend=dict(orientation='h', y=1.02, x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
+
+        # Prediction Section
+        st.markdown(rtl_wrap(
+            f"""<div class="sub-title" style="margin-top:20px;margin-bottom:4px;">
+                🤖 {_("Prediction")}
+            </div>"""
+        ), unsafe_allow_html=True)
+        x = np.arange(0, 7)
+        temp_pred = 82 + 2 * np.sin(0.5 * x)
+        pressure_pred = 200 + 3 * np.cos(0.5 * x)
+        methane_pred = 2.8 + 0.2 * np.random.rand(7)
+        pred_fig = go.Figure()
+        pred_fig.add_trace(go.Scatter(x=x, y=temp_pred, mode='lines+markers', name=_("Temperature")))
+        pred_fig.add_trace(go.Scatter(x=x, y=pressure_pred, mode='lines+markers', name=_("Pressure")))
+        pred_fig.add_trace(go.Scatter(x=x, y=methane_pred, mode='lines+markers', name=_("Methane")))
+        pred_fig.update_layout(
+            xaxis_title="Hours Ahead", yaxis_title=_("Forecast"),
+            plot_bgcolor=theme["plot_bg"], paper_bgcolor=theme["plot_bg"],
+            font=dict(color=theme["text_on_primary"])
+        )
+        st.plotly_chart(pred_fig, use_container_width=True)
+
         st.toast(_("Dashboard loaded successfully!"))
     except Exception as e:
         st.error(_("An error occurred loading the dashboard: ") + str(e))
 
 def show_predictive():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="big-title">🔮 {_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
     st.markdown(rtl_wrap(f'<div class="card"><b>{_("Temperature")}</b>: 84.2°C<br><b>{_("Pressure")}</b>: 205 psi<br><b>{_("Methane")}</b>: 3.1 ppm<br><span class="badge">{_("High Risk Area: Tank 3")}</span></div>'), unsafe_allow_html=True)
     x = np.arange(0, 7)
@@ -383,7 +451,8 @@ def show_predictive():
     st.plotly_chart(fig, use_container_width=True)
 
 def show_solutions():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Solutions")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="big-title">💡 {_("Smart Solutions")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("AI-powered recommendations for safety and efficiency")}</div>'), unsafe_allow_html=True)
     generate = st.button(_("Generate Solution"), help=_("Get an automatic recommendation for current conditions."))
     simulate = st.session_state.get("simulate_disaster", False)
     if generate or simulate:
@@ -407,16 +476,16 @@ def show_solutions():
                     "estimated_time": _("15 minutes")
                 }]
         for sol in solutions:
-            badge = f'<span class="badge">{_("Smart Recommendations")}</span>'
+            badge = f'<span class="badge" style="background:{theme["badge_bg"]};color:{theme["text_on_accent"]};font-size:1.05rem;">🔔 {_("Smart Recommendations")}</span>'
             st.markdown(rtl_wrap(
-                f'<div class="card">'
+                f'<div class="card" style="box-shadow: 0 4px 24px rgba(0,0,0,0.14);background:linear-gradient(90deg,{theme["card_bg"]} 65%,{theme["accent"]} 100%);">'
                 f"{badge}<br>"
-                f"<b>{sol['title']}</b><br>"
+                f"<b style='font-size:1.2rem'>{sol['title']}</b><br>"
                 f"<b>{_('Details')}:</b> {sol['details']}<br>"
-                f"<b>{_('Reason')}:</b> {sol['reason']}<br>"
-                f"<b>{_('Priority')}:</b> {sol['priority']}<br>"
-                f"<b>{_('Effectiveness')}:</b> {sol['effectiveness']}<br>"
-                f"<b>{_('Estimated Time')}:</b> {sol['estimated_time']}<br>"
+                f"<b>{_('Reason')}:</b> <span style='color:{theme['alert']};'>{sol['reason']}</span><br>"
+                f"<b>{_('Priority')}:</b> <span style='color:{theme['alert']};font-weight:bold'>{sol['priority']}</span> "
+                f"<b>{_('Effectiveness')}:</b> <span style='color:{theme['accent']}'>{sol['effectiveness']}</span> "
+                f"<b>{_('Estimated Time')}:</b> <span style='color:{theme['secondary']}'>{sol['estimated_time']}</span>"
                 f'</div>'
             ), unsafe_allow_html=True)
     else:
@@ -506,20 +575,92 @@ def show_explorer():
     st.dataframe(data)
 
 def show_about():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("About the Project")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(_("About Project Description")), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="card"><span class="badge">{_("Our Vision")}</span><br><i>{_("Disasters don\'t wait.. and neither do we.")}</i></div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Features')}</span><ul>"
-        f"<li>{_('AI-powered predictive analytics')}</li>"
-        f"<li>{_('Instant smart solutions')}</li>"
-        f"<li>{_('Live alerts and monitoring')}</li>"
-        f"<li>{_('Multi-language support')}</li>"
-        f"<li>{_('Stunning, responsive UI')}</li>"
-        "</ul></div>"), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<div class='card'><span class='badge'>{_('Main Developers')}</span><br>"
-        "<b>Rakan Almarri:</b> rakan.almarri.2@aramco.com<br>"
-        "<b>Abdulrahman Alzhrani:</b> abdulrahman.alzhrani.1@aramco.com"
-        "</div>"), unsafe_allow_html=True)
+    # Top Section: Logo or animated badge
+    st.markdown(rtl_wrap(f"""
+    <div style="display: flex; align-items: center; justify-content:center;">
+        <img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="72" style="margin-right:20px;" alt="AI logo"/>
+        <div>
+            <span class="big-title">{_("About the Project")}</span><br>
+            <span class="sub-title" style="font-size:1.1rem;">{_("Smart Neural Digital Twin")}</span>
+        </div>
+    </div>
+    """), unsafe_allow_html=True)
+
+    # Animated separator
+    st.markdown(rtl_wrap("""
+    <center>
+    <img src="https://media.giphy.com/media/3o7abGQa0aRJUurpII/giphy.gif" width="180" alt="divider animation"/>
+    </center>
+    """), unsafe_allow_html=True)
+
+    # Project Description
+    st.markdown(rtl_wrap(
+        f"<div class='card' style='font-size:1.1rem; background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);color:{theme['text_on_primary']}'>"
+        f"🧠 <b>{_('About Project Description')}</b></div>"
+    ), unsafe_allow_html=True)
+
+    # Vision in a quote card
+    st.markdown(rtl_wrap(
+        f"""<div class="card" style="border-left:8px solid {theme['accent']}; background:rgba(255,255,255,0.06);font-style:italic;">
+        <span class='badge'>{_('Our Vision')}</span>
+        <span style="font-size:1.2rem;">“{_("Disasters don't wait.. and neither do we.")}”</span>
+        </div>"""
+    ), unsafe_allow_html=True)
+
+    # Features Grid
+    st.markdown(rtl_wrap(
+        f"""<div class="card" style="background:linear-gradient(90deg,{theme['secondary']} 40%,{theme['accent']} 100%);">
+        <span class='badge'>✨ {_("Features")}</span>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+            <div>🤖 {_('AI-powered predictive analytics')}</div>
+            <div>⚡ {_('Instant smart solutions')}</div>
+            <div>📡 {_('Live alerts and monitoring')}</div>
+            <div>🌐 {_('Multi-language support')}</div>
+            <div>🎨 {_('Stunning, responsive UI')}</div>
+        </div>
+        </div>"""
+    ), unsafe_allow_html=True)
+
+    # Timeline/Milestone
+    st.markdown(rtl_wrap(
+        f"""<div class="card" style="background:linear-gradient(90deg,{theme['card_bg']} 60%,{theme['accent']} 100%);">
+        <span class="badge">🏆 {_("Milestones")}</span>
+        <ul style="margin-bottom:0;">
+            <li>2024: MVP Launch 🚀</li>
+            <li>2025: {_('2025 Innovation Award, Best Digital Twin')} 🥇</li>
+            <li>100+ {_('days without incidents')} ⭐</li>
+        </ul>
+        </div>"""
+    ), unsafe_allow_html=True)
+
+    # Team Grid
+    st.markdown(rtl_wrap(
+        f"""<div class="card" style="background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);">
+        <span class="badge">👨‍💻 {_("Main Developers")}</span>
+        <div style="display:flex;gap:40px;align-items:center;">
+            <div style="text-align:center;">
+                <img src="https://avatars.githubusercontent.com/u/rrakanmarri1?v=4" width="60" style="border-radius:50%"/>
+                <div><b>Rakan Almarri</b></div>
+                <div style="font-size:0.9em;">rakan.almarri.2@aramco.com</div>
+            </div>
+            <div style="text-align:center;">
+                <img src="https://ui-avatars.com/api/?name=Abdulrahman+Alzhrani&background=278ea5&color=fff" width="60" style="border-radius:50%"/>
+                <div><b>Abdulrahman Alzhrani</b></div>
+                <div style="font-size:0.9em;">abdulrahman.alzhrani.1@aramco.com</div>
+            </div>
+        </div>
+        </div>"""
+    ), unsafe_allow_html=True)
+
+    # Contact / Credits
+    st.markdown(rtl_wrap(
+        f"""<center>
+            <span style="font-size:1.2rem;color:{theme['accent']}">📬 Contact us for partnership or demo!</span><br>
+            <a href="mailto:rakan.almarri.2@aramco.com" style="color:{theme['badge_bg']}; text-decoration:underline;">
+                rakan.almarri.2@aramco.com
+            </a>
+        </center>"""
+    ), unsafe_allow_html=True)
 
 # =========================
 # 6. Routing
