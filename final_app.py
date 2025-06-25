@@ -1,6 +1,6 @@
 """
 Smart Neural Digital Twin
-Enhanced, modular, and polished Streamlit app
+Fully Responsive, Visually Enhanced, and Consistent Streamlit App
 """
 
 import streamlit as st
@@ -11,7 +11,7 @@ import time
 from typing import Dict, Callable
 
 # =========================
-# 1. Theme System & Preview
+# 1. Theme System & Preview (IMPROVED COLORS)
 # =========================
 
 THEME_SETS: Dict[str, Dict[str, str]] = {
@@ -19,27 +19,27 @@ THEME_SETS: Dict[str, Dict[str, str]] = {
               "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#153243",
               "sidebar_bg": "#18465b", "card_bg": "#278ea5", "badge_bg": "#21e6c1",
               "alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#153243"},
-    "Sunset": {"primary": "#ff7043", "secondary": "#ffa726", "accent": "#ffd54f",
-               "text_on_primary": "#fff", "text_on_secondary": "#232526", "text_on_accent": "#232526",
-               "sidebar_bg": "#ffb28f", "card_bg": "#ffa726", "badge_bg": "#ff7043",
-               "alert": "#d7263d", "alert_text": "#fff", "plot_bg": "#fff3e0"},
+    "Sunset": {"primary": "#FF7043", "secondary": "#FFA726", "accent": "#FFD54F",
+               "text_on_primary": "#232526", "text_on_secondary": "#232526", "text_on_accent": "#232526",
+               "sidebar_bg": "#FFF8E1", "card_bg": "#FFE0B2", "badge_bg": "#FFA726",
+               "alert": "#D7263D", "alert_text": "#fff", "plot_bg": "#FFF3E0"},
     "Emerald": {"primary": "#154734", "secondary": "#43e97b", "accent": "#38f9d7",
                 "text_on_primary": "#fff", "text_on_secondary": "#153243", "text_on_accent": "#154734",
-                "sidebar_bg": "#1d5c41", "card_bg": "#43e97b", "badge_bg": "#38f9d7",
+                "sidebar_bg": "#e0f2f1", "card_bg": "#e8fff3", "badge_bg": "#38f9d7",
                 "alert": "#ff1744", "alert_text": "#fff", "plot_bg": "#e0f2f1"},
     "Night": {"primary": "#232526", "secondary": "#414345", "accent": "#e96443",
               "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#232526",
-              "sidebar_bg": "#414345", "card_bg": "#232526", "badge_bg": "#e96443",
+              "sidebar_bg": "#353749", "card_bg": "#414345", "badge_bg": "#e96443",
               "alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#232526"},
     "Blossom": {"primary": "#fbd3e9", "secondary": "#bb377d", "accent": "#fa709a",
                 "text_on_primary": "#232526", "text_on_secondary": "#fff", "text_on_accent": "#fff",
-                "sidebar_bg": "#fcb7d4", "card_bg": "#fa709a", "badge_bg": "#bb377d",
+                "sidebar_bg": "#fce4ec", "card_bg": "#f8bbd0", "badge_bg": "#bb377d",
                 "alert": "#d7263d", "alert_text": "#fff", "plot_bg": "#fce4ec"}
 }
 DEFAULT_THEME = "Ocean"
 
 # =========================
-# 2. Translations & i18n
+# 2. Translations & i18n (FULL)
 # =========================
 
 translations = {
@@ -66,7 +66,7 @@ translations = {
         "Reduce Pressure in Line 3": "Reduce Pressure in Line 3", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
         "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
         "URGENT": "URGENT", "Now": "Now", "High": "High", "15 minutes": "15 minutes", "95%": "95%", "99%": "99%",
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin for real-time prediction, alerting, and actionable recommendations.",
+        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin that predicts disasters, provides smart recommendations, and reduces maintenance costs.",
         "High Risk Area: Tank 3": "High Risk Area: Tank 3",
         "Monthly Savings": "Monthly Savings",
         "Yearly Savings": "Yearly Savings",
@@ -145,12 +145,12 @@ translations = {
         "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
         "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع الميثان.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع حرج في الميثان.",
         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15% في الخط ٣ وأبلغ طاقم الصيانة.",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ وأبلغ طاقم الصيانة للفحص.",
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "URGENT": "عاجل", "Now": "الآن", "High": "مرتفعة", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للتنبؤ الفوري والتنبيه والتوصيات القابلة للتنفيذ.",
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط الحساسات الحية بتوأم رقمي ذكي يتنبأ بالكوارث، ويقدم توصيات ذكية، ويقلل من تكاليف الصيانة.",
         "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
         "Monthly Savings": "التوفير الشهري",
         "Yearly Savings": "التوفير السنوي",
@@ -200,7 +200,6 @@ translations = {
         "An error occurred loading the dashboard: ": "حدث خطأ أثناء تحميل لوحة التحكم: ",
         "Prediction": "تنبؤ",
         "Live Monitoring": "مراقبة حية",
-        # Themes
         "Ocean": "أوشن",
         "Sunset": "غروب الشمس",
         "Emerald": "زمردي",
@@ -215,29 +214,22 @@ translations = {
 }
 
 def get_lang() -> str:
-    """Get current language from session_state, default to Arabic."""
     if "lang" not in st.session_state:
         st.session_state["lang"] = "ar"
     return st.session_state["lang"]
 
 def set_lang(lang: str):
-    """Set current language in session_state."""
     st.session_state["lang"] = lang
 
 def _(key: str) -> str:
-    """
-    Translation function with fallback.
-    Tries current language, then English, then returns key.
-    """
     lang = get_lang()
     return translations.get(lang, {}).get(key) or translations["en"].get(key) or key
 
 def rtl_wrap(html: str) -> str:
-    """Wrap HTML in RTL if Arabic."""
     return f"<div class='rtl'>{html}</div>" if get_lang() == "ar" else html
 
 # =========================
-# 3. Theme and CSS Injection
+# 3. Theme and CSS Injection (IMPROVED)
 # =========================
 
 def set_theme_in_session():
@@ -248,441 +240,84 @@ set_theme_in_session()
 theme = THEME_SETS[st.session_state["theme_set"]]
 
 def inject_css():
-    """Inject custom CSS for theming and accessibility."""
     st.markdown(f"""
     <style>
     body, .stApp {{ background-color: {theme['primary']} !important; }}
     .stSidebar {{ background-color: {theme['sidebar_bg']} !important; }}
-    .big-title {{ color: {theme['secondary']}; font-size:2.3rem; font-weight:bold; margin-bottom:10px; }}
-    .sub-title {{ color: {theme['accent']}; font-size:1.4rem; margin-bottom:10px; }}
+    .big-title {{ color: {theme['secondary']}; font-size:2.5rem; font-weight:bold; margin-bottom:10px; letter-spacing:0.03em; }}
+    .sub-title {{ color: {theme['accent']}; font-size:1.3rem; margin-bottom:12px; font-weight:500; }}
     .card {{
         background: {theme['card_bg']};
-        border-radius:16px;
-        padding:18px 24px;
-        margin-bottom:16px;
+        border-radius:18px;
+        padding:22px 20px 20px 20px;
+        margin-bottom:20px;
         color:{theme['text_on_secondary']};
-        display: inline-block;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        min-width:100px;
     }}
-    .metric {{ font-size:2.1rem; font-weight:bold; }}
-    .metric-label {{ font-size:1.1rem; color:{theme['accent']}; }}
-    .badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:2px 12px; border-radius:20px; margin-right:10px; }}
+    .kpi-container {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+        justify-content: center;
+        margin-bottom: 20px;
+    }}
+    .kpi-card {{
+        flex: 1 1 160px;
+        min-width: 140px;
+        max-width: 180px;
+        background: {theme['card_bg']};
+        border-radius: 13px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.09);
+        padding: 18px 8px 13px 8px;
+        text-align: center;
+        margin: 0;
+        color: {theme['text_on_secondary']};
+        margin-bottom: 0px;
+        transition: transform 0.08s;
+        position: relative;
+    }}
+    .kpi-card:hover {{ transform: translateY(-5px) scale(1.03); }}
+    .metric {{ font-size:2.1rem; font-weight:700; line-height:1.2; }}
+    .metric-label {{ font-size:1.09rem; color:{theme['accent']}; margin-top:4px; }}
+    .badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:3px 14px; border-radius:20px; margin-right:8px; font-weight:500; font-size:1.03rem; }}
     .rtl {{ direction:rtl; }}
     .theme-swatch {{
-        display:inline-block; width:24px; height:24px; border-radius:8px;
+        display:inline-block; width:22px; height:22px; border-radius:8px;
         margin-right:8px; border:2px solid #3333; vertical-align:middle;
+    }}
+    .status-badge {{
+        display: inline-block;
+        background: {theme['alert']};
+        color: {theme['alert_text']};
+        border-radius: 15px;
+        padding: 3px 13px;
+        font-weight: bold;
+        font-size: 1.06rem;
+        margin-bottom: 4px;
+    }}
+    .sidebar-section {{
+        margin-bottom: 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e0e0e0;
+    }}
+    .block-section {{
+        margin-bottom: 32px;
+    }}
+    @media (max-width: 950px) {{
+        .kpi-container {{ gap: 0.6rem; }}
+        .kpi-card {{ min-width: 120px; max-width: 150px; padding: 10px 4px 8px 4px; font-size: 0.96rem; }}
+    }}
+    @media (max-width: 700px) {{
+        .kpi-container {{ gap: 0.3rem; }}
+        .kpi-card {{ min-width: 90px; max-width: 120px; padding: 6px 2px 6px 2px; font-size: 0.90rem; }}
+    }}
+    .data-table thead tr th, .data-table tbody tr td {{
+        text-align: center !important;
+        font-size: 1.09rem;
     }}
     </style>
     """, unsafe_allow_html=True)
 
 inject_css()
 
-# =========================
-# 4. Sidebar & Navigation
-# =========================
-
-def theme_selector():
-    """Show theme selector with swatch and translated names."""
-    theme_names = list(THEME_SETS.keys())
-    previews = [
-        f"<span class='theme-swatch' style='background:{THEME_SETS[name]['primary']}'></span> {_(name)}"
-        for name in theme_names
-    ]
-    theme_idx = theme_names.index(st.session_state["theme_set"])
-    choice = st.radio(
-        _( "Theme Set" ),
-        options=theme_names,
-        format_func=lambda x: _(x),
-        index=theme_idx,
-        key="theme_radio"
-    )
-    if choice != st.session_state["theme_set"]:
-        st.session_state["theme_set"] = choice
-        st.rerun()
-    # Show preview
-    st.markdown("<div><b>"+_("Theme Preview")+"</b></div>", unsafe_allow_html=True)
-    for i, preview in enumerate(previews):
-        sel = "✅" if theme_names[i]==choice else ""
-        st.markdown(f"{preview} {sel}", unsafe_allow_html=True)
-
-def sidebar():
-    """Sidebar: Settings and Navigation."""
-    with st.sidebar:
-        with st.expander(_("Settings"), expanded=True):
-            lang_choice = st.radio(_("Choose Language"),
-                                   options=["ar", "en"],
-                                   format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
-                                   index=0 if get_lang() == "ar" else 1,
-                                   key="lang_radio")
-            set_lang(lang_choice)
-            theme_selector()
-        st.markdown("---")
-        pages = [
-            ("dashboard", _("Dashboard")), ("predictive", _("Predictive Analysis")),
-            ("solutions", _("Smart Solutions")), ("alerts", _("Smart Alerts")),
-            ("cost", _("Cost & Savings")), ("achievements", _("Achievements")),
-            ("comparison", _("Performance Comparison")), ("explorer", _("Data Explorer")),
-            ("about", _("About"))
-        ]
-        st.radio(_("Navigate to"), options=pages, format_func=lambda x: x[1], index=0, key="page_radio")
-
-sidebar()
-
-# =========================
-# 5. Page Functions
-# =========================
-
-def show_dashboard():
-    try:
-        st.markdown(rtl_wrap(f"""
-        <div class="big-title" style="margin-bottom:0;">
-            <span>🧠 {_('Welcome to your Smart Digital Twin!')}</span>
-        </div>
-        <div style="margin-bottom:10px;">
-            <span class="badge" style="font-size:1.1rem;background:{theme['accent']};color:{theme['text_on_accent']};">
-                {_("Live Monitoring")} ⚡
-            </span>
-        </div>
-        """), unsafe_allow_html=True)
-
-        # Top action and status
-        colA, colB = st.columns([4, 1])
-        with colB:
-            st.markdown(
-                f"<div style='margin-bottom:10px;'>"
-                f"<span class='badge' style='background:{theme['alert']};color:{theme['alert_text']};'>"
-                f"🔴 {'CRITICAL' if st.session_state.get('simulate_disaster') else 'ONLINE'}</span></div>",
-                unsafe_allow_html=True)
-            if st.button("🚨 "+_("Simulate Disaster"), help=_("Trigger a simulated critical event.")):
-                st.session_state["simulate_disaster"] = True
-                st.session_state["simulate_time"] = time.time()
-        # Disaster simulation
-        if st.session_state.get("simulate_disaster") and time.time() - st.session_state.get("simulate_time", 0) > 30:
-            st.session_state["simulate_disaster"] = False
-        if st.session_state.get("simulate_disaster"):
-            temp, pressure, vib, methane, h2s = 120, 340, 2.3, 9.5, 1.2
-            st.markdown(f"<div class='card' style='background:{theme['alert']};color:{theme['alert_text']};font-size:1.2rem;'>🔥 {_('Critical disaster detected during simulation.')}</div>", unsafe_allow_html=True)
-        else:
-            temp, pressure, vib, methane, h2s = 82.7, 202.2, 0.61, 2.85, 0.30
-
-        # Animated KPIs (using st.metric for effect)
-        kpi_cols = st.columns(5)
-        kpi_vals = [temp, pressure, vib, methane, h2s]
-        kpi_labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
-        kpi_units = ["°C", "psi", "g", "ppm", "ppm"]
-        kpi_icons = ["🌡️", "💧", "🌀", "🟢", "⚗️"]
-        for c, val, lbl, unit, icon in zip(kpi_cols, kpi_vals, kpi_labels, kpi_units, kpi_icons):
-            c.markdown(rtl_wrap(
-                f"<div class='card' style='min-width:115px;text-align:center;'>"
-                f"<div style='font-size:2.3rem'>{icon}</div>"
-                f"<div class='metric'>{val}{unit}</div>"
-                f"<div class='metric-label'>{lbl}</div>"
-                f"</div>"
-            ), unsafe_allow_html=True)
-
-        # Live Data Section
-        st.markdown(rtl_wrap(
-            f"""<div class="sub-title" style="margin-top:15px;margin-bottom:4px;">
-                📈 {_("Live Data")}
-            </div>"""
-        ), unsafe_allow_html=True)
-
-        # Fancy line chart (as before)
-        dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
-        df = pd.DataFrame({
-            _("Temperature"): 80 + 5 * np.random.rand(40),
-            _("Pressure"): 200 + 10 * np.random.rand(40),
-            _("Methane"): 2.5 + 0.5 * np.random.rand(40),
-            _("Vibration"): 0.6 + 0.1 * np.random.rand(40),
-            _("H2S"): 0.3 + 0.05 * np.random.rand(40)
-        }, index=dates)
-        fig = go.Figure()
-        for col in df.columns:
-            fig.add_trace(go.Scatter(y=df[col], x=df.index, mode='lines', name=col, line=dict(width=3)))
-        fig.update_layout(
-            xaxis_title=_("Time"), yaxis_title=_("Trend"),
-            plot_bgcolor=theme['plot_bg'], paper_bgcolor=theme['plot_bg'],
-            font=dict(color=theme['text_on_primary']), legend=dict(orientation='h', y=1.02, x=1)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Prediction Section
-        st.markdown(rtl_wrap(
-            f"""<div class="sub-title" style="margin-top:20px;margin-bottom:4px;">
-                🤖 {_("Prediction")}
-            </div>"""
-        ), unsafe_allow_html=True)
-        x = np.arange(0, 7)
-        temp_pred = 82 + 2 * np.sin(0.5 * x)
-        pressure_pred = 200 + 3 * np.cos(0.5 * x)
-        methane_pred = 2.8 + 0.2 * np.random.rand(7)
-        pred_fig = go.Figure()
-        pred_fig.add_trace(go.Scatter(x=x, y=temp_pred, mode='lines+markers', name=_("Temperature")))
-        pred_fig.add_trace(go.Scatter(x=x, y=pressure_pred, mode='lines+markers', name=_("Pressure")))
-        pred_fig.add_trace(go.Scatter(x=x, y=methane_pred, mode='lines+markers', name=_("Methane")))
-        pred_fig.update_layout(
-            xaxis_title="Hours Ahead", yaxis_title=_("Forecast"),
-            plot_bgcolor=theme["plot_bg"], paper_bgcolor=theme["plot_bg"],
-            font=dict(color=theme["text_on_primary"])
-        )
-        st.plotly_chart(pred_fig, use_container_width=True)
-
-        st.toast(_("Dashboard loaded successfully!"))
-    except Exception as e:
-        st.error(_("An error occurred loading the dashboard: ") + str(e))
-
-def show_predictive():
-    st.markdown(rtl_wrap(f'<div class="big-title">🔮 {_("Predictive Analysis")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Forecast")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="card"><b>{_("Temperature")}</b>: 84.2°C<br><b>{_("Pressure")}</b>: 205 psi<br><b>{_("Methane")}</b>: 3.1 ppm<br><span class="badge">{_("High Risk Area: Tank 3")}</span></div>'), unsafe_allow_html=True)
-    x = np.arange(0, 7)
-    temp_pred = 82 + 2 * np.sin(0.5 * x)
-    pressure_pred = 200 + 3 * np.cos(0.5 * x)
-    methane_pred = 2.8 + 0.2 * np.random.rand(7)
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=temp_pred, mode='lines+markers', name=_("Temperature")))
-    fig.add_trace(go.Scatter(x=x, y=pressure_pred, mode='lines+markers', name=_("Pressure")))
-    fig.add_trace(go.Scatter(x=x, y=methane_pred, mode='lines+markers', name=_("Methane")))
-    fig.update_layout(
-        xaxis_title="Hours Ahead", yaxis_title=_("Forecast"),
-        plot_bgcolor=theme["plot_bg"], paper_bgcolor=theme["plot_bg"],
-        font=dict(color=theme["text_on_primary"])
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-def show_solutions():
-    st.markdown(rtl_wrap(f'<div class="big-title">💡 {_("Smart Solutions")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("AI-powered recommendations for safety and efficiency")}</div>'), unsafe_allow_html=True)
-    generate = st.button(_("Generate Solution"), help=_("Get an automatic recommendation for current conditions."))
-    simulate = st.session_state.get("simulate_disaster", False)
-    if generate or simulate:
-        with st.spinner(_("Generating solution...")):
-            if simulate:
-                solutions = [{
-                    "title": _("Emergency Vent Gas!"),
-                    "details": _("Immediate venting required in Tank 2 due to critical methane spike."),
-                    "reason": _("Critical disaster detected during simulation."),
-                    "priority": _("URGENT"),
-                    "effectiveness": _("99%"),
-                    "estimated_time": _("Now")
-                }]
-            else:
-                solutions = [{
-                    "title": _("Reduce Pressure in Line 3"),
-                    "details": _("Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection."),
-                    "reason": _("Abnormal vibration detected. This reduces risk."),
-                    "priority": _("High"),
-                    "effectiveness": _("95%"),
-                    "estimated_time": _("15 minutes")
-                }]
-        for sol in solutions:
-            badge = f'<span class="badge" style="background:{theme["badge_bg"]};color:{theme["text_on_accent"]};font-size:1.05rem;">🔔 {_("Smart Recommendations")}</span>'
-            st.markdown(rtl_wrap(
-                f'<div class="card" style="box-shadow: 0 4px 24px rgba(0,0,0,0.14);background:linear-gradient(90deg,{theme["card_bg"]} 65%,{theme["accent"]} 100%);">'
-                f"{badge}<br>"
-                f"<b style='font-size:1.2rem'>{sol['title']}</b><br>"
-                f"<b>{_('Details')}:</b> {sol['details']}<br>"
-                f"<b>{_('Reason')}:</b> <span style='color:{theme['alert']};'>{sol['reason']}</span><br>"
-                f"<b>{_('Priority')}:</b> <span style='color:{theme['alert']};font-weight:bold'>{sol['priority']}</span> "
-                f"<b>{_('Effectiveness')}:</b> <span style='color:{theme['accent']}'>{sol['effectiveness']}</span> "
-                f"<b>{_('Estimated Time')}:</b> <span style='color:{theme['secondary']}'>{sol['estimated_time']}</span>"
-                f'</div>'
-            ), unsafe_allow_html=True)
-    else:
-        st.info(_("Press 'Generate Solution' for intelligent suggestions."))
-
-def show_alerts():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Smart Alerts")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Current Alerts")}</div>'), unsafe_allow_html=True)
-    alerts = [
-        {"timestamp": "2025-06-24 13:45", "location": "Tank 3", "msg": _("Methane Spike"), "severity": _("High")},
-        {"timestamp": "2025-06-24 13:20", "location": "Pipeline 1", "msg": _("Pressure Drop"), "severity": _("Medium")},
-        {"timestamp": "2025-06-24 12:55", "location": "Tank 1", "msg": _("Vibration Anomaly"), "severity": _("Low")},
-        {"timestamp": "2025-06-24 12:45", "location": "Compressor B", "msg": _("High Temperature"), "severity": _("High")}
-    ]
-    if st.session_state.get("simulate_disaster", False):
-        alerts.insert(0, {"timestamp": "NOW", "location": "Tank 2", "msg": _("Methane Spike"), "severity": _("High")})
-    if alerts:
-        df_alerts = pd.DataFrame(alerts)
-        df_alerts["severity_color"] = df_alerts["severity"].map({
-            _("High"): "🔴", _("Medium"): "🟠", _("Low"): "🟢"
-        })
-        df_alerts = df_alerts[["severity_color", "severity", "timestamp", "location", "msg"]]
-        df_alerts.columns = ["", _("Severity"), _("Time"), _("Location"), _("Message")]
-        st.dataframe(df_alerts, hide_index=True, use_container_width=True)
-    else:
-        st.info(_("No alerts at the moment."))
-
-def show_cost():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Cost & Savings")}</div>'), unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    col1.markdown(rtl_wrap(f'<div class="card"><div class="metric">5,215,000 SAR</div><div class="metric-label">{_("Yearly Savings")}</div></div>'), unsafe_allow_html=True)
-    col2.markdown(rtl_wrap(f'<div class="card"><div class="metric">17%</div><div class="metric-label">{_("Reduction in Maintenance Costs")}</div></div>'), unsafe_allow_html=True)
-    months = [f"{i+1}/2025" for i in range(6)]
-    savings = [400000, 450000, 500000, 550000, 600000, 650000]
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Monthly Savings")}</div>'), unsafe_allow_html=True)
-    fig = go.Figure(go.Bar(x=months, y=savings, marker_color=theme["accent"]))
-    fig.update_layout(
-        xaxis_title=_("Month"), yaxis_title=_("Savings"),
-        plot_bgcolor=theme["plot_bg"], paper_bgcolor=theme["plot_bg"], font=dict(color=theme["secondary"]),
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Savings Breakdown")}</div>'), unsafe_allow_html=True)
-    breakdown = pd.DataFrame({
-        _("Source"): [_("Energy Efficiency"), _("Maintenance Reduction"), _("Downtime Prevention")],
-        _("Amount (SAR)"): [2000000, 1500000, 1715000]
-    })
-    st.table(breakdown)
-
-def show_achievements():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Achievements")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(
-        '<div class="card"><span class="badge">🏆</span> ' +
-        _("Congratulations!") + " " + _("You have achieved") +
-        " <b>100</b> " + _("days without incidents") + "!</div>"), unsafe_allow_html=True)
-    st.progress(0.85, text=_("Compared to last period"))
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Milestones")}</div>'), unsafe_allow_html=True)
-    st.markdown("- 50 " + _("days without incidents"))
-    st.markdown("- 3 " + _("months zero downtime"))
-    st.markdown("- 10% " + _("energy efficiency improvement"))
-    st.markdown("- " + _("2025 Innovation Award, Best Digital Twin"))
-
-def show_comparison():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Performance Comparison")}</div>'), unsafe_allow_html=True)
-    metrics = [_("Temperature"), _("Pressure"), _("Savings"), _("Downtime (hrs)")]
-    values_now = [82.7, 202.2, 650000, 2.1]
-    values_prev = [85, 204, 500000, 8.4]
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=metrics, y=values_now, name=_("Current"), marker_color=theme["accent"]))
-    fig.add_trace(go.Bar(x=metrics, y=values_prev, name=_("Previous"), marker_color=theme["secondary"]))
-    fig.update_layout(barmode='group', plot_bgcolor=theme["plot_bg"], paper_bgcolor=theme["plot_bg"], font=dict(color=theme["secondary"]))
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Summary Table")}</div>'), unsafe_allow_html=True)
-    summary = pd.DataFrame({
-        _("Metric"): metrics, _("Current"): values_now, _("Previous"): values_prev,
-        _("Change"): [now - prev for now, prev in zip(values_now, values_prev)]
-    })
-    st.table(summary)
-
-def show_explorer():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Data Explorer")}</div>'), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Data Filters")}</div>'), unsafe_allow_html=True)
-    metrics = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
-    metric = st.selectbox(_("Select Metric"), options=metrics)
-    dates = pd.date_range(end=pd.Timestamp.today(), periods=30)
-    data = pd.DataFrame({metric: 80 + 5 * np.random.rand(30)}, index=dates)
-    st.line_chart(data)
-    st.dataframe(data)
-
-def show_about():
-    # Top Section: Logo or animated badge
-    st.markdown(rtl_wrap(f"""
-    <div style="display: flex; align-items: center; justify-content:center;">
-        <img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="72" style="margin-right:20px;" alt="AI logo"/>
-        <div>
-            <span class="big-title">{_("About the Project")}</span><br>
-            <span class="sub-title" style="font-size:1.1rem;">{_("Smart Neural Digital Twin")}</span>
-        </div>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Animated separator
-    st.markdown(rtl_wrap("""
-    <center>
-    <img src="https://media.giphy.com/media/3o7abGQa0aRJUurpII/giphy.gif" width="180" alt="divider animation"/>
-    </center>
-    """), unsafe_allow_html=True)
-
-    # Project Description
-    st.markdown(rtl_wrap(
-        f"<div class='card' style='font-size:1.1rem; background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);color:{theme['text_on_primary']}'>"
-        f"🧠 <b>{_('About Project Description')}</b></div>"
-    ), unsafe_allow_html=True)
-
-    # Vision in a quote card
-    st.markdown(rtl_wrap(
-        f"""<div class="card" style="border-left:8px solid {theme['accent']}; background:rgba(255,255,255,0.06);font-style:italic;">
-        <span class='badge'>{_('Our Vision')}</span>
-        <span style="font-size:1.2rem;">“{_("Disasters don't wait.. and neither do we.")}”</span>
-        </div>"""
-    ), unsafe_allow_html=True)
-
-    # Features Grid
-    st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['secondary']} 40%,{theme['accent']} 100%);">
-        <span class='badge'>✨ {_("Features")}</span>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-            <div>🤖 {_('AI-powered predictive analytics')}</div>
-            <div>⚡ {_('Instant smart solutions')}</div>
-            <div>📡 {_('Live alerts and monitoring')}</div>
-            <div>🌐 {_('Multi-language support')}</div>
-            <div>🎨 {_('Stunning, responsive UI')}</div>
-        </div>
-        </div>"""
-    ), unsafe_allow_html=True)
-
-    # Timeline/Milestone
-    st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['card_bg']} 60%,{theme['accent']} 100%);">
-        <span class="badge">🏆 {_("Milestones")}</span>
-        <ul style="margin-bottom:0;">
-            <li>2024: MVP Launch 🚀</li>
-            <li>2025: {_('2025 Innovation Award, Best Digital Twin')} 🥇</li>
-            <li>100+ {_('days without incidents')} ⭐</li>
-        </ul>
-        </div>"""
-    ), unsafe_allow_html=True)
-
-    # Team Grid
-    st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);">
-        <span class="badge">👨‍💻 {_("Main Developers")}</span>
-        <div style="display:flex;gap:40px;align-items:center;">
-            <div style="text-align:center;">
-                <img src="https://avatars.githubusercontent.com/u/rrakanmarri1?v=4" width="60" style="border-radius:50%"/>
-                <div><b>Rakan Almarri</b></div>
-                <div style="font-size:0.9em;">rakan.almarri.2@aramco.com</div>
-            </div>
-            <div style="text-align:center;">
-                <img src="https://ui-avatars.com/api/?name=Abdulrahman+Alzhrani&background=278ea5&color=fff" width="60" style="border-radius:50%"/>
-                <div><b>Abdulrahman Alzhrani</b></div>
-                <div style="font-size:0.9em;">abdulrahman.alzhrani.1@aramco.com</div>
-            </div>
-        </div>
-        </div>"""
-    ), unsafe_allow_html=True)
-
-    # Contact / Credits
-    st.markdown(rtl_wrap(
-        f"""<center>
-            <span style="font-size:1.2rem;color:{theme['accent']}">📬 Contact us for partnership or demo!</span><br>
-            <a href="mailto:rakan.almarri.2@aramco.com" style="color:{theme['badge_bg']}; text-decoration:underline;">
-                rakan.almarri.2@aramco.com
-            </a>
-        </center>"""
-    ), unsafe_allow_html=True)
-
-# =========================
-# 6. Routing
-# =========================
-
-routes: Dict[str, Callable[[], None]] = {
-    "dashboard": show_dashboard,
-    "predictive": show_predictive,
-    "solutions": show_solutions,
-    "alerts": show_alerts,
-    "cost": show_cost,
-    "achievements": show_achievements,
-    "comparison": show_comparison,
-    "explorer": show_explorer,
-    "about": show_about
-}
-
-# Ensure disaster sim state exists
-if "simulate_disaster" not in st.session_state:
-    st.session_state["simulate_disaster"] = False
-if "simulate_time" not in st.session_state:
-    st.session_state["simulate_time"] = 0
-
-selected_page = st.session_state.page_radio
-routes[selected_page[0]]()
