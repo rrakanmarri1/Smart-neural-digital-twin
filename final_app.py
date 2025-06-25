@@ -340,7 +340,7 @@ def theme_selector():
 def sidebar():
     with st.sidebar:
         with st.expander(_("Settings"), expanded=True):
-            theme selector()
+            theme_selector()
             st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
             lang_choice = st.radio(_("Choose Language"),
                                    options=["ar", "en"],
