@@ -1,6 +1,6 @@
 """
-Smart Neural Digital Twin
-Fully Responsive, Visually Enhanced, and Consistent Streamlit App
+Smart Neural Digital Twin – Ultra Fancy Streamlit Dashboard
+All definitions, all translations, all categories, super-polished structure and visuals.
 """
 
 import streamlit as st
@@ -11,7 +11,7 @@ import time
 from typing import Dict, Callable
 
 # =========================
-# 1. Theme System & Preview (IMPROVED COLORS)
+# 1. Theme System (Beautiful, Polished, Responsive)
 # =========================
 
 THEME_SETS: Dict[str, Dict[str, str]] = {
@@ -39,7 +39,7 @@ THEME_SETS: Dict[str, Dict[str, str]] = {
 DEFAULT_THEME = "Ocean"
 
 # =========================
-# 2. Translations & i18n (FULL)
+# 2. Translations (Full, Including All Used Keys)
 # =========================
 
 translations = {
@@ -50,7 +50,8 @@ translations = {
         "Dashboard": "Dashboard", "Predictive Analysis": "Predictive Analysis",
         "Smart Solutions": "Smart Solutions", "Smart Alerts": "Smart Alerts",
         "Cost & Savings": "Cost & Savings", "Achievements": "Achievements",
-        "Performance Comparison": "Performance Comparison", "Data Explorer": "Data Explorer",
+        "Performance": "Performance", "Comparison": "Comparison", "Performance Comparison": "Performance Comparison",
+        "Data Explorer": "Data Explorer",
         "About": "About", "Navigate to": "Navigate to",
         "Welcome to your Smart Digital Twin!": "Welcome to your Smart Neural Digital Twin!",
         "Temperature": "Temperature", "Pressure": "Pressure", "Vibration": "Vibration",
@@ -125,7 +126,11 @@ translations = {
         "Pressure Drop": "Pressure Drop",
         "Vibration Anomaly": "Vibration Anomaly",
         "High Temperature": "High Temperature",
-        "About the Project": "About the Project"
+        "About the Project": "About the Project",
+        "Contact us for partnership or demo!": "Contact us for partnership or demo!",
+        "Performance": "Performance",
+        "Comparison": "Comparison",
+        "Lets Compare!": "Lets Compare!"
     },
     "ar": {
         "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
@@ -134,7 +139,8 @@ translations = {
         "Dashboard": "لوحة التحكم", "Predictive Analysis": "تحليل تنبؤي",
         "Smart Solutions": "حلول ذكية", "Smart Alerts": "تنبيهات ذكية",
         "Cost & Savings": "التكلفة والتوفير", "Achievements": "الإنجازات",
-        "Performance Comparison": "مقارنة الأداء", "Data Explorer": "استكشاف البيانات",
+        "Performance": "الأداء", "Comparison": "مقارنة", "Performance Comparison": "مقارنة الأداء",
+        "Data Explorer": "استكشاف البيانات",
         "About": "حول", "Navigate to": "انتقل إلى",
         "Welcome to your Smart Digital Twin!": "مرحبًا بك في التوأم الرقمي الذكي!",
         "Temperature": "درجة الحرارة", "Pressure": "الضغط", "Vibration": "الاهتزاز",
@@ -144,12 +150,12 @@ translations = {
         "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
         "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
         "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع الميثان الحرج.",
+        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع حاد في الميثان.",
         "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ وابلاغ فريق الصيانة للفحص.",
+        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15٪ في الخط ٣ ونبه فريق الصيانة للفحص.",
         "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
         "URGENT": "عاجل", "Now": "الآن", "High": "مرتفعة", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للمراقبة اللحظية والتنبؤات والاستجابة للطوارئ.",
+        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط أجهزة الاستشعار الحية بتوأم رقمي ذكي للمراقبة والتنبؤ والاستجابة للطوارئ في الوقت الفعلي.",
         "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
         "Monthly Savings": "التوفير الشهري",
         "Yearly Savings": "التوفير السنوي",
@@ -209,9 +215,17 @@ translations = {
         "Pressure Drop": "انخفاض الضغط",
         "Vibration Anomaly": "خلل بالاهتزاز",
         "High Temperature": "درجة حرارة عالية",
-        "About the Project": "عن المشروع"
+        "About the Project": "عن المشروع",
+        "Contact us for partnership or demo!": "تواصل معنا للشراكة أو العرض التوضيحي!",
+        "Performance": "الأداء",
+        "Comparison": "مقارنة",
+        "Lets Compare!": "لنقارن!"
     }
 }
+
+# =========================
+# 3. Language and Theme State
+# =========================
 
 def get_lang() -> str:
     if "lang" not in st.session_state:
@@ -235,51 +249,56 @@ def set_theme_in_session():
 set_theme_in_session()
 theme = THEME_SETS[st.session_state["theme_set"]]
 
+# =========================
+# 4. CSS Injection (Super Fancy)
+# =========================
+
 def inject_css():
     st.markdown(f"""
     <style>
-    body, .stApp {{ background-color: {theme['primary']} !important; }}
+    body, .stApp {{ background: linear-gradient(120deg, {theme['primary']} 60%, {theme['secondary']} 100%) !important; min-height:100vh; }}
     .stSidebar {{ background-color: {theme['sidebar_bg']} !important; }}
-    .big-title {{ color: {theme['secondary']}; font-size:2.5rem; font-weight:bold; margin-bottom:10px; letter-spacing:0.03em; }}
-    .sub-title {{ color: {theme['accent']}; font-size:1.3rem; margin-bottom:12px; font-weight:500; }}
+    .big-title {{ color: {theme['accent']}; font-size:2.8rem; font-weight:bold; margin-bottom:10px; letter-spacing:0.04em; text-shadow: 1px 2px 12px rgba(0,0,0,0.08); }}
+    .sub-title {{ color: {theme['secondary']}; font-size:1.4rem; margin-bottom:14px; font-weight:600; letter-spacing: 0.03em; }}
     .card {{
-        background: {theme['card_bg']};
-        border-radius:18px;
-        padding:22px 20px 20px 20px;
-        margin-bottom:20px;
+        background: linear-gradient(120deg, {theme['card_bg']} 70%, {theme['accent']} 120%);
+        border-radius:22px;
+        padding:26px 24px 24px 24px;
+        margin-bottom:22px;
         color:{theme['text_on_secondary']};
-        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-        min-width:100px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+        min-width:120px;
     }}
     .kpi-container {{
         display: flex;
         flex-wrap: wrap;
-        gap: 1.2rem;
+        gap: 1.5rem;
         justify-content: center;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
     }}
     .kpi-card {{
-        flex: 1 1 160px;
+        flex: 1 1 180px;
         min-width: 140px;
-        max-width: 180px;
-        background: {theme['card_bg']};
-        border-radius: 13px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.09);
-        padding: 18px 8px 13px 8px;
+        max-width: 200px;
+        background: linear-gradient(110deg, {theme['card_bg']} 80%, {theme['accent']} 150%);
+        border-radius: 16px;
+        box-shadow: 0 3px 18px rgba(0,0,0,0.10);
+        padding: 20px 12px 15px 12px;
         text-align: center;
         margin: 0;
         color: {theme['text_on_secondary']};
         margin-bottom: 0px;
-        transition: transform 0.08s;
+        transition: transform 0.12s;
         position: relative;
+        border: 2.5px solid {theme['badge_bg']}33;
     }}
-    .kpi-card:hover {{ transform: translateY(-5px) scale(1.03); }}
-    .metric {{ font-size:2.1rem; font-weight:700; line-height:1.2; }}
-    .metric-label {{ font-size:1.09rem; color:{theme['accent']}; margin-top:4px; }}
-    .badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:3px 14px; border-radius:20px; margin-right:8px; font-weight:500; font-size:1.03rem; }}
+    .kpi-card:hover {{ transform: translateY(-7px) scale(1.04); box-shadow: 0 9px 36px rgba(0,0,0,0.13); }}
+    .metric {{ font-size:2.2rem; font-weight:800; line-height:1.2; letter-spacing:0.02em; }}
+    .metric-label {{ font-size:1.13rem; color:{theme['accent']}; margin-top:5px; font-weight:500; }}
+    .badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:6px 18px; border-radius:22px; margin-right:8px; font-weight:600; font-size:1.07rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }}
     .rtl {{ direction:rtl; }}
     .theme-swatch {{
-        display:inline-block; width:22px; height:22px; border-radius:8px;
+        display:inline-block; width:28px; height:28px; border-radius:10px;
         margin-right:8px; border:2px solid #3333; vertical-align:middle;
     }}
     .status-badge {{
@@ -287,41 +306,87 @@ def inject_css():
         background: {theme['alert']};
         color: {theme['alert_text']};
         border-radius: 15px;
-        padding: 3px 13px;
+        padding: 5px 18px;
         font-weight: bold;
-        font-size: 1.06rem;
-        margin-bottom: 4px;
+        font-size: 1.18rem;
+        margin-bottom: 7px;
+        box-shadow: 0 1px 8px rgba(0,0,0,0.10);
     }}
     .sidebar-section {{
-        margin-bottom: 18px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 21px;
+        padding-bottom: 13px;
+        border-bottom: 1.5px solid #e0e0e0;
     }}
     .block-section {{
-        margin-bottom: 32px;
+        margin-bottom: 35px;
     }}
     @media (max-width: 950px) {{
-        .kpi-container {{ gap: 0.6rem; }}
-        .kpi-card {{ min-width: 120px; max-width: 150px; padding: 10px 4px 8px 4px; font-size: 0.96rem; }}
+        .kpi-container {{ gap: 0.8rem; }}
+        .kpi-card {{ min-width: 120px; max-width: 150px; padding: 12px 6px 10px 6px; font-size: 1.01rem; }}
     }}
     @media (max-width: 700px) {{
         .kpi-container {{ gap: 0.3rem; }}
-        .kpi-card {{ min-width: 90px; max-width: 120px; padding: 6px 2px 6px 2px; font-size: 0.90rem; }}
+        .kpi-card {{ min-width: 90px; max-width: 120px; padding: 7px 2px 7px 2px; font-size: 0.93rem; }}
     }}
     .data-table thead tr th, .data-table tbody tr td {{
         text-align: center !important;
+        font-size: 1.15rem;
+    }}
+    .about-card-gradient {{
+        background: linear-gradient(120deg, {theme['secondary']} 40%, {theme['accent']} 100%);
+        color: {theme['text_on_primary']};
+        border-radius: 20px;
+        padding: 20px 28px;
+        box-shadow: 0 6px 28px rgba(0,0,0,0.10);
+        margin-bottom: 18px;
+    }}
+    .about-dev {{
+        display: flex; gap: 45px; align-items: center; justify-content: center; margin-top:18px;
+    }}
+    .about-dev .dev {{
+        text-align:center;
+        background:rgba(255,255,255,0.08);
+        border-radius:18px;
+        padding:12px 26px 11px 26px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }}
+    .about-dev img {{
+        border-radius:50%;
+        border:3px solid {theme['badge_bg']};
+        margin-bottom:7px;
+    }}
+    .about-features {{
+        display: grid;
+        grid-template-columns: repeat(2,1fr);
+        gap: 13px;
+        margin-top: 12px;
         font-size: 1.09rem;
+        font-weight: 500;
+    }}
+    .about-features .fancy-icon {{
+        font-size: 1.3em;
+        margin-right: 6px;
+    }}
+    .about-milestones {{
+        margin-top: 8px;
+        margin-bottom: 8px;
+        padding-left: 15px;
+        font-size: 1.08rem;
+    }}
+    .about-contact {{
+        margin-top: 22px;
+        text-align:center;
+        color:{theme['accent']};
+        font-size:1.15rem;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-pages = [
-    ("dashboard", _("Dashboard")), ("predictive", _("Predictive Analysis")),
-    ("solutions", _("Smart Solutions")), ("alerts", _("Smart Alerts")),
-    ("cost", _("Cost & Savings")), ("achievements", _("Achievements")),
-    ("comparison", _("Performance Comparison")), ("explorer", _("Data Explorer")),
-    ("about", _("About"))
-]
+inject_css()
+
+# =========================
+# 5. Sidebar: Theme, Language, Navigation
+# =========================
 
 def theme_selector(key="theme_selector_radio"):
     theme_names = list(THEME_SETS.keys())
@@ -331,7 +396,7 @@ def theme_selector(key="theme_selector_radio"):
         options=theme_names,
         format_func=lambda x: _(x),
         index=theme_names.index(current_theme),
-        key=key  # Use the provided key
+        key=key
     )
     if selected != current_theme:
         st.session_state["theme_set"] = selected
@@ -357,8 +422,8 @@ def sidebar():
             ("dashboard", _("Dashboard")), ("predictive", _("Predictive Analysis")),
             ("solutions", _("Smart Solutions")), ("alerts", _("Smart Alerts")),
             ("cost", _("Cost & Savings")), ("achievements", _("Achievements")),
-            ("comparison", _("Performance Comparison")), ("explorer", _("Data Explorer")),
-            ("about", _("About"))
+            ("performance", _("Performance")), ("comparison", _("Comparison")),
+            ("explorer", _("Data Explorer")), ("about", _("About"))
         ]
         st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
         st.radio(_("Navigate to"), options=pages, format_func=lambda x: x[1], index=0, key="page_radio")
@@ -366,19 +431,27 @@ def sidebar():
 
 sidebar()
 
+# =========================
+# 6. Super-Fancy KPI Cards
+# =========================
+
 def kpi_cards(values, labels, units, icons):
     kpi_blocks = []
     for val, lbl, unit, icon in zip(values, labels, units, icons):
         card = f"""
         <div class="kpi-card">
-            <div style='font-size:2.1rem'>{icon}</div>
+            <div style='font-size:2.2rem'>{icon}</div>
             <div class='metric'>{val}{unit}</div>
             <div class='metric-label'>{lbl}</div>
         </div>
         """
         kpi_blocks.append(card)
     return rtl_wrap(f"""<div class="kpi-container">{''.join(kpi_blocks)}</div>""")
-    
+
+# =========================
+# 7. Pages
+# =========================
+
 def show_dashboard():
     try:
         st.markdown(rtl_wrap(f"""
@@ -405,7 +478,7 @@ def show_dashboard():
             st.session_state["simulate_disaster"] = False
         if st.session_state.get("simulate_disaster"):
             temp, pressure, vib, methane, h2s = 120, 340, 2.3, 9.5, 1.2
-            st.markdown(f"<div class='card' style='background:{theme['alert']};color:{theme['alert_text']};font-size:1.2rem;'>🔥 {_('Critical disaster detected during simulation.')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card' style='background:{theme['alert']};color:{theme['alert_text']};font-size:1.25rem;'>🔥 {_('Critical disaster detected during simulation.')}</div>", unsafe_allow_html=True)
         else:
             temp, pressure, vib, methane, h2s = 82.7, 202.2, 0.61, 2.85, 0.30
 
@@ -513,7 +586,7 @@ def show_solutions():
                     "estimated_time": _("15 minutes")
                 }]
         for sol in solutions:
-            badge = f'<span class="badge" style="background:{theme["badge_bg"]};color:{theme["text_on_accent"]};font-size:1.05rem;">🔔 {_("Smart Recommendations")}</span>'
+            badge = f'<span class="badge" style="background:{theme["badge_bg"]};color:{theme["text_on_accent"]};font-size:1.08rem;">🔔 {_("Smart Recommendations")}</span>'
             st.markdown(rtl_wrap(
                 f'<div class="card" style="box-shadow: 0 4px 24px rgba(0,0,0,0.14);background:linear-gradient(90deg,{theme["card_bg"]} 65%,{theme["accent"]} 100%);">'
                 f"{badge}<br>"
@@ -584,8 +657,8 @@ def show_achievements():
     st.markdown("- 10% " + _("energy efficiency improvement"))
     st.markdown("- " + _("2025 Innovation Award, Best Digital Twin"))
 
-def show_comparison():
-    st.markdown(rtl_wrap(f'<div class="big-title">{_("Performance Comparison")}</div>'), unsafe_allow_html=True)
+def show_performance():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Performance")}</div>'), unsafe_allow_html=True)
     metrics = [_("Temperature"), _("Pressure"), _("Savings"), _("Downtime (hrs)")]
     values_now = [82.7, 202.2, 650000, 2.1]
     values_prev = [85, 204, 500000, 8.4]
@@ -600,6 +673,21 @@ def show_comparison():
         _("Change"): [now - prev for now, prev in zip(values_now, values_prev)]
     })
     st.table(summary)
+
+def show_comparison():
+    st.markdown(rtl_wrap(f'<div class="big-title">{_("Comparison")}</div>'), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f'<div class="sub-title">{_("Lets Compare!")}</div>'), unsafe_allow_html=True)
+    # Use a slider for months
+    months = [f"{i+1}/2025" for i in range(12)]
+    metrics = [_("Temperature"), _("Pressure"), _("Savings")]
+    data = pd.DataFrame({
+        _("Temperature"): np.random.uniform(80, 90, 12),
+        _("Pressure"): np.random.uniform(190, 210, 12),
+        _("Savings"): np.random.uniform(400000, 700000, 12),
+    }, index=months)
+    st.line_chart(data)
+    st.dataframe(data)
+    st.markdown(rtl_wrap(f'<div class="card"><b>{_("Comparison")}</b> – ' + _("Performance Comparison") + '</div>'), unsafe_allow_html=True)
 
 def show_explorer():
     st.markdown(rtl_wrap(f'<div class="big-title">{_("Data Explorer")}</div>'), unsafe_allow_html=True)
@@ -617,41 +705,33 @@ def show_about():
         <img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="72" style="margin-right:20px;" alt="AI logo"/>
         <div>
             <span class="big-title">{_("About the Project")}</span><br>
-            <span class="sub-title" style="font-size:1.1rem;">{_("Smart Neural Digital Twin")}</span>
+            <span class="sub-title" style="font-size:1.18rem;">{_("Smart Neural Digital Twin")}</span>
         </div>
     </div>
     """), unsafe_allow_html=True)
-    st.markdown(rtl_wrap("""
-    <center>
-    <img src="https://media.giphy.com/media/3o7abGQa0aRJUurpII/giphy.gif" width="180" alt="divider animation"/>
-    </center>
-    """), unsafe_allow_html=True)
     st.markdown(rtl_wrap(
-        f"<div class='card' style='font-size:1.1rem; background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);color:{theme['text_on_primary']}'>"
-        f"🧠 <b>{_('About Project Description')}</b></div>"
+        f"<div class='about-card-gradient'><span style='font-size:1.2em;'>🧠</span> <b>{_('About Project Description')}</b></div>"
+        ), unsafe_allow_html=True)
+    st.markdown(rtl_wrap(
+        f"""<div class='card' style='font-style:italic;font-size:1.2rem;'><span class='badge'>{_('Our Vision')}</span>
+        “{_("Disasters don't wait.. and neither do we.")}”</div>"""
     ), unsafe_allow_html=True)
     st.markdown(rtl_wrap(
-        f"""<div class="card" style="border-left:8px solid {theme['accent']}; background:rgba(255,255,255,0.06);font-style:italic;">
-        <span class='badge'>{_('Our Vision')}</span>
-        <span style="font-size:1.2rem;">“{_("Disasters don't wait.. and neither do we.")}”</span>
-        </div>"""
-    ), unsafe_allow_html=True)
-    st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['secondary']} 40%,{theme['accent']} 100%);">
+        f"""<div class='about-card-gradient'>
         <span class='badge'>✨ {_("Features")}</span>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-            <div>🤖 {_('AI-powered predictive analytics')}</div>
-            <div>⚡ {_('Instant smart solutions')}</div>
-            <div>📡 {_('Live alerts and monitoring')}</div>
-            <div>🌐 {_('Multi-language support')}</div>
-            <div>🎨 {_('Stunning, responsive UI')}</div>
+        <div class='about-features'>
+            <div><span class='fancy-icon'>🤖</span>{_('AI-powered predictive analytics')}</div>
+            <div><span class='fancy-icon'>⚡</span>{_('Instant smart solutions')}</div>
+            <div><span class='fancy-icon'>📡</span>{_('Live alerts and monitoring')}</div>
+            <div><span class='fancy-icon'>🌐</span>{_('Multi-language support')}</div>
+            <div><span class='fancy-icon'>🎨</span>{_('Stunning, responsive UI')}</div>
         </div>
         </div>"""
     ), unsafe_allow_html=True)
     st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['card_bg']} 60%,{theme['accent']} 100%);">
+        f"""<div class='about-card-gradient'>
         <span class="badge">🏆 {_("Milestones")}</span>
-        <ul style="margin-bottom:0;">
+        <ul class='about-milestones'>
             <li>2024: MVP Launch 🚀</li>
             <li>2025: {_('2025 Innovation Award, Best Digital Twin')} 🥇</li>
             <li>100+ {_('days without incidents')} ⭐</li>
@@ -659,33 +739,32 @@ def show_about():
         </div>"""
     ), unsafe_allow_html=True)
     st.markdown(rtl_wrap(
-        f"""<div class="card" style="background:linear-gradient(90deg,{theme['primary']} 60%,{theme['secondary']} 100%);">
+        f"""<div class='about-card-gradient'>
         <span class="badge">👨‍💻 {_("Main Developers")}</span>
-        <div style="display:flex;gap:40px;align-items:center;">
-            <div style="text-align:center;">
-                <img src="https://avatars.githubusercontent.com/u/rrakanmarri1?v=4" width="60" style="border-radius:50%"/>
-                <div><b>Rakan Almarri</b></div>
-                <div style="font-size:0.9em;">rakan.almarri.2@aramco.com</div>
+        <div class='about-dev'>
+            <div class='dev'>
+                <img src="https://avatars.githubusercontent.com/u/rrakanmarri1?v=4" width="60"/><br>
+                <b>Rakan Almarri</b><br>
+                <span style="font-size:0.97em;">rakan.almarri.2@aramco.com</span>
             </div>
-            <div style="text-align:center;">
-                <img src="https://ui-avatars.com/api/?name=Abdulrahman+Alzhrani&background=278ea5&color=fff" width="60" style="border-radius:50%"/>
-                <div><b>Abdulrahman Alzhrani</b></div>
-                <div style="font-size:0.9em;">abdulrahman.alzhrani.1@aramco.com</div>
+            <div class='dev'>
+                <img src="https://ui-avatars.com/api/?name=Abdulrahman+Alzhrani&background=278ea5&color=fff" width="60"/><br>
+                <b>Abdulrahman Alzhrani</b><br>
+                <span style="font-size:0.97em;">abdulrahman.alzhrani.1@aramco.com</span>
             </div>
         </div>
         </div>"""
     ), unsafe_allow_html=True)
     st.markdown(rtl_wrap(
-        f"""<center>
-            <span style="font-size:1.2rem;color:{theme['accent']}">📬 Contact us for partnership or demo!</span><br>
+        f"""<div class='about-contact'>📬 {_("Contact us for partnership or demo!")}<br>
             <a href="mailto:rakan.almarri.2@aramco.com" style="color:{theme['badge_bg']}; text-decoration:underline;">
                 rakan.almarri.2@aramco.com
             </a>
-        </center>"""
+        </div>"""
     ), unsafe_allow_html=True)
 
 # =========================
-# 6. Routing & State
+# 8. Routing & State
 # =========================
 
 routes: Dict[str, Callable[[], None]] = {
@@ -695,6 +774,7 @@ routes: Dict[str, Callable[[], None]] = {
     "alerts": show_alerts,
     "cost": show_cost,
     "achievements": show_achievements,
+    "performance": show_performance,
     "comparison": show_comparison,
     "explorer": show_explorer,
     "about": show_about
