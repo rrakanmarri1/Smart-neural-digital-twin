@@ -23,10 +23,20 @@ THEME_SETS: Dict[str, Dict[str, str]] = {
               "text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#153243",
               "sidebar_bg": "#18465b", "card_bg": "#278ea5", "badge_bg": "#21e6c1",
               "alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#153243"},
-    "Sunset": {"primary": "#FF7043", "secondary": "#FFA726", "accent": "#FFD54F",
-               "text_on_primary": "#232526", "text_on_secondary": "#232526", "text_on_accent": "#232526",
-               "sidebar_bg": "#FFF8E1", "card_bg": "#FFE0B2", "badge_bg": "#FFA726",
-               "alert": "#D7263D", "alert_text": "#fff", "plot_bg": "#FFF3E0"},
+"Sunset": {
+    "primary": "#FF7043",
+    "secondary": "#FFA726",
+    "accent": "#FFD54F",
+    "text_on_primary": "#232526", 
+    "text_on_secondary": "#111",  
+    "text_on_accent": "#232526",
+    "sidebar_bg": "#FFD9A0",      
+    "card_bg": "#FFE0B2",
+    "badge_bg": "#FFA726",
+    "alert": "#D7263D",
+    "alert_text": "#fff",
+    "plot_bg": "#FFF3E0"
+}
     "Emerald": {"primary": "#154734", "secondary": "#43e97b", "accent": "#38f9d7",
                 "text_on_primary": "#fff", "text_on_secondary": "#153243", "text_on_accent": "#154734",
                 "sidebar_bg": "#e0f2f1", "card_bg": "#e8fff3", "badge_bg": "#38f9d7",
@@ -365,7 +375,6 @@ def sidebar():
             set_lang(lang_choice)
             st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
-            theme_selector(key="theme_selector_radio_2")
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown("---")
         pages = [
