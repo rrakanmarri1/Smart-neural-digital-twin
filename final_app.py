@@ -323,9 +323,24 @@ pages = [
     ("about", _("About"))
 ]
 
+def theme_selector():
+    theme_names = list(THEME_SETS.keys())
+    current_theme = st.session_state.get("theme_set", DEFAULT_THEME)
+    selected = st.radio(
+        _("Theme Set"),
+        options=theme_names,
+        format_func=lambda x: _(x),
+        index=theme_names.index(current_theme),
+        key="theme_selector_radio"
+    )
+    if selected != current_theme:
+        st.session_state["theme_set"] = selected
+        st.experimental_rerun()
+        
 def sidebar():
     with st.sidebar:
         with st.expander(_("Settings"), expanded=True):
+            theme selector()
             st.markdown('<div class="sidebar-section">', unsafe_allow_html=True)
             lang_choice = st.radio(_("Choose Language"),
                                    options=["ar", "en"],
