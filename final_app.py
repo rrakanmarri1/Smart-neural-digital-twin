@@ -333,5 +333,6 @@ routes = {
     "explorer": show_explorer,
     "about": show_about
 }
+
 selected_page = st.session_state.page_radio
 routes[selected_page[0]]()
