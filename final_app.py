@@ -1,6 +1,10 @@
 """
-Smart Neural Digital Twin – Ultra Fancy Streamlit Dashboard
-Fixed: KPI cards always render as visuals (never code!), and 'Estimated Time' in solutions always shows, even in Arabic!
+Smart Neural Digital Twin – Fancy Streamlit Dashboard
+This version:
+- Fixes the issue with HTML code blocks by avoiding HTML in KPI cards entirely.
+- Uses Streamlit-native elements (st.metric in st.columns) for KPIs for 100% compatibility and a polished, modern look.
+- All other pages remain fancy and use your CSS for the rest of the UI.
+- "Estimated Time" in solutions always appears, with proper translation.
 """
 
 import streamlit as st
@@ -39,7 +43,7 @@ THEME_SETS: Dict[str, Dict[str, str]] = {
 DEFAULT_THEME = "Ocean"
 
 # =========================
-# 2. Translations (EN & AR, all used keys)
+# 2. Translations (all used keys)
 # =========================
 
 translations = {
@@ -223,10 +227,7 @@ translations = {
     }
 }
 
-# =========================
 # 3. Language & Theme State
-# =========================
-
 def get_lang() -> str:
     if "lang" not in st.session_state:
         st.session_state["lang"] = "ar"
@@ -249,10 +250,7 @@ def set_theme_in_session():
 set_theme_in_session()
 theme = THEME_SETS[st.session_state["theme_set"]]
 
-# =========================
-# 4. CSS Injection
-# =========================
-
+# 4. CSS Injection (fancy for all except KPI row)
 def inject_css():
     st.markdown(f"""
     <style>
@@ -269,38 +267,8 @@ def inject_css():
         box-shadow: 0 6px 30px rgba(0,0,0,0.10);
         min-width:120px;
     }}
-    .kpi-container {{
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-        justify-content: center;
-        margin-bottom: 24px;
-    }}
-    .kpi-card {{
-        flex: 1 1 180px;
-        min-width: 140px;
-        max-width: 200px;
-        background: linear-gradient(110deg, {theme['card_bg']} 80%, {theme['accent']} 150%);
-        border-radius: 16px;
-        box-shadow: 0 3px 18px rgba(0,0,0,0.10);
-        padding: 20px 12px 15px 12px;
-        text-align: center;
-        margin: 0;
-        color: {theme['text_on_secondary']};
-        margin-bottom: 0px;
-        transition: transform 0.12s;
-        position: relative;
-        border: 2.5px solid {theme['badge_bg']}33;
-    }}
-    .kpi-card:hover {{ transform: translateY(-7px) scale(1.04); box-shadow: 0 9px 36px rgba(0,0,0,0.13); }}
-    .metric {{ font-size:2.2rem; font-weight:800; line-height:1.2; letter-spacing:0.02em; }}
-    .metric-label {{ font-size:1.13rem; color:{theme['accent']}; margin-top:5px; font-weight:500; }}
     .badge {{ background:{theme['badge_bg']}; color:{theme['text_on_accent']}; padding:6px 18px; border-radius:22px; margin-right:8px; font-weight:600; font-size:1.07rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }}
     .rtl {{ direction:rtl; }}
-    .theme-swatch {{
-        display:inline-block; width:28px; height:28px; border-radius:10px;
-        margin-right:8px; border:2px solid #3333; vertical-align:middle;
-    }}
     .status-badge {{
         display: inline-block;
         background: {theme['alert']};
@@ -316,21 +284,6 @@ def inject_css():
         margin-bottom: 21px;
         padding-bottom: 13px;
         border-bottom: 1.5px solid #e0e0e0;
-    }}
-    .block-section {{
-        margin-bottom: 35px;
-    }}
-    @media (max-width: 950px) {{
-        .kpi-container {{ gap: 0.8rem; }}
-        .kpi-card {{ min-width: 120px; max-width: 150px; padding: 12px 6px 10px 6px; font-size: 1.01rem; }}
-    }}
-    @media (max-width: 700px) {{
-        .kpi-container {{ gap: 0.3rem; }}
-        .kpi-card {{ min-width: 90px; max-width: 120px; padding: 7px 2px 7px 2px; font-size: 0.93rem; }}
-    }}
-    .data-table thead tr th, .data-table tbody tr td {{
-        text-align: center !important;
-        font-size: 1.15rem;
     }}
     .about-card-gradient {{
         background: linear-gradient(120deg, {theme['secondary']} 40%, {theme['accent']} 100%);
@@ -384,10 +337,7 @@ def inject_css():
 
 inject_css()
 
-# =========================
-# 5. Sidebar: Theme, Language, Navigation
-# =========================
-
+# 5. Sidebar
 def theme_selector(key="theme_selector_radio"):
     theme_names = list(THEME_SETS.keys())
     current_theme = st.session_state.get("theme_set", DEFAULT_THEME)
@@ -431,28 +381,16 @@ def sidebar():
 
 sidebar()
 
-# =========================
-# 6. Super-Fancy KPI Cards (Always Rendered As HTML)
-# =========================
+# 6. KPI Display - Streamlit-native metric, stays fancy with emojis & colors
+def kpi_metrics_row(values, labels, units, icons):
+    cols = st.columns(len(values))
+    for i, col in enumerate(cols):
+        col.metric(
+            label=f"{icons[i]} {labels[i]}",
+            value=f"{values[i]} {units[i]}"
+        )
 
-def kpi_cards(values, labels, units, icons):
-    kpi_blocks = []
-    for val, lbl, unit, icon in zip(values, labels, units, icons):
-        card = f"""
-        <div class="kpi-card">
-            <div style='font-size:2.2rem'>{icon}</div>
-            <div class='metric'>{val}{unit}</div>
-            <div class='metric-label'>{lbl}</div>
-        </div>
-        """
-        kpi_blocks.append(card)
-    # Always render as HTML with unsafe_allow_html=True!
-    return rtl_wrap(f"""<div class="kpi-container">{''.join(kpi_blocks)}</div>""")
-
-# =========================
 # 7. Pages
-# =========================
-
 def show_dashboard():
     try:
         st.markdown(rtl_wrap(f"""
@@ -487,7 +425,7 @@ def show_dashboard():
         kpi_labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
         kpi_units = ["°C", "psi", "g", "ppm", "ppm"]
         kpi_icons = ["🌡️", "💧", "🌀", "🟢", "⚗️"]
-        st.markdown(kpi_cards(kpi_vals, kpi_labels, kpi_units, kpi_icons), unsafe_allow_html=True)
+        kpi_metrics_row(kpi_vals, kpi_labels, kpi_units, kpi_icons)  # <-- Streamlit metric row
 
         st.markdown(rtl_wrap(
             f"""<div class="sub-title" style="margin-top:15px;margin-bottom:4px;">
@@ -545,7 +483,7 @@ def show_predictive():
     kpi_labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
     kpi_units = ["°C", "psi", "g", "ppm", "ppm"]
     kpi_icons = ["🌡️", "💧", "🌀", "🟢", "⚗️"]
-    st.markdown(kpi_cards(kpi_vals, kpi_labels, kpi_units, kpi_icons), unsafe_allow_html=True)
+    kpi_metrics_row(kpi_vals, kpi_labels, kpi_units, kpi_icons)
     x = np.arange(0, 7)
     temp_pred = 82 + 2 * np.sin(0.5 * x)
     pressure_pred = 200 + 3 * np.cos(0.5 * x)
@@ -588,7 +526,6 @@ def show_solutions():
                 }]
         for sol in solutions:
             badge = f'<span class="badge" style="background:{theme["badge_bg"]};color:{theme["text_on_accent"]};font-size:1.08rem;">🔔 {_("Smart Recommendations")}</span>'
-            # Guaranteed to show Estimated Time (in all languages)
             st.markdown(rtl_wrap(
                 f'<div class="card" style="box-shadow: 0 4px 24px rgba(0,0,0,0.14);background:linear-gradient(90deg,{theme["card_bg"]} 65%,{theme["accent"]} 100%);">'
                 f"{badge}<br>"
@@ -764,10 +701,7 @@ def show_about():
         </div>"""
     ), unsafe_allow_html=True)
 
-# =========================
 # 8. Routing & State
-# =========================
-
 routes: Dict[str, Callable[[], None]] = {
     "dashboard": show_dashboard,
     "predictive": show_predictive,
