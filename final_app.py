@@ -8,6 +8,110 @@ import random
 import pandas as pd
 import numpy as np
 
+# ----------------- FONTS & STYLE (NEW) -----------------
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=IBM+Plex+Sans:wght@700&display=swap');
+html, body, [class*="st-"] {
+    font-family: 'Cairo', 'IBM Plex Sans', sans-serif !important;
+}
+body, .stApp {
+    background: linear-gradient(120deg,#181a20,#232526 65%,#43cea2,#fee140 100%);
+}
+[data-testid="stSidebar"] > div:first-child {
+    background: linear-gradient(135deg,#232526,#485563 70%,#43cea2);
+}
+.stButton>button {
+    background: linear-gradient(90deg,#43cea2,#185a9d);
+    color: white;
+    border: none;
+    font-size:1.13em;
+    font-weight:bold;
+    padding: 0.7em 2.3em;
+    border-radius: 17px;
+    box-shadow: 0 8px 22px #0003;
+    transition: 0.15s;
+    animation: pulse 1.7s infinite;
+}
+.stButton>button:hover {
+    background: linear-gradient(90deg,#fa709a,#fee140);
+    color: #222;
+    transform: scale(1.04);
+    box-shadow: 0 12px 32px #fa709a55;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 #43cea288; }
+  70% { box-shadow: 0 0 0 15px #43cea200; }
+  100% { box-shadow: 0 0 0 0 #43cea200; }
+}
+.solution-card {
+    background: linear-gradient(90deg,#232526,#485563 70%,#56ab2f);
+    color:white;
+    border-radius: 19px;
+    padding: 1.25em 1.7em;
+    margin-bottom: 1.1em;
+    box-shadow: 0 4px 24px #43cea244;
+    position: relative;
+    overflow: hidden;
+    animation: slide-in 0.9s;
+}
+@keyframes slide-in {
+    0% { opacity: 0; transform: translateY(50px);}
+    100% { opacity: 1; transform: none;}
+}
+.solution-icon {
+    font-size: 2.2em;
+    position: absolute;
+    top: 1.2em;
+    right: 1.2em;
+    opacity: 0.13;
+    pointer-events: none;
+}
+.gradient-bar {
+    height: 13px;
+    border-radius: 8px;
+    background: linear-gradient(90deg,#43cea2,#185a9d,#fa709a,#fee140);
+    margin-bottom: 0.7em;
+}
+.team-card {
+    background: linear-gradient(90deg,#232526, #43cea2 80%);
+    color: white;
+    border-radius: 15px;
+    margin-bottom: 1em;
+    padding: 1em 2em;
+    box-shadow: 0 2px 16px #0003;
+}
+.timeline {
+    border-left: 4px solid #43cea2;
+    margin-left: 1em;
+    padding-left: 1.6em;
+}
+.timeline-event {
+    margin-bottom: 1.5em;
+    position: relative;
+}
+.timeline-event:before {
+    content: '';
+    position: absolute;
+    left: -1.6em;
+    top: 0.3em;
+    width: 1em;
+    height: 1em;
+    background: linear-gradient(90deg,#43cea2,#fa709a);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 8px #43cea2;
+}
+.scenario-box {
+    background: linear-gradient(90deg,#185a9d11,#fee14022);
+    border-radius: 14px;
+    padding: 1.2em 1em;
+    margin: 1.1em 0 0.7em 0;
+    box-shadow: 0 2px 12px #fa709a22;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ----------------- LOTTIE HELPER -----------------
 def load_lottieurl(url):
     r = requests.get(url)
@@ -21,7 +125,7 @@ twin_lottie = "https://assets1.lottiefiles.com/packages/lf20_wnqlfojb.json"
 ai_lottie   = "https://assets10.lottiefiles.com/packages/lf20_5ngs2ksb.json"
 plant_lottie = "https://assets3.lottiefiles.com/packages/lf20_5b2dh9jt.json"
 confetti_lottie = "https://assets8.lottiefiles.com/packages/lf20_0os2dcp1.json"
-rain_lottie = "https://assets8.lottiefiles.com/packages/lf20_yo6yhn0q.json"
+alert_lottie = "https://assets2.lottiefiles.com/packages/lf20_4kx2q32n.json"
 
 # ----------------- TRANSLATIONS -----------------
 translations = {
@@ -33,6 +137,7 @@ translations = {
         "alerts": "Alerts",
         "cost": "Cost & Savings",
         "ai_vs_manual": "AI vs. Manual",
+        "scenario": "Realistic Scenario",
         "roadmap": "Roadmap & Changelog",
         "about": "About",
         "select_lang": "Select Language",
@@ -64,14 +169,24 @@ translations = {
         "story_title": "Our Story",
         "team_title": "Team",
         "contact": "Contact",
+        "scenario_title": "Gas Leak Incident – Interactive Demo",
+        "scenario_intro": "Experience a simulated gas leak and choose how to respond. See how AI vs. manual action impacts safety and cost.",
+        "scenario_detected": "Gas leak detected near compressor room. What do you do?",
+        "scenario_report_ai": "AI instantly flagged the leak and triggered emergency protocols. Incident contained in 50 seconds.",
+        "scenario_wait": "Manual response: Leak spreads for 14 minutes before discovery! Major risk and high cost.",
+        "scenario_check": "Manual check: Leak noticed after 7 minutes. Containment slow, moderate loss.",
+        "scenario_stats": "Resulting cost: ",
+        "scenario_safety": "Safety Impact: ",
+        "scenario_fast": "Optimal! Risk minimized, cost saved.",
+        "scenario_slow": "High risk, high cost. Faster action is critical!",
+        "scenario_mod": "Reduced risk, some loss.",
+        "scenario_restart": "Try again",
         "story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes? We tried everything, even innovated with drones—and it worked. But we asked ourselves: Why wait for the problem at all?
-
 Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult. We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
-
 Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
         "team": [
-            {"name": "Abdulrahman Alzahrani", "role": "Main Developer", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "Rakan Almarri", "role": "Main Developer", "email": "rakan.almarri.2@aramco.com"}
+            {"name": "Eng. Abdulrahman Alzahrani", "role": "Main Developer (All Code)", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "Eng. Rakan Almarri", "role": "Main Developer (All Code)", "email": "rrakanmarri1@aramco.com"}
         ],
         "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
         "about_text": "A new standard for AI-driven industrial safety—by engineers, for engineers.",
@@ -84,6 +199,7 @@ Today, our platform is the first line of defense, changing the rules of industri
         "alerts": "التنبيهات",
         "cost": "التكلفة والتوفير",
         "ai_vs_manual": "الذكاء الاصطناعي مقابل اليدوي",
+        "scenario": "سيناريو واقعي",
         "roadmap": "خريطة الطريق والتحديثات",
         "about": "عن المنصة",
         "select_lang": "اختر اللغة",
@@ -115,14 +231,24 @@ Today, our platform is the first line of defense, changing the rules of industri
         "story_title": "قصتنا",
         "team_title": "الفريق",
         "contact": "تواصل",
+        "scenario_title": "حادثة تسرب غاز – تجربة تفاعلية",
+        "scenario_intro": "عِش سيناريو تسرب غاز واختبر استجابتك: الذكاء الاصطناعي مقابل التدخل اليدوي، وشاهد أثر كل خيار على السلامة والتكلفة.",
+        "scenario_detected": "تم رصد تسرب غاز قرب غرفة الضواغط. ماذا ستفعل؟",
+        "scenario_report_ai": "النظام الذكي كشف التسرب فورًا وفعّل بروتوكولات الطوارئ. تم احتواء الحادث خلال ٥٠ ثانية.",
+        "scenario_wait": "استجابة يدوية: انتشر التسرب ١٤ دقيقة قبل اكتشافه! خطر مرتفع وتكلفة عالية.",
+        "scenario_check": "فحص يدوي: تم ملاحظة التسرب بعد ٧ دقائق. الاحتواء بطيء، خسارة متوسطة.",
+        "scenario_stats": "التكلفة الناتجة: ",
+        "scenario_safety": "أثر السلامة: ",
+        "scenario_fast": "ممتاز! الخطر في أدنى حد والتكلفة وفرت.",
+        "scenario_slow": "خطر مرتفع وتكلفة عالية. الاستجابة السريعة ضرورية!",
+        "scenario_mod": "خطر أقل وخسارة متوسطة.",
+        "scenario_restart": "جرب مرة أخرى",
         "story": """بدأت رحلتنا من سؤال بسيط كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة ؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا ليه ننتظر أصلاً؟
-
 حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطنا الذكاء الاصطناعي مع بيانات المصنع في منصة واحدة، تراقب وتتعلم وتمنع الكوارث قبل أن تبدأ.
-
 اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
         "team": [
-            {"name": "عبدالرحمن الزهراني", "role": "المطور الرئيسي", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "راكان المري", "role": "المطور الرئيسي", "email": "rakan.almarri.2@aramco.com"}
+            {"name": "م. عبدالرحمن الزهراني", "role": "المطور الرئيسي (كل الكود)", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "م. راكان المري", "role": "المطور الرئيسي (كل الكود)", "email": "rrakanmarri1@aramco.com"}
         ],
         "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
         "about_text": "معيار جديد للأمان الصناعي الذكي—من مهندسين إلى مهندسين.",
@@ -262,6 +388,7 @@ with st.sidebar:
             _("dashboard"),
             _("predictive"),
             _("solutions"),
+            _("scenario"),  # new
             _("alerts"),
             _("cost"),
             _("ai_vs_manual"),
@@ -288,99 +415,6 @@ with st.sidebar:
         </style>""", unsafe_allow_html=True
     )
 
-# ----------------- GRADIENT & ANIMATION STYLES -----------------
-st.markdown("""
-<style>
-body, .stApp {
-    background: linear-gradient(120deg,#0f2027,#2c5364 70%,#ffefba);
-}
-[data-testid="stSidebar"] > div:first-child {
-    background: linear-gradient(135deg,#232526,#485563 70%,#43cea2);
-}
-.stButton>button {
-    background: linear-gradient(90deg,#43cea2,#185a9d);
-    color: white;
-    border: none;
-    font-size:1.11em;
-    font-weight:bold;
-    padding: 0.6em 2.2em;
-    border-radius: 12px;
-    box-shadow: 0 8px 16px #0002;
-    transition: 0.2s;
-    animation: pulse 2s infinite;
-}
-.stButton>button:hover {
-    background: linear-gradient(90deg,#fa709a,#fee140);
-    color: #222;
-    transform: scale(1.04);
-    box-shadow: 0 12px 32px #0003;
-}
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 #43cea288; }
-  70% { box-shadow: 0 0 0 15px #43cea200; }
-  100% { box-shadow: 0 0 0 0 #43cea200; }
-}
-.solution-card {
-    background: linear-gradient(90deg,#232526,#485563 70%,#56ab2f);
-    color:white;
-    border-radius: 16px;
-    padding: 1.2em 1.6em;
-    margin-bottom: 1.1em;
-    box-shadow: 0 2px 16px #0004;
-    position: relative;
-    overflow: hidden;
-    animation: slide-in 0.9s;
-}
-@keyframes slide-in {
-    0% { opacity: 0; transform: translateY(40px);}
-    100% { opacity: 1; transform: none;}
-}
-.solution-icon {
-    font-size: 2.2em;
-    position: absolute;
-    top: 1.2em;
-    right: 1.2em;
-    opacity: 0.13;
-    pointer-events: none;
-}
-.gradient-bar {
-    height: 13px;
-    border-radius: 6px;
-    background: linear-gradient(90deg,#43cea2,#185a9d,#fa709a,#fee140);
-    margin-bottom: 0.7em;
-}
-.team-card {
-    background: linear-gradient(90deg,#232526, #43cea2 80%);
-    color: white;
-    border-radius: 14px;
-    margin-bottom: 1em;
-    padding: 1em 2em;
-    box-shadow: 0 2px 16px #0003;
-}
-.timeline {
-    border-left: 4px solid #43cea2;
-    margin-left: 1em;
-    padding-left: 1.6em;
-}
-.timeline-event {
-    margin-bottom: 1.5em;
-    position: relative;
-}
-.timeline-event:before {
-    content: '';
-    position: absolute;
-    left: -1.6em;
-    top: 0.3em;
-    width: 1em;
-    height: 1em;
-    background: linear-gradient(90deg,#43cea2,#fa709a);
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 8px #43cea2;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # ----------------- PAGE LOGIC -----------------
 st.markdown(f"<h1 style='font-weight:bold;color:#43cea2;text-shadow:0 2px 16px #185a9d44;'>{_('app_title')}</h1>", unsafe_allow_html=True)
 
@@ -391,6 +425,7 @@ if nav == _("dashboard"):
     with col1:
         st.subheader(_("plant_status"))
         st_lottie(load_lottieurl(plant_lottie), height=170, key="plant-lottie", loop=True)
+        st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Industrial Plant (Demo)")
         st.markdown(f"""
         <div style="margin-top:1.2em;font-size:1.07em;">
             <b>{_('sensor')} 1:</b> <span style="color:#43cea2">{_('status_ok')}</span><br>
@@ -417,6 +452,7 @@ if nav == _("dashboard"):
 if nav == _("predictive"):
     st.subheader(_("predictive"))
     st_lottie(load_lottieurl(ai_lottie), height=150, key="ai-lottie2", loop=True)
+    st.image("https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI Predictive Monitoring (Demo)")
     st.markdown("""
     <div style="font-size:1.08em;">
     <ul>
@@ -438,6 +474,18 @@ if nav == _("predictive"):
     fig_pred.update_layout(transition=dict(duration=500), showlegend=False)
     st.plotly_chart(fig_pred, use_container_width=True)
 
+    # --- ML DEMO (new - realistic)
+    st.markdown("<b>ML Model: Predictive Risk Classifier (Demo)</b>")
+    from sklearn.linear_model import LogisticRegression
+    X = np.array([[1,70],[2,80],[3,90],[4,110],[5,60],[2,100],[3,75]])
+    y = [0,0,1,1,0,1,0]
+    model = LogisticRegression()
+    model.fit(X, y)
+    time = st.slider("Hour", 1, 5, 2)
+    value = st.slider("Sensor value", 60, 120, 80)
+    pred = model.predict([[time, value]])
+    st.success("AI Prediction: " + ("FAULT RISK" if pred[0] else "SAFE"))
+
     # What-if Simulator
     st.markdown("---")
     st.subheader(_("whatif"))
@@ -458,6 +506,7 @@ if nav == _("predictive"):
 # ========== SMART SOLUTIONS ==========
 if nav == _("solutions"):
     st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
+    st.image("https://images.unsplash.com/photo-1506619216599-9d16d0903dfd?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI-Generated Solutions (Demo)")
     if "solutions" not in st.session_state or st.session_state["lang"] != st.session_state.get("solutions_lang", ""):
         st.session_state["solutions"] = []
         st.session_state["solutions_lang"] = st.session_state["lang"]
@@ -499,10 +548,54 @@ if nav == _("solutions"):
         figpie.update_layout(showlegend=True)
         st.plotly_chart(figpie, use_container_width=True)
 
+# ========== REALISTIC SCENARIO (NEW) ==========
+if nav == _("scenario"):
+    st.subheader(_( "scenario_title" ))
+    st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
+    st.image("https://images.unsplash.com/photo-1504196606672-aef5c9cefc92?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Gas Leak Simulation")
+    st_lottie(load_lottieurl(alert_lottie), height=130, key="scenario-lottie", loop=True)
+    if "scenario_state" not in st.session_state:
+        st.session_state["scenario_state"] = 0
+
+    def reset_scenario():
+        st.session_state["scenario_state"] = 0
+
+    if st.session_state["scenario_state"] == 0:
+        st.markdown(f"<div class='scenario-box'>{_('scenario_detected')}</div>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("📢 " + (_("apply") if st.session_state["lang"] == "en" else "أبلغ الذكاء الاصطناعي")):
+                st.session_state["scenario_state"] = 1
+        with col2:
+            if st.button("⏳ " + ("Wait" if st.session_state["lang"] == "en" else "انتظر")):
+                st.session_state["scenario_state"] = 2
+        with col3:
+            if st.button("🔍 " + ("Manual check" if st.session_state["lang"] == "en" else "فحص يدوي")):
+                st.session_state["scenario_state"] = 3
+    elif st.session_state["scenario_state"] == 1:
+        st.success(_( "scenario_report_ai" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#43cea2;font-weight:bold;'>$700</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#43cea2;font-weight:bold;'>{_('scenario_fast')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+    elif st.session_state["scenario_state"] == 2:
+        st.error(_( "scenario_wait" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fa709a;font-weight:bold;'>$18,000</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fa709a;font-weight:bold;'>{_('scenario_slow')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+    elif st.session_state["scenario_state"] == 3:
+        st.warning(_( "scenario_check" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fee140;font-weight:bold;'>$8,000</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fee140;font-weight:bold;'>{_('scenario_mod')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+
 # ========== ALERTS ==========
 if nav == _("alerts"):
     st.subheader(_("alerts"))
-    st_lottie(load_lottieurl(rain_lottie), height=120, key="alert-lottie", loop=True)
+    st_lottie(load_lottieurl(alert_lottie), height=120, key="alert-lottie", loop=True)
+    st.image("https://images.unsplash.com/photo-1468421870903-4df1664ac249?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Alert Dashboard (Demo)")
     st.warning("No active alerts. All systems stable. ✅" if st.session_state["lang"] == "en" else "لا توجد تنبيهات حالية. كل الأنظمة مستقرة. ✅")
 
     # Pie chart: Alert types (dummy, for illustration)
@@ -517,6 +610,7 @@ if nav == _("alerts"):
 # ========== COST & SAVINGS ==========
 if nav == _("cost"):
     st.subheader(_("cost"))
+    st.image("https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Cost Analysis (Demo)")
     st.markdown("""
     <div style="font-size:1.1em;">
     <b>AI Savings This Month:</b> <span style="color:#43cea2;font-weight:bold;">$13,500</span>  
@@ -554,6 +648,7 @@ if nav == _("cost"):
 # ========== AI VS MANUAL ==========
 if nav == _("ai_vs_manual"):
     st.subheader(_("ai_vs_manual"))
+    st.image("https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI vs Manual (Demo)")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"<b>{_('ai_reaction')}</b>", unsafe_allow_html=True)
@@ -583,6 +678,7 @@ if nav == _("ai_vs_manual"):
 if nav == _("live_dt"):
     st.markdown(f"<h2>{_('live_dt')}</h2>", unsafe_allow_html=True)
     st_lottie(load_lottieurl(twin_lottie), height=180, key="livedt-lottie", loop=True)
+    st.image("https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Live Plant Digital Twin (Demo)")
     st.markdown("""
     <div style="font-size:1.03em;">
     <b>Plant Diagram (AI Overlay):</b>
@@ -613,6 +709,14 @@ if nav == _("live_dt"):
 if nav == _("roadmap"):
     st.subheader(_("milestones"))
     st.info(_( "roadmap_text" ))
+    st.markdown("""
+    <div class="timeline">
+        <div class="timeline-event"><b>2025 Q1:</b> Platform launch 🚀</div>
+        <div class="timeline-event"><b>2025 Q2:</b> Real-time AI alerts, scenario engine, and live dashboard</div>
+        <div class="timeline-event"><b>2025 Q3:</b> External API integration, new ML models, custom analytics</div>
+        <div class="timeline-event"><b>2025 Q4:</b> Full industrial deployment, mobile app, multi-language</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ========== ABOUT ==========
 if nav == _("about"):
