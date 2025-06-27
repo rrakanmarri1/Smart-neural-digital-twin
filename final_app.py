@@ -185,11 +185,20 @@ translations = {
 Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult. We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
 Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
         "team": [
-            {"name": "Eng. Abdulrahman Alzahrani", "role": "Main Developer (All Code)", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "Eng. Rakan Almarri", "role": "Main Developer (All Code)", "email": "rrakanmarri1@aramco.com"}
+            {"name": "Abdulrahman Alzahrani", "role": "Development & Design", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "Rakan Almarri", "role": "Development & Design", "email": "rakan.almarri.2@aramco.com"}
         ],
         "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
-        "about_text": "A new standard for AI-driven industrial safety—by engineers, for engineers.",
+        "about_text": "A new standard for AI-driven industrial safety, built by students passionate about smart tech.",
+        "features_title": "Key Features",
+        "features": [
+            "Real AI-powered predictions (not just static rules)",
+            "Interactive scenario: try a real gas leak simulation",
+            "Visual charts and animated feedback",
+            "Full Arabic and English support",
+            "Simple, mobile-friendly UI",
+            "Open source platform — experiment and improve it!"
+        ]
     },
     "ar": {
         "app_title": "التوأم الرقمي الذكي العصبي",
@@ -232,7 +241,7 @@ Today, our platform is the first line of defense, changing the rules of industri
         "team_title": "الفريق",
         "contact": "تواصل",
         "scenario_title": "حادثة تسرب غاز – تجربة تفاعلية",
-        "scenario_intro": "عِش سيناريو تسرب غاز واختبر استجابتك: الذكاء الاصطناعي مقابل التدخل اليدوي، وشاهد أثر كل خيار على السلامة والتكلفة.",
+        "scenario_intro": "عش سيناريو تسرب غاز واختبر استجابتك: الذكاء الاصطناعي مقابل التدخل اليدوي، وشاهد أثر كل خيار على السلامة والتكلفة.",
         "scenario_detected": "تم رصد تسرب غاز قرب غرفة الضواغط. ماذا ستفعل؟",
         "scenario_report_ai": "النظام الذكي كشف التسرب فورًا وفعّل بروتوكولات الطوارئ. تم احتواء الحادث خلال ٥٠ ثانية.",
         "scenario_wait": "استجابة يدوية: انتشر التسرب ١٤ دقيقة قبل اكتشافه! خطر مرتفع وتكلفة عالية.",
@@ -243,15 +252,24 @@ Today, our platform is the first line of defense, changing the rules of industri
         "scenario_slow": "خطر مرتفع وتكلفة عالية. الاستجابة السريعة ضرورية!",
         "scenario_mod": "خطر أقل وخسارة متوسطة.",
         "scenario_restart": "جرب مرة أخرى",
-        "story": """بدأت رحلتنا من سؤال بسيط كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة ؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا ليه ننتظر أصلاً؟
+        "story": """بدأت رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا: ليه ننتظر أصلاً؟
 حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطنا الذكاء الاصطناعي مع بيانات المصنع في منصة واحدة، تراقب وتتعلم وتمنع الكوارث قبل أن تبدأ.
 اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
         "team": [
-            {"name": "م. عبدالرحمن الزهراني", "role": "المطور الرئيسي (كل الكود)", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "م. راكان المري", "role": "المطور الرئيسي (كل الكود)", "email": "rrakanmarri1@aramco.com"}
+            {"name": "عبدالرحمن الزهراني", "role": "تطوير وتصميم", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "راكان المري", "role": "تطوير وتصميم", "email": "rakan.almarri.2@aramco.com"}
         ],
         "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
-        "about_text": "معيار جديد للأمان الصناعي الذكي—من مهندسين إلى مهندسين.",
+        "about_text": "منصة ذكية للأمان الصناعي — عمل طلابي متحمس للتقنية الذكية.",
+        "features_title": "المميزات الرئيسية",
+        "features": [
+            "توقعات ذكية فعلاً (مو مجرد قواعد ثابتة)",
+            "سيناريو تفاعلي: جرب تسرب غاز واقعي!",
+            "رسوم بيانية وواجهات متحركة",
+            "دعم كامل للعربية والإنجليزية",
+            "واجهة سهلة وسريعة (حتى من الجوال)",
+            "كل شيء مفتوح المصدر وتقدر تطوره"
+        ]
     }
 }
 
@@ -379,7 +397,8 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True
     )
-    st_lottie(sidebar_lottie, height=70, key="icon-lottie", speed=1.1, loop=True)
+    if sidebar_lottie:
+        st_lottie(sidebar_lottie, height=70, key="icon-lottie", speed=1.1, loop=True)
     st.write("")
 
     nav = st.radio(
@@ -388,7 +407,7 @@ with st.sidebar:
             _("dashboard"),
             _("predictive"),
             _("solutions"),
-            _("scenario"),  # new
+            _("scenario"),
             _("alerts"),
             _("cost"),
             _("ai_vs_manual"),
@@ -424,8 +443,9 @@ if nav == _("dashboard"):
 
     with col1:
         st.subheader(_("plant_status"))
-        st_lottie(load_lottieurl(plant_lottie), height=170, key="plant-lottie", loop=True)
-        st.image("https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Industrial Plant (Demo)")
+        lottie_data = load_lottieurl(plant_lottie)
+        if lottie_data:
+            st_lottie(lottie_data, height=170, key="plant-lottie", loop=True)
         st.markdown(f"""
         <div style="margin-top:1.2em;font-size:1.07em;">
             <b>{_('sensor')} 1:</b> <span style="color:#43cea2">{_('status_ok')}</span><br>
@@ -443,7 +463,9 @@ if nav == _("dashboard"):
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st_lottie(load_lottieurl(ai_lottie), height=200, key="ai-lottie", loop=True)
+        lottie_data = load_lottieurl(ai_lottie)
+        if lottie_data:
+            st_lottie(lottie_data, height=200, key="ai-lottie", loop=True)
         st.markdown(f"<div style='font-size:1.17em;color:#fa709a;font-weight:bold;'>{_('ai_think')}</div>", unsafe_allow_html=True)
         rain(emoji="💡", font_size=24, falling_speed=4, animation_length="medium")
         st.info(_("about_text"))
@@ -451,8 +473,9 @@ if nav == _("dashboard"):
 # ========== PREDICTIVE ANALYTICS ==========
 if nav == _("predictive"):
     st.subheader(_("predictive"))
-    st_lottie(load_lottieurl(ai_lottie), height=150, key="ai-lottie2", loop=True)
-    st.image("https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI Predictive Monitoring (Demo)")
+    lottie_data = load_lottieurl(ai_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=150, key="ai-lottie2", loop=True)
     st.markdown("""
     <div style="font-size:1.08em;">
     <ul>
@@ -506,7 +529,6 @@ if nav == _("predictive"):
 # ========== SMART SOLUTIONS ==========
 if nav == _("solutions"):
     st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
-    st.image("https://images.unsplash.com/photo-1506619216599-9d16d0903dfd?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI-Generated Solutions (Demo)")
     if "solutions" not in st.session_state or st.session_state["lang"] != st.session_state.get("solutions_lang", ""):
         st.session_state["solutions"] = []
         st.session_state["solutions_lang"] = st.session_state["lang"]
@@ -552,8 +574,9 @@ if nav == _("solutions"):
 if nav == _("scenario"):
     st.subheader(_( "scenario_title" ))
     st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
-    st.image("https://images.unsplash.com/photo-1504196606672-aef5c9cefc92?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Gas Leak Simulation")
-    st_lottie(load_lottieurl(alert_lottie), height=130, key="scenario-lottie", loop=True)
+    lottie_data = load_lottieurl(alert_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=130, key="scenario-lottie", loop=True)
     if "scenario_state" not in st.session_state:
         st.session_state["scenario_state"] = 0
 
@@ -594,8 +617,9 @@ if nav == _("scenario"):
 # ========== ALERTS ==========
 if nav == _("alerts"):
     st.subheader(_("alerts"))
-    st_lottie(load_lottieurl(alert_lottie), height=120, key="alert-lottie", loop=True)
-    st.image("https://images.unsplash.com/photo-1468421870903-4df1664ac249?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Alert Dashboard (Demo)")
+    lottie_data = load_lottieurl(alert_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=120, key="alert-lottie", loop=True)
     st.warning("No active alerts. All systems stable. ✅" if st.session_state["lang"] == "en" else "لا توجد تنبيهات حالية. كل الأنظمة مستقرة. ✅")
 
     # Pie chart: Alert types (dummy, for illustration)
@@ -610,7 +634,6 @@ if nav == _("alerts"):
 # ========== COST & SAVINGS ==========
 if nav == _("cost"):
     st.subheader(_("cost"))
-    st.image("https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Cost Analysis (Demo)")
     st.markdown("""
     <div style="font-size:1.1em;">
     <b>AI Savings This Month:</b> <span style="color:#43cea2;font-weight:bold;">$13,500</span>  
@@ -648,15 +671,16 @@ if nav == _("cost"):
 # ========== AI VS MANUAL ==========
 if nav == _("ai_vs_manual"):
     st.subheader(_("ai_vs_manual"))
-    st.image("https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="AI vs Manual (Demo)")
+    st.markdown("### " + _("ai_vs_manual"))
     col1, col2 = st.columns(2)
     with col1:
         st.markdown(f"<b>{_('ai_reaction')}</b>", unsafe_allow_html=True)
-        st_lottie(load_lottieurl(ai_lottie), height=90, key="ai-vs-lottie", loop=True)
+        lottie_data = load_lottieurl(ai_lottie)
+        if lottie_data:
+            st_lottie(lottie_data, height=90, key="ai-vs-lottie", loop=True)
         st.success("AI detects & responds in 1.2s")
     with col2:
         st.markdown(f"<b>{_('manual_reaction')}</b>", unsafe_allow_html=True)
-        st.image("https://img.icons8.com/ios-filled/100/000000/worker-beard.png", width=70)
         st.error("Manual detection: 18 min average")
 
     # Radar chart: AI vs Manual on metrics
@@ -677,8 +701,9 @@ if nav == _("ai_vs_manual"):
 # ========== DIGITAL TWIN LIVE ==========
 if nav == _("live_dt"):
     st.markdown(f"<h2>{_('live_dt')}</h2>", unsafe_allow_html=True)
-    st_lottie(load_lottieurl(twin_lottie), height=180, key="livedt-lottie", loop=True)
-    st.image("https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80", use_column_width=True, caption="Live Plant Digital Twin (Demo)")
+    lottie_data = load_lottieurl(twin_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=180, key="livedt-lottie", loop=True)
     st.markdown("""
     <div style="font-size:1.03em;">
     <b>Plant Diagram (AI Overlay):</b>
@@ -695,7 +720,9 @@ if nav == _("live_dt"):
     <b>Fault Propagation:</b> <span style="color:#fa709a;font-weight:bold;">None</span>
     </div>
     """, unsafe_allow_html=True)
-    st_lottie(load_lottieurl(ai_lottie), height=140, key="neural-overlay-lottie", loop=True)
+    lottie_data = load_lottieurl(ai_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=140, key="neural-overlay-lottie", loop=True)
 
     # 3D plot: Plant sensor surface (demo)
     st.markdown("<b>Sensor Heat Map (3D):</b>", unsafe_allow_html=True)
@@ -721,7 +748,13 @@ if nav == _("roadmap"):
 # ========== ABOUT ==========
 if nav == _("about"):
     st.subheader(_("story_title"))
-    st.markdown(f"<span style='font-size:1.16em;'>{_('story')}</span>", unsafe_allow_html=True)
+    st.markdown(f"<span style='font-size:1.1em;'>{_('story')}</span>", unsafe_allow_html=True)
+
+    st.markdown(f"## { _('features_title') }")
+    st.markdown(
+        "\n".join([f"- {f}" for f in translations[st.session_state['lang']]['features']])
+    )
+
     st.markdown("---")
     st.subheader(_("team_title"))
     for member in translations[st.session_state["lang"]]["team"]:
