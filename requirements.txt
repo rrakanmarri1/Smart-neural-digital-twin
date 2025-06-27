@@ -9,3 +9,4 @@ streamlit-autorefresh
 scikit_learn
 joblib
 openpyxl
+streamlit-extras
