@@ -1,8 +1,12 @@
 import streamlit as st
 from streamlit_extras.let_it_rain import rain
 from streamlit_lottie import st_lottie
+import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import random
+import pandas as pd
+import numpy as np
 
 # ----------------- LOTTIE HELPER -----------------
 def load_lottieurl(url):
@@ -66,10 +70,9 @@ Our dream was a smart digital twin that predicts danger before it happens—not 
 
 Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
         "team": [
-            {"name": "Eng. Abdulrahman Alzahrani", "role": "Main Developer (All Code)", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "Eng. Rakan Almarri", "role": "Main Developer (All Code)", "email": "rrakanmarri1@aramco.com"}
+            {"name": "Abdulrahman Alzahrani", "role": "Main Developer", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "Rakan Almarri", "role": "Main Developer", "email": "rakan.almarri.2@aramco.com"}
         ],
-        # milestones_data removed
         "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
         "about_text": "A new standard for AI-driven industrial safety—by engineers, for engineers.",
     },
@@ -118,16 +121,14 @@ Today, our platform is the first line of defense, changing the rules of industri
 
 اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
         "team": [
-            {"name": "م. عبدالرحمن الزهراني", "role": "المطور الرئيسي (كل الكود)", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "م. راكان المري", "role": "المطور الرئيسي (كل الكود)", "email": "rrakanmarri1@aramco.com"}
+            {"name": "عبدالرحمن الزهراني", "role": "المطور الرئيسي", "email": "abdulrahman.zahrani.1@aramco.com"},
+            {"name": "راكان المري", "role": "المطور الرئيسي", "email": "rakan.almarri.2@aramco.com"}
         ],
-        # milestones_data removed
         "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
         "about_text": "معيار جديد للأمان الصناعي الذكي—من مهندسين إلى مهندسين.",
     }
 }
 
-# Solution icons
 solution_icons = [
     "🛑",  # Danger
     "⚡",  # Power
@@ -397,6 +398,15 @@ if nav == _("dashboard"):
             <b>{_('sensor')} 3:</b> <span style="color:#fee140">{_('status_fault')}</span>
         </div>""", unsafe_allow_html=True)
 
+        # Animated line chart for sensor trend
+        st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
+        ts = pd.date_range(end=pd.Timestamp.now(), periods=24, freq="h")
+        y = np.cumsum(np.random.randn(24)) + 70
+        df = pd.DataFrame({"Time": ts, "Temperature (°C)": y})
+        fig = px.line(df, x="Time", y="Temperature (°C)", title="Sensor 1 Temperature (Animated)", markers=True)
+        fig.update_layout(transition=dict(duration=500), showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
     with col2:
         st_lottie(load_lottieurl(ai_lottie), height=200, key="ai-lottie", loop=True)
         st.markdown(f"<div style='font-size:1.17em;color:#fa709a;font-weight:bold;'>{_('ai_think')}</div>", unsafe_allow_html=True)
@@ -417,6 +427,33 @@ if nav == _("predictive"):
     </ul>
     </div>
     """, unsafe_allow_html=True)
+
+    # Animated line chart for predicted sensor fault probability
+    st.markdown("<b>Predicted Sensor Fault Probability (Animated):</b>", unsafe_allow_html=True)
+    ts = pd.date_range(end=pd.Timestamp.now(), periods=30, freq="h")
+    pred = np.clip(np.sin(np.linspace(0, 3*np.pi, 30)) + np.random.rand(30)*0.3, 0, 1)
+    df_pred = pd.DataFrame({"Time": ts, "Probability": pred})
+    fig_pred = px.line(df_pred, x="Time", y="Probability", title="Fault Probability Over Time", markers=True, range_y=[0,1])
+    fig_pred.update_traces(line=dict(color="#fa709a", width=4))
+    fig_pred.update_layout(transition=dict(duration=500), showlegend=False)
+    st.plotly_chart(fig_pred, use_container_width=True)
+
+    # What-if Simulator
+    st.markdown("---")
+    st.subheader(_("whatif"))
+    val = st.slider(_("drag_label"), min_value=0, max_value=100, value=30, step=5, key="simu_slider")
+    ai_risk = min(val/100, 1.0)
+    manual_risk = min((val+35)/100, 1.0)
+    st.progress(ai_risk, text="AI Risk Level")
+    st.progress(manual_risk, text="Manual Risk Level")
+    st.markdown(f"<b>{_('cost_savings')}:</b> <span style='color:#43cea2;font-weight:bold;'>${(manual_risk-ai_risk)*8000:,.0f}</span>", unsafe_allow_html=True)
+    if ai_risk > 0.75:
+        st.warning("Danger Zone! Immediate AI intervention." if st.session_state["lang"] == "en" else "منطقة خطرة! تدخل الذكاء الاصطناعي فوراً.")
+        rain(emoji="🔥", font_size=24, falling_speed=6, animation_length="short")
+    elif ai_risk > 0.4:
+        st.info("Warning: Elevated risk detected." if st.session_state["lang"] == "en" else "تحذير: مستوى الخطر مرتفع.")
+    else:
+        st.success("Safe operation." if st.session_state["lang"] == "en" else "تشغيل آمن.")
 
 # ========== SMART SOLUTIONS ==========
 if nav == _("solutions"):
@@ -448,12 +485,34 @@ if nav == _("solutions"):
                 """,
                 unsafe_allow_html=True
             )
+        # Pie chart: Solution priorities
+        st.markdown("<b>Solution Priority Distribution:</b>", unsafe_allow_html=True)
+        sdata = st.session_state["solutions"]
+        priorities = [s["priority"] for s in sdata]
+        if st.session_state["lang"] == "en":
+            labels = ["High", "Medium", "Low"]
+        else:
+            labels = ["عالية", "متوسطة", "منخفضة"]
+        counts = [priorities.count(lab) for lab in labels]
+        figpie = go.Figure(data=[go.Pie(labels=labels, values=counts, hole=0.4)])
+        figpie.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140"]))
+        figpie.update_layout(showlegend=True)
+        st.plotly_chart(figpie, use_container_width=True)
 
 # ========== ALERTS ==========
 if nav == _("alerts"):
     st.subheader(_("alerts"))
     st_lottie(load_lottieurl(rain_lottie), height=120, key="alert-lottie", loop=True)
     st.warning("No active alerts. All systems stable. ✅" if st.session_state["lang"] == "en" else "لا توجد تنبيهات حالية. كل الأنظمة مستقرة. ✅")
+
+    # Pie chart: Alert types (dummy, for illustration)
+    st.markdown("<b>Alert Types Breakdown:</b>", unsafe_allow_html=True)
+    labels = ["Sensor Fault", "Leak", "Power", "Other"] if st.session_state["lang"] == "en" else ["خلل مستشعر", "تسرب", "كهرباء", "أخرى"]
+    values = [2, 1, 0, 1]
+    fig_alert = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.5)])
+    fig_alert.update_traces(marker=dict(colors=["#fa709a", "#fee140", "#43cea2", "#185a9d"]))
+    fig_alert.update_layout(showlegend=True)
+    st.plotly_chart(fig_alert, use_container_width=True)
 
 # ========== COST & SAVINGS ==========
 if nav == _("cost"):
@@ -469,6 +528,29 @@ if nav == _("cost"):
     """, unsafe_allow_html=True)
     st.progress(0.71, text="Downtime Reduced")
 
+    # Pie chart: Cost breakdown
+    st.markdown("<b>Cost Breakdown:</b>", unsafe_allow_html=True)
+    cost_labels = ["Maintenance", "Downtime", "Energy", "Other"] if st.session_state["lang"] == "en" else ["صيانة", "توقف", "طاقة", "أخرى"]
+    cost_vals = [5000, 6000, 3000, 1500]
+    fig_cost = go.Figure(data=[go.Pie(labels=cost_labels, values=cost_vals, hole=0.5)])
+    fig_cost.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140", "#185a9d"]))
+    fig_cost.update_layout(showlegend=True)
+    st.plotly_chart(fig_cost, use_container_width=True)
+
+    # Animated line chart: AI vs manual cost over time
+    st.markdown("<b>Costs Over Time (AI vs Manual):</b>", unsafe_allow_html=True)
+    months = pd.date_range(end=pd.Timestamp.now(), periods=12, freq="M")
+    ai_cost = np.random.randint(8000, 12000, size=12)
+    man_cost = ai_cost + np.random.randint(3000, 8000, size=12)
+    df_cost = pd.DataFrame({
+        "Month": months,
+        "AI": ai_cost,
+        "Manual": man_cost
+    })
+    fig_costline = px.line(df_cost, x="Month", y=["AI", "Manual"], title="Monthly Cost Comparison", markers=True)
+    fig_costline.update_layout(transition=dict(duration=500))
+    st.plotly_chart(fig_costline, use_container_width=True)
+
 # ========== AI VS MANUAL ==========
 if nav == _("ai_vs_manual"):
     st.subheader(_("ai_vs_manual"))
@@ -481,6 +563,21 @@ if nav == _("ai_vs_manual"):
         st.markdown(f"<b>{_('manual_reaction')}</b>", unsafe_allow_html=True)
         st.image("https://img.icons8.com/ios-filled/100/000000/worker-beard.png", width=70)
         st.error("Manual detection: 18 min average")
+
+    # Radar chart: AI vs Manual on metrics
+    st.markdown("<b>Performance Comparison:</b>", unsafe_allow_html=True)
+    metrics = ["Speed", "Accuracy", "Cost", "Downtime", "Safety"] if st.session_state["lang"] == "en" else ["السرعة", "الدقة", "التكلفة", "التوقف", "السلامة"]
+    ai_vals = [95, 92, 90, 85, 98]
+    man_vals = [60, 70, 70, 60, 75]
+    radar_df = pd.DataFrame({
+        "Metric": metrics*2,
+        "Value": ai_vals + man_vals,
+        "Type": (["AI"]*5)+(["Manual"]*5)
+    })
+    fig_radar = px.line_polar(radar_df, r="Value", theta="Metric", color="Type", line_close=True, template="plotly_dark",
+                              color_discrete_map={"AI": "#43cea2", "Manual": "#fa709a"})
+    fig_radar.update_traces(fill='toself')
+    st.plotly_chart(fig_radar, use_container_width=True)
 
 # ========== DIGITAL TWIN LIVE ==========
 if nav == _("live_dt"):
@@ -504,23 +601,13 @@ if nav == _("live_dt"):
     """, unsafe_allow_html=True)
     st_lottie(load_lottieurl(ai_lottie), height=140, key="neural-overlay-lottie", loop=True)
 
-# ========== WHAT-IF SIMULATOR ==========
-if nav == _("predictive"):
-    st.markdown("---")
-    st.subheader(_("whatif"))
-    val = st.slider(_("drag_label"), min_value=0, max_value=100, value=30, step=5, key="simu_slider")
-    ai_risk = min(val/100, 1.0)
-    manual_risk = min((val+35)/100, 1.0)
-    st.progress(ai_risk, text="AI Risk Level")
-    st.progress(manual_risk, text="Manual Risk Level")
-    st.markdown(f"<b>{_('cost_savings')}:</b> <span style='color:#43cea2;font-weight:bold;'>${(manual_risk-ai_risk)*8000:,.0f}</span>", unsafe_allow_html=True)
-    if ai_risk > 0.75:
-        st.warning("Danger Zone! Immediate AI intervention." if st.session_state["lang"] == "en" else "منطقة خطرة! تدخل الذكاء الاصطناعي فوراً.")
-        rain(emoji="🔥", font_size=24, falling_speed=6, animation_length="short")
-    elif ai_risk > 0.4:
-        st.info("Warning: Elevated risk detected." if st.session_state["lang"] == "en" else "تحذير: مستوى الخطر مرتفع.")
-    else:
-        st.success("Safe operation." if st.session_state["lang"] == "en" else "تشغيل آمن.")
+    # 3D plot: Plant sensor surface (demo)
+    st.markdown("<b>Sensor Heat Map (3D):</b>", unsafe_allow_html=True)
+    x, y = np.meshgrid(np.linspace(0, 10, 12), np.linspace(0, 10, 12))
+    z = np.sin(x) * np.cos(y) * 10 + 72 + np.random.randn(*x.shape)
+    fig3d = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale='Viridis')])
+    fig3d.update_layout(title="Plant Temperature Surface", autosize=True, margin=dict(l=20, r=20, b=20, t=30))
+    st.plotly_chart(fig3d, use_container_width=True)
 
 # ========== ROADMAP & CHANGELOG ==========
 if nav == _("roadmap"):
@@ -544,7 +631,3 @@ if nav == _("about"):
             unsafe_allow_html=True
         )
     st.markdown(f"<b>{_('contact')}:</b> {translations[st.session_state['lang']]['team'][0]['email']}")
-
-# --- Confetti for About ---
-if nav == _("about"):
-    rain(emoji="🎉", font_size=28, falling_speed=5, animation_length="medium")
