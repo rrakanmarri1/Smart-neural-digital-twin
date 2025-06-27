@@ -1,619 +1,616 @@
-"""
-Smart Neural Digital Twin – All Features, All 'Not Included' Demos, AI Icon Everywhere
-
-- Adds demo avatars for both Rakan Almarri ("RA" green) and Abdulrahman Alzhrani ("AA" blue) in About.
-- AI icon appears at the top of every main page.
-- Adds demo toggles and/or mock logic for:
-    - Advanced ML Models (ARIMA/Prophet demo selectors)
-    - "Live Data" streaming demo
-    - Demo user login (with avatar)
-    - Demo email/SMS alert
-    - Theme selector (already present)
-    - Data upload ("Bring Your Own CSV")
-    - Export to Excel/PDF (PDF = demo)
-    - API integration (demo)
-    - Multi-step What-If
-    - Demo settings save
-- All new translation keys included in both English & Arabic.
-"""
-
 import streamlit as st
-import pandas as pd
+from streamlit_extras.metric_cards import style_metric_cards
+from streamlit_extras.let_it_rain import rain
+from datetime import datetime, timedelta
 import numpy as np
+import pandas as pd
 import plotly.graph_objs as go
-import time
 
-# =========================
-# 1. Translations (all used keys, new and old)
-# =========================
+# ------------- IMAGE & ICONS -------------
+AI_ICON_URL = "https://img.icons8.com/color/96/artificial-intelligence.png"
+RA_AVATAR = "https://avatars.githubusercontent.com/u/22827311?v=4"
+AA_AVATAR = "https://avatars.githubusercontent.com/u/125095317?v=4"
+
+# ------------- TRANSLATIONS -------------
 translations = {
     "en": {
-        "Settings": "Settings", "Choose Language": "Choose Language",
-        "English": "English", "Arabic": "Arabic",
-        "Theme Set": "Theme Set", "Theme": "Theme", "Theme Preview": "Theme Preview",
-        "Dashboard": "Dashboard", "Predictive Analysis": "Predictive Analysis",
-        "Smart Solutions": "Smart Solutions", "Smart Alerts": "Smart Alerts",
-        "Cost & Savings": "Cost & Savings", "Achievements": "Achievements",
-        "Performance": "Performance", "Comparison": "Comparison", "Performance Comparison": "Performance Comparison",
-        "Data Explorer": "Data Explorer", "About": "About", "Navigate to": "Navigate to",
-        "Welcome to your Smart Digital Twin!": "Welcome to your Smart Neural Digital Twin!",
-        "Temperature": "Temperature", "Pressure": "Pressure", "Vibration": "Vibration",
-        "Methane": "Methane", "H2S": "H2S", "Live Data": "Live Data", "Trend": "Trend",
-        "Forecast": "Forecast", "Simulate Disaster": "Simulate Disaster",
-        "Details": "Details", "Reason": "Reason", "Priority": "Priority",
-        "Effectiveness": "Effectiveness", "Estimated Time": "Estimated Time",
-        "Generate Solution": "Generate Solution", "Generating solution...": "Generating solution...",
-        "Press 'Generate Solution' for intelligent suggestions.": "Press 'Generate Solution' for intelligent suggestions.",
-        "Emergency Vent Gas!": "Emergency Vent Gas!", "Immediate venting required in Tank 2 due to critical methane spike.": "Immediate venting required in Tank 2 due to critical methane spike.",
-        "Critical disaster detected during simulation.": "Critical disaster detected during simulation.",
-        "Reduce Pressure in Line 3": "Reduce Pressure in Line 3", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.",
-        "Abnormal vibration detected. This reduces risk.": "Abnormal vibration detected. This reduces risk.",
-        "URGENT": "URGENT", "Now": "Now", "High": "High", "15 minutes": "15 minutes", "95%": "95%", "99%": "99%",
-        "About Project Description": "Smart Neural Digital Twin is an AI-powered disaster prevention platform for industrial sites and oilfields. It connects live sensors to an intelligent digital twin for prediction, alerting, and instant smart solutions.",
-        "High Risk Area: Tank 3": "High Risk Area: Tank 3",
-        "Monthly Savings": "Monthly Savings",
-        "Yearly Savings": "Yearly Savings",
-        "Reduction in Maintenance Costs": "Reduction in Maintenance Costs",
-        "Savings": "Savings",
-        "Source": "Source",
-        "Amount (SAR)": "Amount (SAR)",
-        "Savings Breakdown": "Savings Breakdown",
-        "Current Alerts": "Current Alerts",
-        "No alerts at the moment.": "No alerts at the moment.",
-        "Congratulations!": "Congratulations!",
-        "You have achieved": "You have achieved",
-        "days without incidents": "days without incidents",
-        "Compared to last period": "Compared to last period",
-        "Milestones": "Milestones",
-        "months zero downtime": "months zero downtime",
-        "energy efficiency improvement": "energy efficiency improvement",
-        "2025 Innovation Award, Best Digital Twin": "2025 Innovation Award, Best Digital Twin",
-        "Data Filters": "Data Filters",
-        "Select Metric": "Select Metric",
-        "Summary Table": "Summary Table",
-        "Current": "Current",
-        "Previous": "Previous",
-        "Change": "Change",
-        "Metric": "Metric",
-        "Month": "Month",
-        "Energy Efficiency": "Energy Efficiency",
-        "Maintenance Reduction": "Maintenance Reduction",
-        "Downtime Prevention": "Downtime Prevention",
-        "Smart Recommendations": "Smart Recommendations",
-        "Severity": "Severity",
-        "Time": "Time",
-        "Location": "Location",
-        "Message": "Message",
-        "Medium": "Medium",
-        "Low": "Low",
-        "Main Developers": "Main Developers",
-        "Our Vision": "Our Vision",
-        "Disasters don't wait.. and neither do we.": "Disasters don't wait.. and neither do we.",
-        "Features": "Features",
-        "AI-powered predictive analytics": "AI-powered predictive analytics",
-        "Instant smart solutions": "Instant smart solutions",
-        "Live alerts and monitoring": "Live alerts and monitoring",
-        "Multi-language support": "Multi-language support",
-        "Stunning, responsive UI": "Stunning, responsive UI",
-        "Dashboard loaded successfully!": "Dashboard loaded successfully!",
-        "An error occurred loading the dashboard: ": "An error occurred loading the dashboard: ",
-        "Prediction": "Prediction",
-        "Live Monitoring": "Live Monitoring",
-        "Ocean": "Ocean",
-        "Sunset": "Sunset",
-        "Emerald": "Emerald",
-        "Night": "Night",
-        "Blossom": "Blossom",
-        "AI-powered recommendations for safety and efficiency": "AI-powered recommendations for safety and efficiency",
-        "Methane Spike": "Methane Spike",
-        "Pressure Drop": "Pressure Drop",
-        "Vibration Anomaly": "Vibration Anomaly",
-        "High Temperature": "High Temperature",
-        "About the Project": "About the Project",
-        "Contact us for partnership or demo!": "Contact us for partnership or demo!",
-        "Lets Compare!": "Lets Compare!",
-        # NEW
-        "Login": "Login",
-        "Username": "Username",
-        "Password": "Password",
-        "Login as demo user": "Login as demo user",
-        "Logged in as": "Logged in as",
-        "Log out": "Log out",
-        "Live Mode": "Live Mode",
-        "Switch to Live Mode": "Switch to Live Mode",
-        "Switch to History Mode": "Switch to History Mode",
-        "Advanced Model": "Advanced Model",
-        "Linear Regression": "Linear Regression",
-        "ARIMA (Demo)": "ARIMA (Demo)",
-        "Prophet (Demo)": "Prophet (Demo)",
-        "Demo Email/SMS Alert": "Demo Email/SMS Alert",
-        "Send Alerts (Demo)": "Send Alerts (Demo)",
-        "Alerts have been sent (Demo)!": "Alerts have been sent to your registered contact info (Demo Only)!",
-        "Upload Your Own CSV": "Upload Your Own CSV",
-        "Uploaded! Using your CSV.": "Uploaded! Using your CSV.",
-        "Export to Excel": "Export to Excel",
-        "Export to PDF (Demo)": "Export to PDF (Demo)",
-        "PDF generated (Demo)!": "PDF report generated and downloaded (Demo).",
-        "API Integration (Demo)": "API Integration (Demo)",
-        "Show API Demo": "Show API Demo",
-        "API Data (Demo)": "API Data (Demo)",
-        "Settings Saved! (Demo)": "Settings Saved! (Demo, will not persist after closing tab).",
-        "Save My Settings (Demo)": "Save My Settings (Demo)",
-        "Multi-Step What-If": "Multi-Step What-If",
-        "Add What-If Step": "Add What-If Step",
-        "Remove Step": "Remove Step",
-        "Apply Multi-Step": "Apply Multi-Step",
-        "No What-If steps set": "No What-If steps set"
+        "app_title": "Smart Neural Digital Twin",
+        "dashboard": "Dashboard",
+        "predictive": "Predictive Analysis",
+        "solutions": "Smart Solutions",
+        "alerts": "Smart Alerts",
+        "cost": "Cost & Savings",
+        "achievements": "Achievements",
+        "performance": "Performance",
+        "comparison": "Comparison",
+        "explorer": "Data Explorer",
+        "about": "About",
+        "select_lang": "Select Language",
+        "kpi_temp": "Temperature",
+        "kpi_pressure": "Pressure",
+        "kpi_methane": "Methane",
+        "kpi_vibration": "Vibration",
+        "kpi_h2s": "H2S",
+        "risk_assess": "Risk Assessment",
+        "no_risk": "No risks detected.",
+        "methane_risk": "⚠️ Methane spike detected!",
+        "weekly_summary": "This Week's Summary",
+        "future_forecast": "Future Forecast",
+        "select_metric": "Select metric to forecast",
+        "predicted_events": "Predicted Risk Events",
+        "model_info": "About the Model",
+        "arima_desc": "Forecasts use ARIMA models to predict future values from plant data.",
+        "solution_reco": "Recommended Solution",
+        "solution_impact": "Estimated Impact",
+        "solution_history": "History of Similar Solutions",
+        "effectiveness": "AI Effectiveness",
+        "live_alerts": "Live Alerts",
+        "alert_level": "Severity",
+        "alert_time": "Time",
+        "alert_location": "Location",
+        "alert_type": "Type",
+        "alert_status": "Status",
+        "alert_summary": "Alert Summary",
+        "resolved_open": "Resolved vs. Open Alerts",
+        "filter_by": "Filter By",
+        "savings": "Savings",
+        "savings_month": "Monthly Savings",
+        "savings_year": "Yearly Savings",
+        "savings_counter": "You've saved",
+        "savings_breakdown": "Savings Breakdown",
+        "interventions": "Interventions",
+        "economic_impact": "Economic Impact",
+        "milestones": "Milestones",
+        "progress": "Progress",
+        "achieve_congrats": "Congratulations!",
+        "current_streak": "Current Safe Streak",
+        "longest_streak": "Longest Streak",
+        "records": "Records",
+        "performance_compare": "Performance Comparison",
+        "delta_table": "Change Table",
+        "improvement": "Improvement",
+        "best_metric": "Best Metric",
+        "needs_attention": "Needs Attention",
+        "compare_by": "Compare By",
+        "by_metric": "By Metric",
+        "by_period": "By Period",
+        "by_plant": "By Plant/Unit",
+        "top_improver": "Top Improver",
+        "biggest_opportunity": "Biggest Opportunity",
+        "explore_data": "Explore Data",
+        "select_var": "Select Variable",
+        "download": "Download CSV",
+        "about_story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes? We tried everything, even innovated with drones—and it worked. But we asked ourselves: Why wait for the problem at all?
+
+Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult. We made the difficult easy, connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
+
+Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
+        "about_vision": "Disasters don't wait… and neither do we. Our vision is a safer, smarter industrial world.",
+        "about_features": [
+            {"icon": "🤖", "title": "AI-powered Analytics", "desc": "Deep learning for anomaly detection & forecasting."},
+            {"icon": "💡", "title": "Smart Solutions", "desc": "Actionable, AI-driven recommendations."},
+            {"icon": "📈", "title": "Live Monitoring", "desc": "Real-time dashboards and alerts."},
+            {"icon": "🌐", "title": "Multi-language", "desc": "Arabic & English support out of the box."},
+            {"icon": "🎨", "title": "Beautiful UI", "desc": "Modern, intuitive interface."},
+        ],
+        "about_milestones": [
+            {"icon": "🚀", "title": "MVP Launched", "date": "2024-06-01"},
+            {"icon": "🏆", "title": "First Award Won", "date": "2024-11-15"},
+            {"icon": "🛡️", "title": "100 Days Incident-Free", "date": "2025-03-10"},
+            {"icon": "🤝", "title": "First Partnership", "date": "2025-05-01"},
+        ],
+        "about_team": [
+            {"avatar": RA_AVATAR, "name": "Rakan Almarri", "role": "AI Lead", "email": "rrakanmarri1@gmail.com", "color": "#21e6c1"},
+            {"avatar": AA_AVATAR, "name": "Ahmed Alotaibi", "role": "Data Engineer", "email": "Ahmadalotaibi2526@gmail.com", "color": "#278ea5"},
+        ],
+        "about_contact": "Want a demo or partnership? Reach out:",
+        "about_contact_btn": "Contact Us",
     },
     "ar": {
-        "Settings": "الإعدادات", "Choose Language": "اختر اللغة",
-        "English": "الإنجليزية", "Arabic": "العربية",
-        "Theme Set": "مجموعة الألوان", "Theme": "السمة", "Theme Preview": "معاينة السمة",
-        "Dashboard": "لوحة التحكم", "Predictive Analysis": "تحليل تنبؤي",
-        "Smart Solutions": "حلول ذكية", "Smart Alerts": "تنبيهات ذكية",
-        "Cost & Savings": "التكلفة والتوفير", "Achievements": "الإنجازات",
-        "Performance": "الأداء", "Comparison": "مقارنة", "Performance Comparison": "مقارنة الأداء",
-        "Data Explorer": "استكشاف البيانات", "About": "حول", "Navigate to": "انتقل إلى",
-        "Welcome to your Smart Digital Twin!": "مرحبًا بك في التوأم الرقمي الذكي!",
-        "Temperature": "درجة الحرارة", "Pressure": "الضغط", "Vibration": "الاهتزاز",
-        "Methane": "الميثان", "H2S": "كبريتيد الهيدروجين", "Live Data": "بيانات مباشرة", "Trend": "الاتجاه",
-        "Forecast": "التوقعات", "Simulate Disaster": "محاكاة كارثة",
-        "Details": "التفاصيل", "Reason": "السبب", "Priority": "الأولوية",
-        "Effectiveness": "الفعالية", "Estimated Time": "الوقت المتوقع",
-        "Generate Solution": "توليد حل", "Generating solution...": "جاري توليد الحل…",
-        "Press 'Generate Solution' for intelligent suggestions.": "اضغط 'توليد حل' للحصول على اقتراحات ذكية.",
-        "Emergency Vent Gas!": "تنفيس الغاز فوراً!", "Immediate venting required in Tank 2 due to critical methane spike.": "مطلوب تنفيس فوري في الخزان 2 بسبب ارتفاع حاد في الميثان.",
-        "Critical disaster detected during simulation.": "تم رصد كارثة حرجة أثناء المحاكاة.",
-        "Reduce Pressure in Line 3": "قلل الضغط في الخط ٣", "Reduce the pressure by 15% in Line 3 and alert the maintenance crew for inspection.": "قم بخفض الضغط بنسبة 15% في الخط ٣ وأبلغ فريق الصيانة للفحص.",
-        "Abnormal vibration detected. This reduces risk.": "تم رصد اهتزاز غير طبيعي. هذا يقلل المخاطر.",
-        "URGENT": "عاجل", "Now": "الآن", "High": "مرتفعة", "15 minutes": "١٥ دقيقة", "95%": "٩٥٪", "99%": "٩٩٪",
-        "About Project Description": "التوأم الرقمي العصبي الذكي هو منصة مدعومة بالذكاء الاصطناعي للوقاية من الكوارث في المواقع الصناعية وحقول النفط. يربط المستشعرات الحية بتوأم رقمي ذكي للتنبؤ والتنبيه والحلول الفورية.",
-        "High Risk Area: Tank 3": "منطقة خطورة عالية: الخزان ٣",
-        "Monthly Savings": "التوفير الشهري",
-        "Yearly Savings": "التوفير السنوي",
-        "Reduction in Maintenance Costs": "تقليل تكلفة الصيانة",
-        "Savings": "التوفير",
-        "Source": "المصدر",
-        "Amount (SAR)": "المبلغ (ريال)",
-        "Savings Breakdown": "تفصيل التوفير",
-        "Current Alerts": "التنبيهات الحالية",
-        "No alerts at the moment.": "لا توجد تنبيهات حاليًا.",
-        "Congratulations!": "مبروك!",
-        "You have achieved": "لقد حققت",
-        "days without incidents": "يوم بدون حوادث",
-        "Compared to last period": "مقارنة بالفترة السابقة",
-        "Milestones": "إنجازات",
-        "months zero downtime": "شهور بدون توقف",
-        "energy efficiency improvement": "تحسن كفاءة الطاقة",
-        "2025 Innovation Award, Best Digital Twin": "جائزة الابتكار 2025 - أفضل توأم رقمي",
-        "Data Filters": "فلاتر البيانات",
-        "Select Metric": "اختر المقياس",
-        "Summary Table": "جدول ملخص",
-        "Current": "الحالي",
-        "Previous": "السابق",
-        "Change": "التغير",
-        "Metric": "المؤشر",
-        "Month": "الشهر",
-        "Energy Efficiency": "كفاءة الطاقة",
-        "Maintenance Reduction": "خفض الصيانة",
-        "Downtime Prevention": "منع التوقف",
-        "Smart Recommendations": "توصيات ذكية",
-        "Severity": "درجة الخطورة",
-        "Time": "الوقت",
-        "Location": "الموقع",
-        "Message": "الرسالة",
-        "Medium": "متوسطة",
-        "Low": "منخفضة",
-        "Main Developers": "المطورون الرئيسيون",
-        "Our Vision": "رؤيتنا",
-        "Disasters don't wait.. and neither do we.": "الكوارث لا تنتظر.. ونحن أيضًا لا ننتظر.",
-        "Features": "المميزات",
-        "AI-powered predictive analytics": "تحليلات تنبؤية مدعومة بالذكاء الاصطناعي",
-        "Instant smart solutions": "حلول ذكية فورية",
-        "Live alerts and monitoring": "تنبيهات ومراقبة حية",
-        "Multi-language support": "دعم متعدد اللغات",
-        "Stunning, responsive UI": "واجهة رائعة ومتجاوبة",
-        "Dashboard loaded successfully!": "تم تحميل لوحة التحكم بنجاح!",
-        "An error occurred loading the dashboard: ": "حدث خطأ أثناء تحميل لوحة التحكم: ",
-        "Prediction": "تنبؤ",
-        "Live Monitoring": "مراقبة حية",
-        "Ocean": "أوشن",
-        "Sunset": "غروب الشمس",
-        "Emerald": "زمردي",
-        "Night": "ليلي",
-        "Blossom": "إزهار",
-        "AI-powered recommendations for safety and efficiency": "توصيات ذكية مدعومة بالذكاء الاصطناعي للسلامة والكفاءة",
-        "Methane Spike": "ارتفاع الميثان",
-        "Pressure Drop": "انخفاض الضغط",
-        "Vibration Anomaly": "خلل بالاهتزاز",
-        "High Temperature": "درجة حرارة عالية",
-        "About the Project": "عن المشروع",
-        "Contact us for partnership or demo!": "تواصل معنا للشراكة أو العرض التوضيحي!",
-        "Lets Compare!": "لنقارن!",
-        # NEW
-        "Login": "تسجيل الدخول",
-        "Username": "اسم المستخدم",
-        "Password": "كلمة المرور",
-        "Login as demo user": "دخول كمستخدم تجريبي",
-        "Logged in as": "تم الدخول باسم",
-        "Log out": "تسجيل الخروج",
-        "Live Mode": "وضع البث المباشر",
-        "Switch to Live Mode": "الانتقال لوضع البث المباشر",
-        "Switch to History Mode": "العودة لوضع البيانات التاريخية",
-        "Advanced Model": "نموذج متقدم",
-        "Linear Regression": "انحدار خطي",
-        "ARIMA (Demo)": "ARIMA (تجريبي)",
-        "Prophet (Demo)": "Prophet (تجريبي)",
-        "Demo Email/SMS Alert": "تنبيه عبر البريد/الجوال (تجريبي)",
-        "Send Alerts (Demo)": "إرسال تنبيهات (تجريبي)",
-        "Alerts have been sent (Demo)!": "تم إرسال التنبيهات (تجريبي)!",
-        "Upload Your Own CSV": "تحميل ملف CSV خاص بك",
-        "Uploaded! Using your CSV.": "تم التحميل! تم استخدام ملفك.",
-        "Export to Excel": "تصدير إلى Excel",
-        "Export to PDF (Demo)": "تصدير إلى PDF (تجريبي)",
-        "PDF generated (Demo)!": "تم إنشاء التقرير PDF (تجريبي).",
-        "API Integration (Demo)": "التكامل مع API (تجريبي)",
-        "Show API Demo": "عرض مثال API",
-        "API Data (Demo)": "بيانات API (تجريبي)",
-        "Settings Saved! (Demo)": "تم حفظ الإعدادات (تجريبي، لا تحفظ عند إغلاق المتصفح).",
-        "Save My Settings (Demo)": "حفظ الإعدادات (تجريبي)",
-        "Multi-Step What-If": "ماذا لو متعددة الخطوات",
-        "Add What-If Step": "إضافة خطوة ماذا لو",
-        "Remove Step": "حذف خطوة",
-        "Apply Multi-Step": "تطبيق عدة خطوات",
-        "No What-If steps set": "لا توجد خطوات ماذا لو"
+        "app_title": "التوأم الرقمي الذكي العصبي",
+        "dashboard": "لوحة القيادة",
+        "predictive": "تحليل تنبؤي",
+        "solutions": "الحلول الذكية",
+        "alerts": "التنبيهات الذكية",
+        "cost": "التكلفة والمدخرات",
+        "achievements": "الإنجازات",
+        "performance": "الأداء",
+        "comparison": "المقارنة",
+        "explorer": "مستكشف البيانات",
+        "about": "عن المنصة",
+        "select_lang": "اختر اللغة",
+        "kpi_temp": "درجة الحرارة",
+        "kpi_pressure": "الضغط",
+        "kpi_methane": "الميثان",
+        "kpi_vibration": "الاهتزاز",
+        "kpi_h2s": "غاز H2S",
+        "risk_assess": "تقييم المخاطر",
+        "no_risk": "لا توجد مخاطر حالياً.",
+        "methane_risk": "⚠️ تم رصد ارتفاع في الميثان!",
+        "weekly_summary": "ملخص هذا الأسبوع",
+        "future_forecast": "توقعات مستقبلية",
+        "select_metric": "اختر المتغير للتنبؤ",
+        "predicted_events": "الأحداث المتوقعة الخطرة",
+        "model_info": "عن النموذج",
+        "arima_desc": "يتم استخدام نماذج ARIMA للتنبؤ بقيم المستقبل بناءً على بيانات المصنع.",
+        "solution_reco": "الحل المقترح",
+        "solution_impact": "الأثر المتوقع",
+        "solution_history": "سجل الحلول المشابهة",
+        "effectiveness": "فعالية الذكاء الاصطناعي",
+        "live_alerts": "التنبيهات الحية",
+        "alert_level": "شدة",
+        "alert_time": "الوقت",
+        "alert_location": "الموقع",
+        "alert_type": "النوع",
+        "alert_status": "الحالة",
+        "alert_summary": "ملخص التنبيهات",
+        "resolved_open": "المنتهية مقابل المفتوحة",
+        "filter_by": "تصفية حسب",
+        "savings": "المدخرات",
+        "savings_month": "المدخرات الشهرية",
+        "savings_year": "المدخرات السنوية",
+        "savings_counter": "لقد وفرت",
+        "savings_breakdown": "تفصيل المدخرات",
+        "interventions": "التدخلات",
+        "economic_impact": "الأثر الاقتصادي",
+        "milestones": "الإنجازات",
+        "progress": "التقدم",
+        "achieve_congrats": "تهانينا!",
+        "current_streak": "سلسلة الأمان الحالية",
+        "longest_streak": "أطول سلسلة",
+        "records": "الأرقام القياسية",
+        "performance_compare": "مقارنة الأداء",
+        "delta_table": "جدول التغير",
+        "improvement": "التحسن",
+        "best_metric": "أفضل مؤشر",
+        "needs_attention": "يحتاج متابعة",
+        "compare_by": "المقارنة حسب",
+        "by_metric": "حسب المؤشر",
+        "by_period": "حسب الفترة",
+        "by_plant": "حسب الوحدة",
+        "top_improver": "الأكثر تحسنًا",
+        "biggest_opportunity": "أكبر فرصة",
+        "explore_data": "استكشاف البيانات",
+        "select_var": "اختر المتغير",
+        "download": "تحميل CSV",
+        "about_story": """بدأت رحلتنا من سؤال بسيط كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة ؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا ليه ننتظر أصلاً؟ حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه - مو مستحيل، لكن كان صعب إحنا أخذنا الصعب وخليناه سهل، وربطنا الذكاء الاصطناعي مع بيانات المصنع في منصة واحدة، تراقب وتتعلم وتمنع الكوارث قبل أن تبدأ. اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
+        "about_vision": "الكوارث لا تنتظر... ونحن أيضاً لا ننتظر. رؤيتنا: عالم صناعي أكثر أمانًا وذكاء.",
+        "about_features": [
+            {"icon": "🤖", "title": "تحليلات مدعومة بالذكاء الاصطناعي", "desc": "تعلم عميق لاكتشاف الشذوذ والتنبؤ."},
+            {"icon": "💡", "title": "حلول ذكية", "desc": "توصيات قابلة للتنفيذ مدفوعة بالذكاء الاصطناعي."},
+            {"icon": "📈", "title": "مراقبة حية", "desc": "لوحات بيانات وتنبيهات في الوقت الحقيقي."},
+            {"icon": "🌐", "title": "دعم متعدد اللغات", "desc": "العربية والإنجليزية افتراضيًا."},
+            {"icon": "🎨", "title": "واجهة جميلة", "desc": "تصميم عصري وسهل الاستخدام."},
+        ],
+        "about_milestones": [
+            {"icon": "🚀", "title": "إطلاق MVP", "date": "2024-06-01"},
+            {"icon": "🏆", "title": "أول جائزة", "date": "2024-11-15"},
+            {"icon": "🛡️", "title": "100 يوم بلا حوادث", "date": "2025-03-10"},
+            {"icon": "🤝", "title": "أول شراكة", "date": "2025-05-01"},
+        ],
+        "about_team": [
+            {"avatar": RA_AVATAR, "name": "راكان المرّي", "role": "قائد الذكاء الاصطناعي", "email": "rrakanmarri1@gmail.com", "color": "#21e6c1"},
+            {"avatar": AA_AVATAR, "name": "أحمد العتيبي", "role": "مهندس بيانات", "email": "Ahmadalotaibi2526@gmail.com", "color": "#278ea5"},
+        ],
+        "about_contact": "هل ترغب بعرض توضيحي أو شراكة؟ تواصل معنا:",
+        "about_contact_btn": "تواصل معنا",
     }
 }
-def _(key): return translations[st.session_state.get("lang", "en")].get(key, key)
 
-# =========================
-# 2. Session and Theme State
-# =========================
-if "lang" not in st.session_state: st.session_state["lang"] = "en"
-if "theme_set" not in st.session_state: st.session_state["theme_set"] = "Ocean"
-if "logged_in" not in st.session_state: st.session_state["logged_in"] = False
-if "current_user" not in st.session_state: st.session_state["current_user"] = "Guest"
-if "simulate_disaster" not in st.session_state: st.session_state["simulate_disaster"] = False
-if "simulate_time" not in st.session_state: st.session_state["simulate_time"] = 0
-if "live_mode" not in st.session_state: st.session_state["live_mode"] = False
-if "uploaded_df" not in st.session_state: st.session_state["uploaded_df"] = None
-if "multi_whatif" not in st.session_state: st.session_state["multi_whatif"] = []
+# ------------- LANGUAGE SUPPORT -------------
+def _(key):
+    lang = st.session_state.get("lang", "en")
+    return translations[lang][key] if key in translations[lang] else key
 
-# =========================
-# 3. Demo Login Block
-# =========================
-def demo_login_block():
-    st.markdown('<img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="40" style="margin-bottom:-10px;margin-right:8px;"/>', unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:1.2em; font-weight:bold;'>{_('Login')}</div>", unsafe_allow_html=True)
-    if not st.session_state["logged_in"]:
-        # Demo login (no real check)
-        username = st.text_input(_("Username"), "demo")
-        password = st.text_input(_("Password"), type="password")
-        if st.button(_("Login as demo user")):
-            st.session_state["logged_in"] = True
-            st.session_state["current_user"] = username
-            st.success(f"{_('Logged in as')}: {username}")
-    else:
-        st.success(f"{_('Logged in as')}: {st.session_state['current_user']}")
-        if st.button(_("Log out")):
-            st.session_state["logged_in"] = False
-            st.session_state["current_user"] = "Guest"
+def _list(key):
+    lang = st.session_state.get("lang", "en")
+    return translations[lang][key]
 
-# =========================
-# 4. Theme System (Demo: unchanged from before)
-# =========================
-THEME_SETS = {
-    "Ocean": {"primary": "#153243", "secondary": "#278ea5", "accent": "#21e6c1","text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#153243","sidebar_bg": "#18465b", "card_bg": "#278ea5", "badge_bg": "#21e6c1","alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#153243"},
-    "Sunset": {"primary": "#FF7043","secondary": "#FFA726","accent": "#FFD54F","text_on_primary": "#232526","text_on_secondary": "#111","text_on_accent": "#232526","sidebar_bg": "#FFD9A0","card_bg": "#FFE0B2","badge_bg": "#FFA726","alert": "#D7263D","alert_text": "#fff","plot_bg": "#FFF3E0"},
-    "Emerald": {"primary": "#154734", "secondary": "#43e97b", "accent": "#38f9d7","text_on_primary": "#fff", "text_on_secondary": "#153243", "text_on_accent": "#154734","sidebar_bg": "#e0f2f1", "card_bg": "#e8fff3", "badge_bg": "#38f9d7","alert": "#ff1744", "alert_text": "#fff", "plot_bg": "#e0f2f1"},
-    "Night": {"primary": "#232526", "secondary": "#414345", "accent": "#e96443","text_on_primary": "#fff", "text_on_secondary": "#fff", "text_on_accent": "#232526","sidebar_bg": "#353749", "card_bg": "#414345", "badge_bg": "#e96443","alert": "#ff3e3e", "alert_text": "#fff", "plot_bg": "#232526"},
-    "Blossom": {"primary": "#fbd3e9", "secondary": "#bb377d", "accent": "#fa709a","text_on_primary": "#232526", "text_on_secondary": "#fff", "text_on_accent": "#fff","sidebar_bg": "#fce4ec", "card_bg": "#f8bbd0", "badge_bg": "#bb377d","alert": "#d7263d", "alert_text": "#fff", "plot_bg": "#fce4ec"},
-}
-theme = THEME_SETS[st.session_state["theme_set"]]
+# ------------- PAGE SETUP & NAVIGATION -------------
+st.set_page_config(page_title="Smart Neural Digital Twin", layout="wide", page_icon=AI_ICON_URL)
 
-# =========================
-# 5. CSS
-# =========================
-def inject_css():
-    st.markdown(f"""
-    <style>
-    body, .stApp {{ background: linear-gradient(120deg, {theme['primary']} 60%, {theme['secondary']} 100%) !important; min-height:100vh; }}
-    .stSidebar {{ background-color: {theme['sidebar_bg']} !important; }}
-    .big-title {{ color: {theme['accent']}; font-size:2.8rem; font-weight:bold; margin-bottom:10px; letter-spacing:0.04em; text-shadow: 1px 2px 12px rgba(0,0,0,0.08); }}
-    .about-dev {{ display: flex; gap: 45px; align-items: center; justify-content: center; margin-top:18px; }}
-    .about-dev .dev {{ text-align:center; background:rgba(255,255,255,0.08); border-radius:18px; padding:12px 26px 11px 26px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
-    .about-dev img {{ border-radius:50%; border:3px solid {theme['badge_bg']}; margin-bottom:7px; }}
-    </style>
-    """, unsafe_allow_html=True)
-inject_css()
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "en"
 
-# =========================
-# 6. Sidebar: Theme, Lang, Page Nav, Data Upload
-# =========================
-def sidebar():
-    with st.sidebar:
-        demo_login_block()
-        st.markdown('<hr style="margin:10px 0;">', unsafe_allow_html=True)
-        theme_names = list(THEME_SETS.keys())
-        st.session_state["theme_set"] = st.radio(
-            _("Theme Set"),
-            options=theme_names,
-            format_func=lambda x: _(x),
-            index=theme_names.index(st.session_state["theme_set"])
-        )
-        st.session_state["lang"] = st.radio(_("Choose Language"),
-                                            options=["ar", "en"],
-                                            format_func=lambda x: _("Arabic") if x == "ar" else _("English"),
-                                            index=0 if st.session_state["lang"] == "ar" else 1)
-        st.markdown('<hr style="margin:10px 0;">', unsafe_allow_html=True)
-        # Data Upload
-        st.markdown(f"<b>{_('Upload Your Own CSV')}</b>", unsafe_allow_html=True)
-        upload = st.file_uploader(_("Upload Your Own CSV"), type=['csv'])
-        if upload:
-            st.session_state["uploaded_df"] = pd.read_csv(upload)
-            st.success(_("Uploaded! Using your CSV."))
-        st.markdown('<hr style="margin:10px 0;">', unsafe_allow_html=True)
-        # Main nav
-        pages = [
-            ("dashboard", _("Dashboard")), ("predictive", _("Predictive Analysis")),
-            ("solutions", _("Smart Solutions")), ("alerts", _("Smart Alerts")),
-            ("cost", _("Cost & Savings")), ("achievements", _("Achievements")),
-            ("performance", _("Performance")), ("comparison", _("Comparison")),
-            ("explorer", _("Data Explorer")), ("about", _("About"))
-        ]
-        st.session_state["page_radio"] = st.radio(_("Navigate to"), options=pages, format_func=lambda x: x[1], index=0)
-sidebar()
-
-# =========================
-# 7. Data
-# =========================
-def get_data():
-    if st.session_state["uploaded_df"] is not None:
-        return st.session_state["uploaded_df"]
-    # fallback: generate demo data
-    dates = pd.date_range(end=pd.Timestamp.today(), periods=40)
-    return pd.DataFrame({
-        _("Temperature"): 80 + 5 * np.random.rand(40),
-        _("Pressure"): 200 + 10 * np.random.rand(40),
-        _("Methane"): 2.5 + 0.5 * np.random.rand(40),
-        _("Vibration"): 0.6 + 0.1 * np.random.rand(40),
-        _("H2S"): 0.3 + 0.05 * np.random.rand(40)
-    }, index=dates)
-
-# =========================
-# 8. Advanced Model Selector (Demo)
-# =========================
-def advanced_model_selector():
-    return st.selectbox(
-        _("Advanced Model"),
-        [_("Linear Regression"), _("ARIMA (Demo)"), _("Prophet (Demo)")],
-        index=0
+# Language selector
+col_lang, col_spacer = st.columns([1, 8])
+with col_lang:
+    st.selectbox(
+        label="🌏 "+_("select_lang"),
+        options=[("English", "en"), ("العربية", "ar")],
+        index=0 if st.session_state["lang"]=="en" else 1,
+        key="lang",
+        format_func=lambda x: x[0],
+        label_visibility="collapsed"
     )
 
-# =========================
-# 9. Live Mode Demo
-# =========================
-def live_mode_block():
-    st.session_state["live_mode"] = st.checkbox(_("Live Mode"), value=st.session_state.get("live_mode", False))
-    if st.session_state["live_mode"]:
-        st.success(_("Switch to Live Mode"))
-    else:
-        st.info(_("Switch to History Mode"))
-
-# =========================
-# 10. Multi-Step What-If Demo
-# =========================
-def multi_step_whatif_block():
-    st.markdown(f"<b>{_('Multi-Step What-If')}</b>", unsafe_allow_html=True)
-    if st.button(_("Add What-If Step")):
-        st.session_state["multi_whatif"].append({"step": len(st.session_state["multi_whatif"])+1, "delta": 0.0})
-    for idx, step in enumerate(st.session_state["multi_whatif"]):
-        col1, col2 = st.columns([2,1])
-        with col1:
-            st.session_state["multi_whatif"][idx]["delta"] = st.slider(
-                f"{_('Step')} {idx+1} Δ", -10.0, 10.0, float(step["delta"]), 0.1, key=f"whatif_delta_{idx}")
-        with col2:
-            if st.button(_("Remove Step"), key=f"remove_{idx}"):
-                st.session_state["multi_whatif"].pop(idx)
-                break
-    if not st.session_state["multi_whatif"]:
-        st.info(_("No What-If steps set"))
-    if st.button(_("Apply Multi-Step")):
-        st.success("Multi-step what-if applied (Demo logic)")
-
-# =========================
-# 11. AI Icon Block (shown at top of every main page)
-# =========================
-def ai_icon():
+# ------------- HEADER: ICON + TITLE -------------
+def header():
     st.markdown(
-        '<img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="48" style="margin-bottom:-10px;margin-right:12px;"/>',
+        f"""
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:10px;">
+            <img src="{AI_ICON_URL}" width="52" style="border-radius:22px; border:3px solid #21e6c1; background:#fff;"/>
+            <span style="font-size:2.2em; font-weight:900; letter-spacing:1.5px; color:#153243;">
+                {_("app_title")}
+            </span>
+        </div>
+        """, unsafe_allow_html=True
+    )
+
+# ------------- SIDEBAR NAVIGATION -------------
+PAGES = [
+    ("dashboard", "📊"),
+    ("predictive", "🔮"),
+    ("solutions", "💡"),
+    ("alerts", "🚨"),
+    ("cost", "💸"),
+    ("achievements", "🏆"),
+    ("performance", "📈"),
+    ("comparison", "⚖️"),
+    ("explorer", "🗂️"),
+    ("about", "ℹ️"),
+]
+with st.sidebar:
+    st.image(AI_ICON_URL, width=68)
+    st.markdown(f"<h2 style='margin-bottom:0'>{_('app_title')}</h2>", unsafe_allow_html=True)
+    page = st.radio(
+        label="Navigation",
+        options=[p[0] for p in PAGES],
+        format_func=lambda x: f"{dict(PAGES)[x]} {_(x)}"
+    )
+
+# ----------------------------------------------
+# ------------- PAGE LOGIC ---------------------
+# ----------------------------------------------
+
+# ---------- 1. DASHBOARD ----------
+if page == "dashboard":
+    header()
+    st.subheader(f"📊 {_(page)}")
+    # Fake KPI data
+    kpi_vals = {
+        "kpi_temp": np.random.normal(80, 2),
+        "kpi_pressure": np.random.normal(7.5, 0.3),
+        "kpi_methane": np.random.normal(0.7, 0.05),
+        "kpi_vibration": np.random.normal(2, 0.5),
+        "kpi_h2s": np.random.normal(0.05, 0.01),
+    }
+    cols = st.columns(5)
+    for i, k in enumerate(["kpi_temp", "kpi_pressure", "kpi_methane", "kpi_vibration", "kpi_h2s"]):
+        delta = np.random.uniform(-2, 2)
+        cols[i].metric(_(k), f"{kpi_vals[k]:.2f}", f"{delta:+.2f}")
+    style_metric_cards()
+    # Status
+    if kpi_vals["kpi_methane"] > 0.8:
+        st.warning(_( "methane_risk" ))
+    else:
+        st.success(_( "no_risk" ))
+    # KPI trends
+    st.markdown(f"### {_( 'weekly_summary' )}")
+    kpi_chart_data = {
+        k: np.cumsum(np.random.normal(0, 0.3, 30)) + v
+        for k, v in kpi_vals.items()
+    }
+    chart_df = pd.DataFrame(kpi_chart_data)
+    chart_df.index = [ (datetime.now() - timedelta(days=(29-i))).strftime("%b %d") for i in range(30) ]
+    fig = go.Figure()
+    for k, col in zip(chart_df.columns, ["#278ea5", "#21e6c1", "#fbb13c", "#a3cef1", "#e84545"]):
+        fig.add_trace(go.Scatter(x=chart_df.index, y=chart_df[k], mode="lines+markers", name=_(k), line=dict(color=col)))
+    fig.update_layout(height=320, margin=dict(l=0,r=0,t=25,b=0), legend=dict(orientation="h"))
+    st.plotly_chart(fig, use_container_width=True)
+    # Risk assessment
+    st.markdown(f"### {_( 'risk_assess' )}")
+    st.info(_( "no_risk" ) if kpi_vals["kpi_methane"] < 0.8 else _( "methane_risk" ))
+
+# ---------- 2. PREDICTIVE ANALYSIS ----------
+elif page == "predictive":
+    header()
+    st.subheader(f"🔮 {_(page)}")
+    metric = st.selectbox(_( "select_metric" ), [
+        _( "kpi_temp" ), _( "kpi_pressure" ), _( "kpi_methane" ), _( "kpi_vibration" ), _( "kpi_h2s" )
+    ])
+    # Fake forecast
+    days = np.arange(0, 14)
+    base = 80 if "حرارة" in metric or "Temp" in metric else 0.7
+    trend = np.sin(days / 2) + np.random.normal(0, 0.2, len(days))
+    forecast = base + trend
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=[(datetime.now() + timedelta(days=int(d))).strftime("%b %d") for d in days],
+        y=forecast,
+        mode="lines+markers", name=metric,
+        line=dict(color="#278ea5", width=3)
+    ))
+    fig.add_vrect(x0=10, x1=13, fillcolor="#e84545", opacity=0.2, line_width=0)
+    fig.update_layout(height=320, margin=dict(l=0,r=0,t=25,b=0))
+    st.markdown(f"#### {_( 'future_forecast' )} ({metric})")
+    st.plotly_chart(fig, use_container_width=True)
+    # Upcoming predicted events
+    st.markdown(f"#### {_( 'predicted_events' )}")
+    event_rows = []
+    for i in [10, 12]:
+        event_rows.append({
+            "Time": (datetime.now() + timedelta(days=i)).strftime("%b %d"),
+            "Metric": metric,
+            "Severity": "High" if i==10 else "Moderate",
+            "Recommendation": _( "solution_reco" ) + f": {_( 'solution_impact' )}: {np.random.randint(1,5)}h saved"
+        })
+    st.dataframe(pd.DataFrame(event_rows), use_container_width=True)
+    # Model info
+    with st.expander(_( "model_info" )):
+        st.info(_( "arima_desc" ))
+
+# ---------- 3. SMART SOLUTIONS ----------
+elif page == "solutions":
+    header()
+    st.subheader(f"💡 {_(page)}")
+    # Example solution cards
+    for i, (risk, act, impact, hist) in enumerate([
+        ("Methane spike", "Vent Tank 3", "+12h uptime", "2 similar incidents prevented"),
+        ("Pressure anomaly", "Check Valve 2", "+8h uptime", "No downtime in 6 months"),
+        ("Temp drift", "Inspect Sensor 5", "+5% stability", "Reduced false alerts"),
+    ]):
+        cols = st.columns([1,4])
+        with cols[0]: st.markdown(f"<div style='font-size:2.5em'>{'⚠️' if i==0 else '🔧'}</div>", unsafe_allow_html=True)
+        with cols[1]:
+            st.markdown(
+                f"""
+                <div style="background:linear-gradient(90deg,#21e6c1 20%,#a3cef1 100%);padding:18px 22px;border-radius:18px;box-shadow:0 3px 18px #278ea533;">
+                    <b>{_( 'solution_reco' )}: {risk}</b><br>
+                    <span style="color:#278ea5;font-weight:500;">→ {act}</span><br>
+                    <span style="font-size:1.05em;">{_( 'solution_impact' )}: <b>{impact}</b></span><br>
+                    <span style="font-size:0.95em;color:#153243;">{_( 'solution_history' )}: {hist}</span>
+                </div>
+                """, unsafe_allow_html=True
+            )
+    # AI effectiveness
+    st.markdown(f"#### {_( 'effectiveness' )}")
+    st.progress(0.92, text="92%")
+
+# ---------- 4. SMART ALERTS ----------
+elif page == "alerts":
+    header()
+    st.subheader(f"🚨 {_(page)}")
+    # Fake alerts table
+    alert_df = pd.DataFrame([
+        {"Time": (datetime.now() - timedelta(hours=i*2)).strftime("%b %d %H:%M"), "Severity": np.random.choice(["High","Medium","Low"], p=[0.4,0.4,0.2]), "Location": f"Tank {np.random.randint(1,5)}", "Type": np.random.choice(["Methane","Pressure","Temperature"]), "Status": np.random.choice(["Open","Resolved"], p=[0.6,0.4])}
+        for i in range(12)
+    ])
+    st.markdown(f"#### {_( 'live_alerts' )}")
+    st.dataframe(alert_df, use_container_width=True)
+    # Alert summary
+    with st.expander(_( "alert_summary" )):
+        st.metric(_( "alert_level" ), alert_df["Severity"].value_counts().idxmax())
+        st.metric(_( "alert_status" ), alert_df["Status"].value_counts().idxmax())
+        # Resolved vs open
+        open_count = (alert_df["Status"]=="Open").sum()
+        resolved_count = (alert_df["Status"]=="Resolved").sum()
+        st.markdown(f"{_( 'resolved_open' )}: <b style='color:#21e6c1'>{resolved_count}</b> / <b style='color:#e84545'>{open_count}</b>", unsafe_allow_html=True)
+        # Pie
+        fig = go.Figure()
+        fig.add_trace(go.Pie(labels=alert_df["Severity"], values=alert_df["Severity"].value_counts(), hole=0.45))
+        fig.update_layout(margin=dict(l=30,r=30,t=30,b=30), height=220)
+        st.plotly_chart(fig, use_container_width=True)
+
+# ---------- 5. COST & SAVINGS ----------
+elif page == "cost":
+    header()
+    st.subheader(f"💸 {_(page)}")
+    # Savings cards
+    col1, col2, col3, _ = st.columns([2,2,2,2])
+    total_saved = np.random.randint(70000, 150000)
+    col1.metric(_( "savings_month" ), f"SAR {total_saved // 12:,}")
+    col2.metric(_( "savings_year" ), f"SAR {total_saved:,}")
+    col3.metric(_( "savings" ), f"SAR {total_saved // 3:,}")
+    style_metric_cards()
+    # Counter
+    st.markdown(
+        f"<div style='font-size:1.5em;font-weight:700;color:#21e6c1;background:rgba(33,230,193,0.12);padding:12px 24px;border-radius:18px;display:inline-block;'>{_( 'savings_counter' )} SAR {total_saved:,}!</div>",
         unsafe_allow_html=True
     )
+    # Savings breakdown chart
+    breakdown = pd.Series({
+        _( "interventions" ): total_saved * 0.45,
+        _( "economic_impact" ): total_saved * 0.35,
+        _( "savings" ): total_saved * 0.20,
+    })
+    fig = go.Figure(go.Pie(labels=breakdown.index, values=breakdown.values, hole=0.55))
+    fig.update_layout(margin=dict(l=30,r=30,t=30,b=30), height=230)
+    st.markdown(f"#### {_( 'savings_breakdown' )}")
+    st.plotly_chart(fig, use_container_width=True)
+    # Table
+    st.markdown(f"#### {_( 'interventions' )}")
+    st.table(pd.DataFrame({
+        _( "interventions" ): ["Methane fix", "Valve repair", "Sensor upgrade"],
+        _( "economic_impact" ): [f"SAR {int(total_saved*0.15):,}", f"SAR {int(total_saved*0.12):,}", f"SAR {int(total_saved*0.18):,}"]
+    }))
 
-# =========================
-# 12. Demo Email/SMS Alert Button
-# =========================
-def alert_demo_button():
-    if st.button(_("Send Alerts (Demo)")):
-        st.success(_("Alerts have been sent (Demo)!"))
-
-# =========================
-# 13. Export Buttons (Excel/PDF demo)
-# =========================
-def export_buttons(df):
-    st.download_button(_("Export to Excel"), data=df.to_csv(index=False).encode('utf-8'), file_name="export.xlsx")
-    if st.button(_("Export to PDF (Demo)")):
-        st.success(_("PDF generated (Demo)!"))
-
-# =========================
-# 14. API Integration Demo
-# =========================
-def api_demo_block():
-    if st.button(_("Show API Demo")):
-        st.json({
-            "timestamp": str(pd.Timestamp.now()),
-            "Temperature": 85.1,
-            "Pressure": 208.0,
-            "Methane": 3.2,
-            "status": "normal"
-        }, expanded=True)
-        st.info(_("API Data (Demo)"))
-
-# =========================
-# 15. Main Pages
-# =========================
-def dashboard():
-    ai_icon()
-    live_mode_block()
-    st.markdown(f"<div class='big-title'>🧠 {_('Welcome to your Smart Digital Twin!')}</div>", unsafe_allow_html=True)
-    df = get_data()
-    vals = [df[_("Temperature")].iloc[-1], df[_("Pressure")].iloc[-1], df[_("Vibration")].iloc[-1], df[_("Methane")].iloc[-1], df[_("H2S")].iloc[-1]]
-    labels = [_("Temperature"), _("Pressure"), _("Vibration"), _("Methane"), _("H2S")]
-    units = ["°C", "psi", "g", "ppm", "ppm"]
-    icons = ["🌡️", "💧", "🌀", "🟢", "⚗️"]
-    cols = st.columns(len(vals))
-    for i, col in enumerate(cols):
-        col.metric(label=f"{icons[i]} {labels[i]}", value=f"{vals[i]:.2f} {units[i]}")
-    st.line_chart(df)
-    export_buttons(df)
-    alert_demo_button()
-
-def predictive():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>🔮 {_('Predictive Analysis')}</div>", unsafe_allow_html=True)
-    model = advanced_model_selector()
-    df = get_data()
-    st.line_chart(df)
-    if model != _("Linear Regression"):
-        st.warning(f"{model} - Demo forecast shown only")
-    export_buttons(df)
-    multi_step_whatif_block()
-    alert_demo_button()
-
-def solutions():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>💡 {_('Smart Solutions')}</div>", unsafe_allow_html=True)
-    st.info(_("AI-powered recommendations for safety and efficiency"))
-    alert_demo_button()
-
-def alerts():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Smart Alerts')}</div>", unsafe_allow_html=True)
-    alert_demo_button()
-
-def cost():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Cost & Savings')}</div>", unsafe_allow_html=True)
-    df = get_data()
-    st.bar_chart(df)
-    export_buttons(df)
-
-def achievements():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Achievements')}</div>", unsafe_allow_html=True)
-    st.success(_("Congratulations!") + " 🎉")
-    export_buttons(get_data())
-
-def performance():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Performance')}</div>", unsafe_allow_html=True)
-    st.line_chart(get_data())
-    export_buttons(get_data())
-
-def comparison():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Comparison')}</div>", unsafe_allow_html=True)
-    st.line_chart(get_data())
-    export_buttons(get_data())
-
-def explorer():
-    ai_icon()
-    st.markdown(f"<div class='big-title'>{_('Data Explorer')}</div>", unsafe_allow_html=True)
-    st.dataframe(get_data())
-    export_buttons(get_data())
-
-def about():
-    ai_icon()
-    st.markdown("""
-    <div style="display: flex; align-items: center; justify-content:center;">
-        <img src="https://img.icons8.com/color/96/artificial-intelligence.png" width="72" style="margin-right:20px;" alt="AI logo"/>
-        <div>
-            <span class="big-title">{}</span><br>
-            <span class="sub-title" style="font-size:1.18rem;">Smart Neural Digital Twin</span>
-        </div>
+# ---------- 6. ACHIEVEMENTS ----------
+elif page == "achievements":
+    header()
+    st.subheader(f"🏆 {_(page)}")
+    # Milestones timeline
+    ms = _list( "about_milestones" )
+    timeline = ""
+    for m in ms:
+        timeline += f"<div style='margin-bottom:12px'><span style='font-size:2em'>{m['icon']}</span> <b>{m['title']}</b> <span style='color:#aaa;font-size:0.95em'>({m['date']})</span></div>"
+    st.markdown(f"""
+    <div style="background:linear-gradient(100deg,#21e6c1 25%,#278ea5 90%);padding:22px 30px;border-radius:22px;box-shadow:0 5px 32px #21e6c144;">
+        <b style="font-size:1.35em">{_( 'milestones' )}</b>
+        <div style="margin-top:18px">{timeline}</div>
     </div>
-    """.format(_("About the Project")), unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='about-card-gradient'><span style='font-size:1.2em;'>🧠</span> <b>{_('About Project Description')}</b></div>""",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='card' style='font-style:italic;font-size:1.2rem;'><span class='badge'>{_('Our Vision')}</span>
-        “{_('Disasters don\'t wait.. and neither do we.')}”</div>""",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='about-card-gradient'>
-        <span class='badge'>✨ {_('Features')}</span>
-        <div class='about-features'>
-            <div><span class='fancy-icon'>🤖</span>{_('AI-powered predictive analytics')}</div>
-            <div><span class='fancy-icon'>⚡</span>{_('Instant smart solutions')}</div>
-            <div><span class='fancy-icon'>📡</span>{_('Live alerts and monitoring')}</div>
-            <div><span class='fancy-icon'>🌐</span>{_('Multi-language support')}</div>
-            <div><span class='fancy-icon'>🎨</span>{_('Stunning, responsive UI')}</div>
-        </div>
-        </div>""",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='about-card-gradient'>
-        <span class="badge">🏆 {_('Milestones')}</span>
-        <ul class='about-milestones'>
-            <li>2024: MVP Launch 🚀</li>
-            <li>2025: {_('2025 Innovation Award, Best Digital Twin')} 🥇</li>
-            <li>100+ {_('days without incidents')} ⭐</li>
-        </ul>
-        </div>""",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='about-card-gradient'>
-        <span class="badge">👨‍💻 {_('Main Developers')}</span>
-        <div class='about-dev'>
-            <div class='dev'>
-                <img src="https://ui-avatars.com/api/?name=Rakan+Almarri&background=43e97b&color=fff" width="60"/><br>
-                <b>Rakan Almarri</b><br>
-                <span style="font-size:0.97em;">rakan.almarri.2@aramco.com</span>
-            </div>
-            <div class='dev'>
-                <img src="https://ui-avatars.com/api/?name=Abdulrahman+Alzhrani&background=278ea5&color=fff" width="60"/><br>
-                <b>Abdulrahman Alzhrani</b><br>
-                <span style="font-size:0.97em;">abdulrahman.alzhrani.1@aramco.com</span>
-            </div>
-        </div>
-        </div>""",
-        unsafe_allow_html=True)
-    st.markdown(
-        f"""<div class='about-contact'>📬 {_('Contact us for partnership or demo!')}<br>
-            <a href="mailto:rakan.almarri.2@aramco.com" style="color:{theme['badge_bg']}; text-decoration:underline;">
-                rakan.almarri.2@aramco.com
-            </a>
-        </div>""",
-        unsafe_allow_html=True)
-    st.markdown("---")
-    api_demo_block()
-    st.button(_("Save My Settings (Demo)"), on_click=lambda: st.success(_("Settings Saved! (Demo)")))
+    """, unsafe_allow_html=True)
+    # Progress bars/records
+    st.markdown(f"#### {_( 'progress' )}")
+    st.markdown(f"<b>{_( 'current_streak' )}:</b> 109 days", unsafe_allow_html=True)
+    st.progress(109/180, text="60% to next milestone (6 months)")
+    st.markdown(f"<b>{_( 'longest_streak' )}:</b> 132 days", unsafe_allow_html=True)
+    # Achievements cards
+    col1, col2, col3 = st.columns(3)
+    col1.success(f"🥇 {_( 'achieve_congrats' )}!\n\n{_( 'records' )}: Zero incidents in 100+ days.")
+    col2.info("📉 Biggest cost reduction: SAR 23,000 in one month!")
+    col3.warning("🔥 5 high-severity events prevented this year.")
 
-# =========================
-# 16. Routing
-# =========================
-pages = {
-    "dashboard": dashboard,
-    "predictive": predictive,
-    "solutions": solutions,
-    "alerts": alerts,
-    "cost": cost,
-    "achievements": achievements,
-    "performance": performance,
-    "comparison": comparison,
-    "explorer": explorer,
-    "about": about
-}
-selected_page = st.session_state["page_radio"][0]
-pages[selected_page]()
+# ---------- 7. PERFORMANCE ----------
+elif page == "performance":
+    header()
+    st.subheader(f"📈 {_(page)}")
+    # Compare current vs previous KPIs
+    kpis = ["kpi_temp", "kpi_pressure", "kpi_methane", "kpi_vibration", "kpi_h2s"]
+    now_vals = np.random.normal([80,7.5,0.7,2,0.05], [2,0.3,0.05,0.5,0.01])
+    prev_vals = now_vals + np.random.uniform(-2,2,len(now_vals))
+    cols = st.columns(5)
+    for i, k in enumerate(kpis):
+        delta = now_vals[i] - prev_vals[i]
+        cols[i].metric(_(k), f"{now_vals[i]:.2f}", f"{delta:+.2f}")
+    style_metric_cards()
+    # Trend chart
+    df = pd.DataFrame(
+        np.c_[now_vals, prev_vals],
+        columns=["Current", "Previous"],
+        index=[_(k) for k in kpis]
+    )
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=df.index, y=df["Current"], name="Current", marker_color="#21e6c1"))
+    fig.add_trace(go.Bar(x=df.index, y=df["Previous"], name="Previous", marker_color="#278ea5"))
+    fig.update_layout(barmode="group", height=300)
+    st.plotly_chart(fig, use_container_width=True)
+    # Change table
+    delta_df = pd.DataFrame({
+        "Metric": [_(k) for k in kpis],
+        _( "delta_table" ): [f"{now_vals[i]-prev_vals[i]:+.2f}" for i in range(len(kpis))],
+        _( "improvement" ): ["✅" if now_vals[i] > prev_vals[i] else "⚠️" for i in range(len(kpis))]
+    })
+    st.dataframe(delta_df, use_container_width=True, hide_index=True)
+    # Best/needs attention
+    best = np.argmax(now_vals - prev_vals)
+    worst = np.argmin(now_vals - prev_vals)
+    st.success(f"{_( 'best_metric' )}: {_(kpis[best])}")
+    st.error(f"{_( 'needs_attention' )}: {_(kpis[worst])}")
+
+# ---------- 8. COMPARISON ----------
+elif page == "comparison":
+    header()
+    st.subheader(f"⚖️ {_(page)}")
+    # Compare by
+    compare_type = st.radio(_( "compare_by" ), [_( "by_metric" ), _( "by_period" ), _( "by_plant" )], horizontal=True)
+    # Fake comparison data
+    items = ["Metric A", "Metric B", "Metric C"] if compare_type==_( "by_metric" ) else ["Jan", "Feb", "Mar"] if compare_type==_( "by_period" ) else ["Plant 1", "Plant 2", "Plant 3"]
+    vals1 = np.random.normal(100, 10, 3)
+    vals2 = vals1 + np.random.normal(-12, 12, 3)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=items, y=vals1, name="This Period", marker_color="#21e6c1"))
+    fig.add_trace(go.Bar(x=items, y=vals2, name="Previous", marker_color="#278ea5"))
+    fig.update_layout(barmode="group", height=320)
+    st.plotly_chart(fig, use_container_width=True)
+    # Table
+    comp_df = pd.DataFrame({
+        "Item": items,
+        "This Period": vals1,
+        "Previous": vals2,
+        "Δ": vals1 - vals2
+    })
+    st.dataframe(comp_df, use_container_width=True)
+    # Top/bottom
+    st.success(f"{_( 'top_improver' )}: {items[np.argmax(vals1-vals2)]}")
+    st.warning(f"{_( 'biggest_opportunity' )}: {items[np.argmin(vals1-vals2)]}")
+
+# ---------- 9. DATA EXPLORER ----------
+elif page == "explorer":
+    header()
+    st.subheader(f"🗂️ {_(page)}")
+    # Fake plant data
+    variables = ["Temperature","Pressure","Methane","Vibration","H2S"]
+    df = pd.DataFrame({
+        "Date": pd.date_range(datetime.now()-timedelta(days=59), periods=60),
+        **{v: np.cumsum(np.random.normal(0, 0.5, 60)) + 80 + i*0.5 for i,v in enumerate(variables)}
+    })
+    var = st.selectbox(_( "select_var" ), variables)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df["Date"], y=df[var], mode="lines+markers", name=var, line=dict(color="#278ea5", width=3)))
+    fig.update_layout(height=300)
+    st.plotly_chart(fig, use_container_width=True)
+    st.dataframe(df[["Date", var]], use_container_width=True)
+    st.download_button(_( "download" ), df.to_csv(index=False), file_name="data.csv")
+
+# ---------- 10. ABOUT (WOW SECTION) ----------
+elif page == "about":
+    header()
+    # Hero card/story
+    st.markdown(
+        f'''
+        <div style="background: linear-gradient(120deg, #21e6c1 30%, #278ea5 100%); border-radius:24px; padding:28px 36px; margin-bottom:24px; box-shadow:0 6px 32px rgba(0,0,0,0.10); color:#153243; font-size:1.23em;">
+            <img src="{AI_ICON_URL}" width="56" style="vertical-align:middle; margin-right:18px;"/>
+            <span style="font-weight:bold; font-size:1.45em;">{_( 'app_title' )}</span>
+            <hr style="border:1px solid #21e6c1;">
+            <div style="margin-top:12px; line-height:1.9;">
+                {_( 'about_story' )}
+            </div>
+        </div>
+        ''', unsafe_allow_html=True
+    )
+    # Vision
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(100deg,#fff3e0 10%,#21e6c1 90%); border-radius:18px; padding:18px 28px; margin-bottom:18px; box-shadow:0 4px 14px #278ea522;">
+            <span style="font-size:1.3em; font-style:italic;">“{_( 'about_vision' )}”</span>
+        </div>
+        """, unsafe_allow_html=True
+    )
+    # Features
+    st.markdown(f"<b style='font-size:1.17em'>{'🌟 '+_('about_features')[0]['title'].split()[0]} {_( 'about' )}:</b>", unsafe_allow_html=True)
+    feat_cols = st.columns(len(_list( "about_features" )))
+    for col, f in zip(feat_cols, _list( "about_features" )):
+        with col:
+            st.markdown(
+                f"""
+                <div style='background:linear-gradient(105deg,#21e6c1 55%,#fff 100%);border-radius:14px;padding:16px 7px;margin-bottom:7px;box-shadow:0 2px 10px #278ea522; text-align:center;'>
+                    <span style='font-size:2em'>{f['icon']}</span><br>
+                    <b>{f['title']}</b><br>
+                    <span style='font-size:0.96em;color:#278ea5'>{f['desc']}</span>
+                </div>
+                """, unsafe_allow_html=True
+            )
+    # Milestones
+    ms = _list( "about_milestones" )
+    st.markdown(f"<b style='font-size:1.13em'>{_('milestones')}</b>", unsafe_allow_html=True)
+    st.markdown(
+        "<ul style='list-style:none;padding-left:0;'>"
+        + "".join([f"<li style='margin-bottom:8px'><span style='font-size:1.3em'>{m['icon']}</span> <b>{m['title']}</b> <span style='color:#aaa;font-size:0.97em'>({m['date']})</span></li>" for m in ms])
+        + "</ul>",
+        unsafe_allow_html=True
+    )
+    # Team
+    st.markdown(f"<b style='font-size:1.13em'>👥 {_( 'about_team' )[0]['role' if st.session_state['lang']=='en' else 'role']}</b>", unsafe_allow_html=True)
+    team_cols = st.columns(len(_list( "about_team" )))
+    for col, t in zip(team_cols, _list( "about_team" )):
+        with col:
+            st.markdown(
+                f"""
+                <div style='background:linear-gradient(115deg,{t['color']} 60%,#fff 100%);border-radius:16px;padding:10px 0 14px 0;margin-bottom:7px;box-shadow:0 2px 10px #278ea522; text-align:center;'>
+                    <img src="{t['avatar']}" width="54" style="border-radius:50%;border:3px solid #fff;margin-bottom:8px;"/><br>
+                    <b>{t['name']}</b><br>
+                    <span style='font-size:0.96em;color:#153243'>{t['role']}</span><br>
+                    <a href="mailto:{t['email']}" style="font-size:0.93em;color:#278ea5;text-decoration:none;">{t['email']}</a>
+                </div>
+                """, unsafe_allow_html=True
+            )
+    # Contact
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(100deg,#278ea5 10%,#fff3e0 90%); border-radius:18px; padding:18px 28px; box-shadow:0 4px 16px #21e6c133; text-align:center;">
+            <span style="font-size:1.18em;">{_( 'about_contact' )}</span><br>
+            <a href="mailto:rrakanmarri1@gmail.com,Ahmadalotaibi2526@gmail.com">
+                <button style="background:#21e6c1;color:#153243;font-weight:bold;font-size:1.08em;border-radius:9px; border:none; padding:11px 36px; margin-top:10px; box-shadow:0 1px 8px #278ea522; cursor:pointer;">
+                    {_( 'about_contact_btn' )}
+                </button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True
+    )
+    rain(
+        emoji="💡",
+        font_size=28,
+        falling_speed=4,
+        animation_length="infinite"
+)
