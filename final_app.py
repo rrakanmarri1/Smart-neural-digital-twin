@@ -109,8 +109,6 @@ body, .stApp {
     margin: 1.1em 0 0.7em 0;
     box-shadow: 0 2px 12px #fa709a22;
 }
-
-/* Fix for dashboard chart */
 .dashboard-chart-container {
     margin-top: 1em;
     margin-bottom: 1em;
@@ -122,6 +120,21 @@ body, .stApp {
 </style>
 """, unsafe_allow_html=True)
 
+# ----------------- LOTTIE & IMAGE URLS (كلها صناعية) -----------------
+twin_lottie = "https://assets1.lottiefiles.com/packages/lf20_wnqlfojb.json"
+ai_lottie   = "https://assets10.lottiefiles.com/packages/lf20_5ngs2ksb.json"
+plant_lottie = "https://assets3.lottiefiles.com/packages/lf20_5b2dh9jt.json"
+confetti_lottie = "https://assets8.lottiefiles.com/packages/lf20_0os2dcp1.json"
+alert_lottie = "https://assets2.lottiefiles.com/packages/lf20_4kx2q32n.json"
+sensor_lottie = "https://lottie.host/efb1a1d3-6a7c-4bfb-bb9e-8e1e4fae5c9e/gas_sensor.json"
+iot_lottie = "https://lottie.host/0b74e5c4-9e2e-4d5b-9e6b-f315e5b6d82e/iot.json"
+robot_lottie = "https://lottie.host/503c7d51-9b64-495a-8e0e-25e80c2e7aaa/robot.json"
+
+plant_img = "https://images.pexels.com/photos/236089/pexels-photo-236089.jpeg?auto=compress&w=800&q=80"
+control_img = "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80"
+sensor_img = "https://images.pexels.com/photos/3850752/pexels-photo-3850752.jpeg?auto=compress&w=800&q=80"
+plant_twin_img = "https://i.ibb.co/4R0vY4Q/plant-twin-demo.png"
+
 # ----------------- LOTTIE HELPER -----------------
 def load_lottieurl(url):
     r = requests.get(url)
@@ -129,13 +142,6 @@ def load_lottieurl(url):
         return r.json()
     else:
         return None
-
-# Lottie URLs
-twin_lottie = "https://assets1.lottiefiles.com/packages/lf20_wnqlfojb.json"
-ai_lottie   = "https://assets10.lottiefiles.com/packages/lf20_5ngs2ksb.json"
-plant_lottie = "https://assets3.lottiefiles.com/packages/lf20_5b2dh9jt.json"
-confetti_lottie = "https://assets8.lottiefiles.com/packages/lf20_0os2dcp1.json"
-alert_lottie = "https://assets2.lottiefiles.com/packages/lf20_4kx2q32n.json"
 
 # ----------------- TRANSLATIONS -----------------
 translations = {
@@ -192,16 +198,16 @@ translations = {
         "scenario_mod": "Reduced risk, some loss.",
         "scenario_restart": "Try again",
         "story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes?
-We tried everything, even innovated with drones—and it worked. But we asked ourselves: Why wait for the problem at all?
-Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult.
+We tried everything, even innovated with drones and it worked. But we asked ourselves: Why wait for the problem at all?
+Our dream was a smart digital twin that predicts danger before it happens. Not impossible, but difficult.
 We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
 Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
         "team": [
             {"name": "Abdulrahman Alzahrani", "role": "Development & Design", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "Rakan Almarri", "role": "Development & Design", "email": "rakan.almarri.2@aramco.com"}
+            {"name": "Rakan Almarri", "role": "Development & Design", "email": "rrakanmarri1@aramco.com"}
         ],
         "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
-        "about_text": "A smart Neural digital twin designed to prevent disastes by predicting them and prevent them before they happen.",
+        "about_text": "A new standard for AI-driven industrial safety, built by students passionate about smart tech.",
         "features_title": "Key Features",
         "features": [
             "Real AI-powered predictions (not just static rules)",
@@ -273,7 +279,7 @@ Today, our platform is the first line of defense, changing the rules of industri
             {"name": "راكان المري", "role": "تطوير وتصميم", "email": "rakan.almarri.2@aramco.com"}
         ],
         "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
-        "about_text": "منصة ذكية للتؤام العصبي الرقمي.",
+        "about_text": "منصة ذكية للأمان الصناعي — عمل طلابي متحمس للتقنية الذكية.",
         "features_title": "المميزات الرئيسية",
         "features": [
             "توقعات ذكية فعلاً (مو مجرد قواعد ثابتة)",
@@ -458,7 +464,8 @@ if nav == _("dashboard"):
         st.subheader(_("plant_status"))
         lottie_data = load_lottieurl(plant_lottie)
         if lottie_data:
-            st_lottie(lottie_data, height=170, key="plant-lottie", loop=True)
+            st_lottie(lottie_data, height=120, key="plant-lottie", loop=True)
+        st.image(plant_img, use_container_width=True, caption="Industrial Plant")
         st.markdown(f"""
         <div style="margin-top:1.2em;font-size:1.07em;">
             <b>{_('sensor')} 1:</b> <span style="color:#43cea2">{_('status_ok')}</span><br>
@@ -469,12 +476,12 @@ if nav == _("dashboard"):
     with col2:
         lottie_data = load_lottieurl(ai_lottie)
         if lottie_data:
-            st_lottie(lottie_data, height=200, key="ai-lottie", loop=True)
-        st.markdown(f"<div style='font-size:1.17em;color:#fa709a;font-weight:bold;'>{_('ai_think')}</div>", unsafe_allow_html=True)
-        rain(emoji="💡", font_size=24, falling_speed=4, animation_length="medium")
+            st_lottie(lottie_data, height=120, key="ai-lottie", loop=True)
+        lottie_data2 = load_lottieurl(sensor_lottie)
+        if lottie_data2:
+            st_lottie(lottie_data2, height=120, key="sensor-lottie", loop=True)
         st.info(_("about_text"))
 
-    # Dashboard Chart Full Width Below Columns
     st.markdown('<div class="dashboard-chart-container">', unsafe_allow_html=True)
     st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
     ts = pd.date_range(end=pd.Timestamp.now(), periods=24, freq="h")
@@ -496,9 +503,10 @@ if nav == _("dashboard"):
 # ========== PREDICTIVE ANALYTICS ==========
 if nav == _("predictive"):
     st.subheader(_("predictive"))
-    lottie_data = load_lottieurl(ai_lottie)
+    lottie_data = load_lottieurl(iot_lottie)
     if lottie_data:
-        st_lottie(lottie_data, height=150, key="ai-lottie2", loop=True)
+        st_lottie(lottie_data, height=140, key="iot-lottie", loop=True)
+    st.image(sensor_img, use_container_width=True, caption="Gas Sensor Monitoring")
     st.markdown("""
     <div style="font-size:1.08em;">
     <ul>
@@ -520,7 +528,7 @@ if nav == _("predictive"):
     fig_pred.update_layout(transition=dict(duration=500), showlegend=False)
     st.plotly_chart(fig_pred, use_container_width=True)
 
-    # --- ML DEMO (new - realistic)
+    # ML DEMO (realistic)
     st.markdown("<b>ML Model: Predictive Risk Classifier (Demo)</b>")
     from sklearn.linear_model import LogisticRegression
     X = np.array([[1,70],[2,80],[3,90],[4,110],[5,60],[2,100],[3,75]])
@@ -548,13 +556,107 @@ if nav == _("predictive"):
         st.info("Warning: Elevated risk detected." if st.session_state["lang"] == "en" else "تحذير: مستوى الخطر مرتفع.")
     else:
         st.success("Safe operation." if st.session_state["lang"] == "en" else "تشغيل آمن.")
-        
+
+# ========== SMART SOLUTIONS ==========
+if nav == _("solutions"):
+    st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
+    lottie_data = load_lottieurl(robot_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=120, key="robot-lottie", loop=True)
+    st.image(control_img, use_container_width=True, caption="Industrial Control Room")
+    if "solutions" not in st.session_state or st.session_state["lang"] != st.session_state.get("solutions_lang", ""):
+        st.session_state["solutions"] = []
+        st.session_state["solutions_lang"] = st.session_state["lang"]
+
+    if st.button(_( "generate" )):
+        st.session_state["solutions"] = random.sample(solutions_data[st.session_state["lang"]], k=random.randint(3,5))
+        rain(emoji="✨", font_size=18, falling_speed=6, animation_length="short")
+
+    if not st.session_state["solutions"]:
+        st.info(_( "no_solutions" ))
+    else:
+        for i, s in enumerate(st.session_state["solutions"]):
+            eff_color = "#43cea2" if s["priority"] in ["High", "عالية"] else "#fa709a" if s["priority"] in ["Medium", "متوسطة"] else "#fee140"
+            st.markdown(
+                f"""
+                <div class="solution-card">
+                    <div class="solution-icon">{s['icon']}</div>
+                    <div style="font-size:1.15em;font-weight:bold;margin-bottom:0.2em">{_('solution_title')} {i+1}: {s['title']}</div>
+                    <div style="margin-bottom:0.4em">{_('solution_desc')}: {s['desc']}</div>
+                    <div class="gradient-bar" style="width:{s['eff']}%"></div>
+                    <span style="font-size:.98em"><b>{_('solution_eff')}:</b> {s['eff']}%</span> |
+                    <span style="font-size:.98em"><b>{_('solution_priority')}:</b> <span style="color:{eff_color};font-weight:bold">{s['priority']}</span></span> |
+                    <span style="font-size:.98em"><b>{_('solution_time')}:</b> {s['time']}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        # Pie chart: Solution priorities
+        st.markdown("<b>Solution Priority Distribution:</b>", unsafe_allow_html=True)
+        sdata = st.session_state["solutions"]
+        priorities = [s["priority"] for s in sdata]
+        if st.session_state["lang"] == "en":
+            labels = ["High", "Medium", "Low"]
+        else:
+            labels = ["عالية", "متوسطة", "منخفضة"]
+        counts = [priorities.count(lab) for lab in labels]
+        figpie = go.Figure(data=[go.Pie(labels=labels, values=counts, hole=0.4)])
+        figpie.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140"]))
+        figpie.update_layout(showlegend=True)
+        st.plotly_chart(figpie, use_container_width=True)
+
+# ========== REALISTIC SCENARIO ==========
+if nav == _("scenario"):
+    st.subheader(_( "scenario_title" ))
+    st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
+    lottie_data = load_lottieurl(alert_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=130, key="scenario-lottie", loop=True)
+    st.image(sensor_img, use_container_width=True, caption="Gas Sensor Scenario")
+    if "scenario_state" not in st.session_state:
+        st.session_state["scenario_state"] = 0
+
+    def reset_scenario():
+        st.session_state["scenario_state"] = 0
+
+    if st.session_state["scenario_state"] == 0:
+        st.markdown(f"<div class='scenario-box'>{_('scenario_detected')}</div>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("📢 " + (_("apply") if st.session_state["lang"] == "en" else "أبلغ الذكاء الاصطناعي")):
+                st.session_state["scenario_state"] = 1
+        with col2:
+            if st.button("⏳ " + ("Wait" if st.session_state["lang"] == "en" else "انتظر")):
+                st.session_state["scenario_state"] = 2
+        with col3:
+            if st.button("🔍 " + ("Manual check" if st.session_state["lang"] == "en" else "فحص يدوي")):
+                st.session_state["scenario_state"] = 3
+    elif st.session_state["scenario_state"] == 1:
+        st.success(_( "scenario_report_ai" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#43cea2;font-weight:bold;'>$700</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#43cea2;font-weight:bold;'>{_('scenario_fast')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+    elif st.session_state["scenario_state"] == 2:
+        st.error(_( "scenario_wait" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fa709a;font-weight:bold;'>$18,000</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fa709a;font-weight:bold;'>{_('scenario_slow')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+    elif st.session_state["scenario_state"] == 3:
+        st.warning(_( "scenario_check" ))
+        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fee140;font-weight:bold;'>$8,000</span>", unsafe_allow_html=True)
+        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fee140;font-weight:bold;'>{_('scenario_mod')}</span>", unsafe_allow_html=True)
+        if st.button(_( "scenario_restart" )):
+            reset_scenario()
+
 # ========== ALERTS ==========
 if nav == _("alerts"):
     st.subheader(_("alerts"))
     lottie_data = load_lottieurl(alert_lottie)
     if lottie_data:
         st_lottie(lottie_data, height=120, key="alert-lottie", loop=True)
+    st.image(sensor_img, use_container_width=True, caption="Live Alerts")
     st.warning("No active alerts. All systems stable. ✅" if st.session_state["lang"] == "en" else "لا توجد تنبيهات حالية. كل الأنظمة مستقرة. ✅")
 
     # Pie chart: Alert types (dummy, for illustration)
@@ -569,6 +671,7 @@ if nav == _("alerts"):
 # ========== COST & SAVINGS ==========
 if nav == _("cost"):
     st.subheader(_("cost"))
+    st.image(plant_img, use_container_width=True, caption="Cost Analysis")
     st.markdown("""
     <div style="font-size:1.1em;">
     <b>AI Savings This Month:</b> <span style="color:#43cea2;font-weight:bold;">$13,500</span>  
@@ -616,6 +719,9 @@ if nav == _("ai_vs_manual"):
         st.success("AI detects & responds in 1.2s")
     with col2:
         st.markdown(f"<b>{_('manual_reaction')}</b>", unsafe_allow_html=True)
+        lottie_data = load_lottieurl(robot_lottie)
+        if lottie_data:
+            st_lottie(lottie_data, height=90, key="manual-vs-lottie", loop=True)
         st.error("Manual detection: 18 min average")
 
     # Radar chart: AI vs Manual on metrics
@@ -632,6 +738,77 @@ if nav == _("ai_vs_manual"):
                               color_discrete_map={"AI": "#43cea2", "Manual": "#fa709a"})
     fig_radar.update_traces(fill='toself')
     st.plotly_chart(fig_radar, use_container_width=True)
+
+# ========== DIGITAL TWIN LIVE ==========
+if nav == _("live_dt"):
+    st.markdown(f"<h2>{_('live_dt')}</h2>", unsafe_allow_html=True)
+    lottie_data = load_lottieurl(twin_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=180, key="livedt-lottie", loop=True)
+    st.image(plant_twin_img, use_container_width=True, caption="Live Plant Digital Twin")
+    st.markdown("""
+    <div style="font-size:1.03em;">
+    <b>Plant Diagram (AI Overlay):</b>
+    <br>
+    <b>Sensors (Live):</b>
+    <ul>
+        <li>🌡️ Temp: <b style='color:#43cea2'>72°C</b></li>
+        <li>🧪 Gas: <b style='color:#fa709a'>7.3%</b> <span style='color:#fa709a;font-weight:bold'>[Warning]</span></li>
+        <li>💧 Pressure: <b style='color:#fee140'>3.1 bar</b></li>
+        <li>🔋 Power: <b style='color:#43cea2'>Stable</b></li>
+    </ul>
+    <b>Fault Propagation:</b> <span style="color:#fa709a;font-weight:bold;">None</span>
+    </div>
+    """, unsafe_allow_html=True)
+    lottie_data = load_lottieurl(ai_lottie)
+    if lottie_data:
+        st_lottie(lottie_data, height=140, key="neural-overlay-lottie", loop=True)
+
+    # 3D plot: Plant sensor surface (demo)
+    st.markdown("<b>Sensor Heat Map (3D):</b>", unsafe_allow_html=True)
+    x, y = np.meshgrid(np.linspace(0, 10, 12), np.linspace(0, 10, 12))
+    z = np.sin(x) * np.cos(y) * 10 + 72 + np.random.randn(*x.shape)
+    fig3d = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale='Viridis')])
+    fig3d.update_layout(title="Plant Temperature Surface", autosize=True, margin=dict(l=20, r=20, b=20, t=30))
+    st.plotly_chart(fig3d, use_container_width=True)
+
+# ========== ROADMAP & CHANGELOG ==========
+if nav == _("roadmap"):
+    st.subheader(_("milestones"))
+    st.info(_( "roadmap_text" ))
+    st.markdown("""
+    <div class="timeline">
+        <div class="timeline-event"><b>2025 Q1:</b> Platform launch 🚀</div>
+        <div class="timeline-event"><b>2025 Q2:</b> Real-time AI alerts, scenario engine, and live dashboard</div>
+        <div class="timeline-event"><b>2025 Q3:</b> External API integration, new ML models, custom analytics</div>
+        <div class="timeline-event"><b>2025 Q4:</b> Full industrial deployment, mobile app, multi-language</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ========== ABOUT ==========
+if nav == _("about"):
+    st.subheader(_("story_title"))
+    st.markdown(f"<span style='font-size:1.1em;'>{_('story')}</span>", unsafe_allow_html=True)
+
+    st.markdown(f"## { _('features_title') }")
+    st.markdown(
+        "\n".join([f"- {f}" for f in translations[st.session_state['lang']]['features']])
+    )
+
+    st.markdown("---")
+    st.subheader(_("team_title"))
+    for member in translations[st.session_state["lang"]]["team"]:
+        st.markdown(
+            f"""
+            <div class="team-card">
+                <b>{member['name']}</b> — {member['role']}<br>
+                <span style="font-size:.9em;color:#eee;">{member['email']}</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    st.markdown(f"<b>{_('contact')}:</b> {translations[st.session_state['lang']]['team'][0]['email']}")
+        
 
 # ========== DIGITAL TWIN LIVE ==========
 if nav == _("live_dt"):
