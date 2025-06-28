@@ -109,6 +109,16 @@ body, .stApp {
     margin: 1.1em 0 0.7em 0;
     box-shadow: 0 2px 12px #fa709a22;
 }
+
+/* Fix for dashboard chart */
+.dashboard-chart-container {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    padding: 1em 1em 1em 1em;
+    background: linear-gradient(90deg,#23252644,#43cea211 80%);
+    border-radius: 15px;
+    box-shadow: 0 2px 18px #43cea244;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,15 +191,17 @@ translations = {
         "scenario_slow": "High risk, high cost. Faster action is critical!",
         "scenario_mod": "Reduced risk, some loss.",
         "scenario_restart": "Try again",
-        "story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes? We tried everything, even innovated with drones—and it worked. But we asked ourselves: Why wait for the problem at all?
-Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult. We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
+        "story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes?
+We tried everything, even innovated with drones—and it worked. But we asked ourselves: Why wait for the problem at all?
+Our dream was a smart digital twin that predicts danger before it happens—not impossible, but difficult.
+We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
 Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
         "team": [
             {"name": "Abdulrahman Alzahrani", "role": "Development & Design", "email": "abdulrahman.zahrani.1@aramco.com"},
             {"name": "Rakan Almarri", "role": "Development & Design", "email": "rakan.almarri.2@aramco.com"}
         ],
         "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
-        "about_text": "A new standard for AI-driven industrial safety, built by students passionate about smart tech.",
+        "about_text": "A smart Neural digital twin designed to prevent disastes by predicting them and prevent them before they happen.",
         "features_title": "Key Features",
         "features": [
             "Real AI-powered predictions (not just static rules)",
@@ -252,7 +264,8 @@ Today, our platform is the first line of defense, changing the rules of industri
         "scenario_slow": "خطر مرتفع وتكلفة عالية. الاستجابة السريعة ضرورية!",
         "scenario_mod": "خطر أقل وخسارة متوسطة.",
         "scenario_restart": "جرب مرة أخرى",
-        "story": """بدأت رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا: ليه ننتظر أصلاً؟
+        "story": """بدأت رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟
+جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا: ليه ننتظر أصلاً؟
 حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطنا الذكاء الاصطناعي مع بيانات المصنع في منصة واحدة، تراقب وتتعلم وتمنع الكوارث قبل أن تبدأ.
 اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
         "team": [
@@ -260,7 +273,7 @@ Today, our platform is the first line of defense, changing the rules of industri
             {"name": "راكان المري", "role": "تطوير وتصميم", "email": "rakan.almarri.2@aramco.com"}
         ],
         "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
-        "about_text": "منصة ذكية للأمان الصناعي — عمل طلابي متحمس للتقنية الذكية.",
+        "about_text": "منصة ذكية للتؤام العصبي الرقمي.",
         "features_title": "المميزات الرئيسية",
         "features": [
             "توقعات ذكية فعلاً (مو مجرد قواعد ثابتة)",
@@ -453,15 +466,6 @@ if nav == _("dashboard"):
             <b>{_('sensor')} 3:</b> <span style="color:#fee140">{_('status_fault')}</span>
         </div>""", unsafe_allow_html=True)
 
-        # Animated line chart for sensor trend
-        st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
-        ts = pd.date_range(end=pd.Timestamp.now(), periods=24, freq="h")
-        y = np.cumsum(np.random.randn(24)) + 70
-        df = pd.DataFrame({"Time": ts, "Temperature (°C)": y})
-        fig = px.line(df, x="Time", y="Temperature (°C)", title="Sensor 1 Temperature (Animated)", markers=True)
-        fig.update_layout(transition=dict(duration=500), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-
     with col2:
         lottie_data = load_lottieurl(ai_lottie)
         if lottie_data:
@@ -469,6 +473,25 @@ if nav == _("dashboard"):
         st.markdown(f"<div style='font-size:1.17em;color:#fa709a;font-weight:bold;'>{_('ai_think')}</div>", unsafe_allow_html=True)
         rain(emoji="💡", font_size=24, falling_speed=4, animation_length="medium")
         st.info(_("about_text"))
+
+    # Dashboard Chart Full Width Below Columns
+    st.markdown('<div class="dashboard-chart-container">', unsafe_allow_html=True)
+    st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
+    ts = pd.date_range(end=pd.Timestamp.now(), periods=24, freq="h")
+    y = np.cumsum(np.random.randn(24)) + 70
+    df = pd.DataFrame({"Time": ts, "Temperature (°C)": y})
+    fig = px.line(df, x="Time", y="Temperature (°C)", title="Sensor 1 Temperature (Animated)", markers=True)
+    fig.update_layout(
+        transition=dict(duration=500),
+        showlegend=False,
+        margin=dict(l=30, r=30, t=40, b=30),
+        height=320,
+        xaxis_title="Time",
+        yaxis_title="Temperature (°C)",
+        font=dict(size=15)
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ========== PREDICTIVE ANALYTICS ==========
 if nav == _("predictive"):
@@ -525,95 +548,7 @@ if nav == _("predictive"):
         st.info("Warning: Elevated risk detected." if st.session_state["lang"] == "en" else "تحذير: مستوى الخطر مرتفع.")
     else:
         st.success("Safe operation." if st.session_state["lang"] == "en" else "تشغيل آمن.")
-
-# ========== SMART SOLUTIONS ==========
-if nav == _("solutions"):
-    st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
-    if "solutions" not in st.session_state or st.session_state["lang"] != st.session_state.get("solutions_lang", ""):
-        st.session_state["solutions"] = []
-        st.session_state["solutions_lang"] = st.session_state["lang"]
-
-    if st.button(_( "generate" )):
-        st.session_state["solutions"] = random.sample(solutions_data[st.session_state["lang"]], k=random.randint(3,5))
-        rain(emoji="✨", font_size=18, falling_speed=6, animation_length="short")
-
-    if not st.session_state["solutions"]:
-        st.info(_( "no_solutions" ))
-    else:
-        for i, s in enumerate(st.session_state["solutions"]):
-            eff_color = "#43cea2" if s["priority"] in ["High", "عالية"] else "#fa709a" if s["priority"] in ["Medium", "متوسطة"] else "#fee140"
-            st.markdown(
-                f"""
-                <div class="solution-card">
-                    <div class="solution-icon">{s['icon']}</div>
-                    <div style="font-size:1.15em;font-weight:bold;margin-bottom:0.2em">{_('solution_title')} {i+1}: {s['title']}</div>
-                    <div style="margin-bottom:0.4em">{_('solution_desc')}: {s['desc']}</div>
-                    <div class="gradient-bar" style="width:{s['eff']}%"></div>
-                    <span style="font-size:.98em"><b>{_('solution_eff')}:</b> {s['eff']}%</span> |
-                    <span style="font-size:.98em"><b>{_('solution_priority')}:</b> <span style="color:{eff_color};font-weight:bold">{s['priority']}</span></span> |
-                    <span style="font-size:.98em"><b>{_('solution_time')}:</b> {s['time']}</span>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        # Pie chart: Solution priorities
-        st.markdown("<b>Solution Priority Distribution:</b>", unsafe_allow_html=True)
-        sdata = st.session_state["solutions"]
-        priorities = [s["priority"] for s in sdata]
-        if st.session_state["lang"] == "en":
-            labels = ["High", "Medium", "Low"]
-        else:
-            labels = ["عالية", "متوسطة", "منخفضة"]
-        counts = [priorities.count(lab) for lab in labels]
-        figpie = go.Figure(data=[go.Pie(labels=labels, values=counts, hole=0.4)])
-        figpie.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140"]))
-        figpie.update_layout(showlegend=True)
-        st.plotly_chart(figpie, use_container_width=True)
-
-# ========== REALISTIC SCENARIO (NEW) ==========
-if nav == _("scenario"):
-    st.subheader(_( "scenario_title" ))
-    st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
-    lottie_data = load_lottieurl(alert_lottie)
-    if lottie_data:
-        st_lottie(lottie_data, height=130, key="scenario-lottie", loop=True)
-    if "scenario_state" not in st.session_state:
-        st.session_state["scenario_state"] = 0
-
-    def reset_scenario():
-        st.session_state["scenario_state"] = 0
-
-    if st.session_state["scenario_state"] == 0:
-        st.markdown(f"<div class='scenario-box'>{_('scenario_detected')}</div>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("📢 " + (_("apply") if st.session_state["lang"] == "en" else "أبلغ الذكاء الاصطناعي")):
-                st.session_state["scenario_state"] = 1
-        with col2:
-            if st.button("⏳ " + ("Wait" if st.session_state["lang"] == "en" else "انتظر")):
-                st.session_state["scenario_state"] = 2
-        with col3:
-            if st.button("🔍 " + ("Manual check" if st.session_state["lang"] == "en" else "فحص يدوي")):
-                st.session_state["scenario_state"] = 3
-    elif st.session_state["scenario_state"] == 1:
-        st.success(_( "scenario_report_ai" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#43cea2;font-weight:bold;'>$700</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#43cea2;font-weight:bold;'>{_('scenario_fast')}</span>", unsafe_allow_html=True)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-    elif st.session_state["scenario_state"] == 2:
-        st.error(_( "scenario_wait" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fa709a;font-weight:bold;'>$18,000</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fa709a;font-weight:bold;'>{_('scenario_slow')}</span>", unsafe_allow_html=True)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-    elif st.session_state["scenario_state"] == 3:
-        st.warning(_( "scenario_check" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fee140;font-weight:bold;'>$8,000</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fee140;font-weight:bold;'>{_('scenario_mod')}</span>", unsafe_allow_html=True)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-
+        
 # ========== ALERTS ==========
 if nav == _("alerts"):
     st.subheader(_("alerts"))
