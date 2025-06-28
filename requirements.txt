@@ -6,13 +6,13 @@ reportlab
 folium
 streamlit-folium
 streamlit-autorefresh
-scikit_learn
+scikit-learn
 joblib
 openpyxl
 streamlit-extras
 streamlit-lottie
 streamlit-option-menu
 streamlit-animated-number
-streamlit-image-coordinates
-streamlit-gauge
 requests
+# streamlit-image-coordinates  # <--- Comment out if not available on PyPI
+# streamlit-gauge             # <--- Comment out if not available on PyPI
