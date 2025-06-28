@@ -11,3 +11,8 @@ joblib
 openpyxl
 streamlit-extras
 streamlit-lottie
+streamlit-option-menu
+streamlit-animated-number
+streamlit-image-coordinates
+streamlit-gauge
+requests
