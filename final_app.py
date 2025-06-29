@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 from streamlit_extras.let_it_rain import rain
 from streamlit_lottie import st_lottie
-from streamlit_animated_number import st_animated_number
 from streamlit_extras.animated_text import animated_text
 import requests
 import os
@@ -143,7 +142,7 @@ Today, our platform is the first line of defense, changing the rules of industri
         "scenario_restart": "جرب مرة أخرى",
         "story": """بدأت رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟
 جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا: ليه ننتظر أصلاً؟
-حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطنا الذكاء الاصطناعي ببيانات المصنع في منصة واحدة تراقب وتتعلم وتمنع الكوارث قبل بدايتها.
+حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطناه ببيانات المصنع في منصة واحدة تراقب وتتعلم وتمنع الكوارث قبل بدايتها.
 اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
         "team": [
             {"name": "عبدالرحمن الزهراني", "role": "تطوير وتصميم", "email": "abdulrahman.zahrani.1@aramco.com"},
@@ -167,7 +166,7 @@ def _(key):
     lang = st.session_state.get("lang", "en")
     return translations[lang].get(key, key)
 
-# --- LANGUAGE STATE ---
+# --- THEME AND CSS ---
 if "lang" not in st.session_state:
     st.session_state["lang"] = "en"
 if "rtl" not in st.session_state:
@@ -176,7 +175,6 @@ def lang_switch():
     st.session_state["lang"] = "ar" if st.session_state["lang"] == "en" else "en"
     st.session_state["rtl"] = not st.session_state["rtl"]
 
-# --- THEME AND CSS ---
 def inject_css(theme="dark"):
     if theme == "dark":
         st.markdown("""
@@ -253,7 +251,7 @@ def inject_css(theme="dark"):
             font-weight:bold;
             padding: 0.7em 2.3em;
             border-radius: 17px;
-            box-shadow: 0 8px 22px #43cea288;
+            box-shadow: 0 8px 22px #fee14088;
             transition: 0.15s;
             animation: pulse 1.7s infinite;
         }
@@ -300,6 +298,27 @@ def rtl_mirror():
         st.markdown("""<style>body, .stApp, [data-testid="stSidebar"], .stButton>button {direction:ltr !important; text-align:left !important;}</style>""", unsafe_allow_html=True)
 rtl_mirror()
 
+# --- KPI GAUGE FUNCTION ---
+def plot_kpi_gauge(title, value, reference=None, max_value=None, prefix="", suffix="", color="#43cea2"):
+    mode = "gauge+number+delta" if reference is not None else "gauge+number"
+    delta = {'reference': reference, 'relative': True} if reference is not None else None
+    fig = go.Figure(go.Indicator(
+        mode=mode,
+        value=value,
+        number={'prefix': prefix, 'suffix': suffix, 'font': {'size': 32}},
+        title={"text": title, 'font': {'size': 18}},
+        delta=delta,
+        gauge={
+            'axis': {'range': [None, max_value or (value * 1.2)]},
+            'bar': {'color': color},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "gray"
+        }
+    ))
+    fig.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=220)
+    st.plotly_chart(fig, use_container_width=True)
+
 # --- LOTTIE UTILS ---
 def load_lottieurl(url):
     try:
@@ -344,7 +363,6 @@ models = load_prediction_models()
 
 @st.cache_data
 def load_sensor_data():
-    # Handles both short and long files for flexibility
     fname = "sensor_data_simulated_long.csv" if os.path.exists("sensor_data_simulated_long.csv") else "sensor_data_simulated.csv"
     return pd.read_csv(fname, parse_dates=["Timestamp"] if fname.endswith("long.csv") else ["Time"])
 sensor_df = load_sensor_data()
@@ -416,18 +434,15 @@ if nav == _("dashboard"):
         st_lottie(load_lottieurl(ai_lottie), height=120, key="ai-lottie", loop=True)
         st_lottie(load_lottieurl(sensor_lottie), height=120, key="sensor-lottie", loop=True)
         st.info(_("about_text"))
-    # Animated KPI counters
+    # Animated KPI counters (replaced with Plotly gauges)
     st.markdown('<div class="dashboard-chart-container">', unsafe_allow_html=True)
     colk1, colk2, colk3 = st.columns(3)
     with colk1:
-        st.markdown("**AI Savings**")
-        st_animated_number(13500, format="$ {:,.0f}", speed=110)
+        plot_kpi_gauge("AI Savings", 13500, reference=10000, prefix="$", color="#43cea2")
     with colk2:
-        st.markdown("**Downtime Reduction**")
-        st_animated_number(0.71, format="{:.0%}", speed=110)
+        plot_kpi_gauge("Downtime Reduction", 0.71, reference=0.40, suffix="%", max_value=1, color="#fa709a")
     with colk3:
-        st.markdown("**Predicted Loss (Manual)**")
-        st_animated_number(22100, format="$ {:,.0f}", speed=110)
+        plot_kpi_gauge("Predicted Loss (Manual)", 22100, reference=25000, prefix="$", color="#fee140")
     # Animated line chart
     st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
     last_24h = sensor_df.tail(24)
@@ -515,7 +530,7 @@ if nav == _("solutions"):
         })
     if st.button(_( "generate" )):
         st.session_state["solutions"] = solutions_data
-        rain(emoji=random.choice(["✨","🛠️","💡","🔥"]), font_size=18, falling_speed=6, animation_length="short")
+        rain(emoji=np.random.choice(["✨","🛠️","💡","🔥"]), font_size=18, falling_speed=6, animation_length="short")
         st_lottie(load_lottieurl(confetti_lottie), height=130, key="confetti-lottie", loop=False)
     if "solutions" not in st.session_state or not st.session_state["solutions"]:
         st.info(_( "no_solutions" ))
@@ -710,14 +725,11 @@ if nav == _("cost"):
     st.image(plant_img, use_container_width=True, caption="Cost Analysis")
     colk1, colk2, colk3 = st.columns(3)
     with colk1:
-        st.markdown("**AI Savings This Month**")
-        st_animated_number(13500, format="$ {:,.0f}", speed=110)
+        plot_kpi_gauge("AI Savings This Month", 13500, reference=10000, prefix="$", color="#43cea2")
     with colk2:
-        st.markdown("**Predicted Loss (Manual)**")
-        st_animated_number(22100, format="$ {:,.0f}", speed=110)
+        plot_kpi_gauge("Predicted Loss (Manual)", 22100, reference=25000, prefix="$", color="#fa709a")
     with colk3:
-        st.markdown("**Downtime Reduction**")
-        st_animated_number(0.71, format="{:.0%}", speed=110)
+        plot_kpi_gauge("Downtime Reduction", 0.71, reference=0.40, suffix="%", max_value=1, color="#fee140")
     st.progress(0.71, text="Downtime Reduced")
     cost_labels = ["Maintenance", "Downtime", "Energy", "Other"] if st.session_state["lang"] == "en" else ["صيانة", "توقف", "طاقة", "أخرى"]
     cost_vals = [5000, 6000, 3000, 1500]
