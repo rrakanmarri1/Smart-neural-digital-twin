@@ -14,5 +14,5 @@ streamlit-lottie
 streamlit-option-menu
 streamlit-animated-number
 requests
-streamlit-image-coordinates  # <--- Comment out if not available on PyPI
-streamlit-gauge             # <--- Comment out if not available on PyPI
+# streamlit-image-coordinates  # <-- REMOVE or COMMENT OUT
+# streamlit-gauge             # <-- REMOVE or COMMENT OUT
