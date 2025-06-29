@@ -1,203 +1,160 @@
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
+from typing import Dict, List, Any, Optional
 from sklearn.ensemble import RandomForestRegressor
 import joblib
-import warnings
-warnings.filterwarnings('ignore')
+import os
+import logging
 
-def create_advanced_prediction_model():
-    """Create an advanced time series prediction model for 72-hour forecasting"""
-    # Load historical data
-    df = pd.read_csv("sensor_data_simulated.csv")
+logging.basicConfig(
+    level=logging.INFO,
+    format='[AdvancedPredictionEngine] %(levelname)s - %(message)s'
+)
+
+SENSOR_COLUMNS = [
+    'Temperature (°C)', 'Pressure (psi)', 'Vibration (g)', 'Methane (CH₄ ppm)', 'H₂S (ppm)'
+]
+
+MODEL_PATH = "models/advanced_prediction_models_v2.pkl"
+
+
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Generate all time/cyclical/lag features for time series prediction."""
+    df = df.copy()
     df["Time"] = pd.to_datetime(df["Time"])
-    
-    # Create comprehensive time-based features
-    df['hour'] = df['Time'].dt.hour
-    df['day'] = df['Time'].dt.day
-    df['day_of_week'] = df['Time'].dt.dayofweek
-    df['time_numeric'] = (df['Time'] - df['Time'].min()).dt.total_seconds() / 3600  # hours since start
-    
-    # Create cyclical features for better time series modeling
+    df["hour"] = df["Time"].dt.hour
+    df["day"] = df["Time"].dt.day
+    df["day_of_week"] = df["Time"].dt.dayofweek
+    df["time_numeric"] = (df["Time"] - df["Time"].min()).dt.total_seconds() / 3600
+    # Cyclical
     df['hour_sin'] = np.sin(2 * np.pi * df['hour'] / 24)
     df['hour_cos'] = np.cos(2 * np.pi * df['hour'] / 24)
     df['day_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 7)
     df['day_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 7)
-    
-    # Create lag features for better temporal modeling
-    sensor_columns = ['Temperature (°C)', 'Pressure (psi)', 'Vibration (g)', 'Methane (CH₄ ppm)', 'H₂S (ppm)']
-    
-    for sensor in sensor_columns:
+    # Lag/rolling
+    for sensor in SENSOR_COLUMNS:
         df[f'{sensor}_lag1'] = df[sensor].shift(1)
         df[f'{sensor}_lag2'] = df[sensor].shift(2)
         df[f'{sensor}_rolling_mean'] = df[sensor].rolling(window=3).mean()
-    
-    # Drop rows with NaN values created by lag features
-    df = df.dropna()
-    
-    # Prepare features for prediction
-    feature_columns = ['time_numeric', 'hour', 'day_of_week', 'hour_sin', 'hour_cos', 'day_sin', 'day_cos']
-    
-    # Add lag features
-    for sensor in sensor_columns:
-        feature_columns.extend([f'{sensor}_lag1', f'{sensor}_lag2', f'{sensor}_rolling_mean'])
-    
+    return df.dropna()
+
+
+def get_feature_columns() -> List[str]:
+    """Return all feature columns used for prediction."""
+    base = ['time_numeric', 'hour', 'day_of_week', 'hour_sin', 'hour_cos', 'day_sin', 'day_cos']
+    lagged = []
+    for sensor in SENSOR_COLUMNS:
+        lagged += [f'{sensor}_lag1', f'{sensor}_lag2', f'{sensor}_rolling_mean']
+    return base + lagged
+
+
+def train_models(
+    data: pd.DataFrame,
+    save_path: str = MODEL_PATH
+) -> Dict[str, Dict[str, Any]]:
+    """Train RandomForest models for each sensor and save to disk."""
+    logging.info("Generating features for training...")
+    df = create_features(data)
+    feature_columns = get_feature_columns()
     models = {}
-    
-    # Train advanced models for each sensor type
-    for sensor in sensor_columns:
-        print(f"Training model for {sensor}...")
-        
-        X = df[feature_columns]
-        y = df[sensor]
-        
-        # Use Random Forest for better long-term predictions
+    for sensor in SENSOR_COLUMNS:
+        logging.info(f"Training model for {sensor}...")
+        X, y = df[feature_columns], df[sensor]
         model = RandomForestRegressor(
-            n_estimators=100,
-            max_depth=10,
-            random_state=42,
-            n_jobs=-1
+            n_estimators=150, max_depth=12, random_state=42, n_jobs=-1
         )
-        
         model.fit(X, y)
-        
-        # Store model and statistics
         models[sensor] = {
             'model': model,
             'feature_columns': feature_columns,
-            'mean': df[sensor].mean(),
-            'std': df[sensor].std(),
-            'min': df[sensor].min(),
-            'max': df[sensor].max()
+            'mean': y.mean(),
+            'std': y.std(),
+            'min': y.min(),
+            'max': y.max()
         }
-    
-    # Save models
-    joblib.dump(models, "advanced_prediction_models.pkl")
-    print("Advanced prediction models trained and saved!")
-    
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    joblib.dump(models, save_path)
+    logging.info(f"Saved trained models to {save_path}")
     return models
 
-def predict_future_values_72h(models, hours_ahead=72):
-    """Predict sensor values for the next 72 hours"""
-    current_time = pd.Timestamp.now()
-    predictions = {}
-    
-    # Load recent data for lag features
-    df = pd.read_csv("sensor_data_simulated.csv")
-    df["Time"] = pd.to_datetime(df["Time"])
-    recent_data = df.tail(5)  # Get last 5 rows for lag features
-    
-    sensor_columns = ['Temperature (°C)', 'Pressure (psi)', 'Vibration (g)', 'Methane (CH₄ ppm)', 'H₂S (ppm)']
-    
-    for sensor, model_data in models.items():
-        model = model_data['model']
-        feature_columns = model_data['feature_columns']
-        
-        future_predictions = []
-        
-        # Initialize with recent values for lag features
-        last_values = {
-            f'{s}_lag1': recent_data[s].iloc[-1] if s in recent_data.columns else model_data['mean']
-            for s in sensor_columns
+
+def load_models(model_path: str = MODEL_PATH) -> Dict[str, Any]:
+    """Load trained models from disk."""
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"No model file found at {model_path}")
+    return joblib.load(model_path)
+
+
+def predict_future(
+    models: Dict[str, Any],
+    recent_data: pd.DataFrame,
+    hours_ahead: int = 72
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Predict sensor values for the next `hours_ahead` hours, using recent_data for lag features.
+    """
+    predictions = {sensor: [] for sensor in SENSOR_COLUMNS}
+    df_hist = create_features(recent_data)
+    feature_columns = get_feature_columns()
+
+    for h in range(1, hours_ahead + 1):
+        pred_time = recent_data["Time"].max() + pd.Timedelta(hours=h)
+        new_row = {
+            "Time": pred_time,
+            "hour": pred_time.hour,
+            "day": pred_time.day,
+            "day_of_week": pred_time.dayofweek,
+            "time_numeric": (pred_time - recent_data["Time"].min()).total_seconds() / 3600,
+            "hour_sin": np.sin(2 * np.pi * pred_time.hour / 24),
+            "hour_cos": np.cos(2 * np.pi * pred_time.hour / 24),
+            "day_sin": np.sin(2 * np.pi * pred_time.dayof_week / 7),
+            "day_cos": np.cos(2 * np.pi * pred_time.day_of_week / 7),
         }
-        last_values.update({
-            f'{s}_lag2': recent_data[s].iloc[-2] if len(recent_data) > 1 and s in recent_data.columns else model_data['mean']
-            for s in sensor_columns
-        })
-        last_values.update({
-            f'{s}_rolling_mean': recent_data[s].tail(3).mean() if s in recent_data.columns else model_data['mean']
-            for s in sensor_columns
-        })
-        
-        for h in range(1, hours_ahead + 1):
-            future_time = current_time + pd.Timedelta(hours=h)
-            
-            # Create features for future time
-            features = {
-                'time_numeric': h,  # hours from now
-                'hour': future_time.hour,
-                'day_of_week': future_time.dayofweek,
-                'hour_sin': np.sin(2 * np.pi * future_time.hour / 24),
-                'hour_cos': np.cos(2 * np.pi * future_time.hour / 24),
-                'day_sin': np.sin(2 * np.pi * future_time.dayofweek / 7),
-                'day_cos': np.cos(2 * np.pi * future_time.dayofweek / 7)
-            }
-            
-            # Add lag features
-            features.update(last_values)
-            
-            # Create feature vector
-            X_future = np.array([[features[col] for col in feature_columns]])
-            
-            # Predict
-            pred = model.predict(X_future)[0]
-            
-            # Add realistic noise and constraints
-            noise_factor = min(0.1, h / 72 * 0.2)  # Increase uncertainty over time
-            noise = np.random.normal(0, model_data['std'] * noise_factor)
-            pred += noise
-            
-            # Apply constraints
-            pred = max(model_data['min'] * 0.8, min(model_data['max'] * 1.2, pred))
-            
-            # Update lag features for next prediction
-            if h > 1:
-                last_values[f'{sensor}_lag2'] = last_values[f'{sensor}_lag1']
-            last_values[f'{sensor}_lag1'] = pred
-            
-            # Update rolling mean
-            if h >= 3:
-                recent_preds = [future_predictions[i]['value'] for i in range(max(0, len(future_predictions)-2), len(future_predictions))]
-                recent_preds.append(pred)
-                last_values[f'{sensor}_rolling_mean'] = np.mean(recent_preds)
-            
-            future_predictions.append({
-                'time': future_time,
-                'value': pred,
-                'hours_ahead': h,
-                'confidence': max(0.5, 1 - (h / 72) * 0.4)  # Decreasing confidence over time
+        # Prepare lag/rolling features per sensor:
+        for sensor in SENSOR_COLUMNS:
+            lag1 = df_hist[sensor].iloc[-1] if not df_hist.empty else 0
+            lag2 = df_hist[sensor].iloc[-2] if len(df_hist) > 1 else lag1
+            rolling = df_hist[sensor].iloc[-3:].mean() if len(df_hist) >= 3 else lag1
+            new_row[f"{sensor}_lag1"] = lag1
+            new_row[f"{sensor}_lag2"] = lag2
+            new_row[f"{sensor}_rolling_mean"] = rolling
+
+        # Predict for each sensor
+        for sensor in SENSOR_COLUMNS:
+            model_data = models[sensor]
+            X_pred = pd.DataFrame([new_row])[model_data["feature_columns"]]
+            value = model_data["model"].predict(X_pred)[0]
+            # Clamp value to min/max
+            value = float(np.clip(value, model_data["min"], model_data["max"]))
+            predictions[sensor].append({
+                "time": pred_time,
+                "value": value,
+                "hours_ahead": h
             })
-        
-        predictions[sensor] = future_predictions
-    
+            # Update historical DataFrame for next iteration (simulate rolling window)
+            df_hist = pd.concat([
+                df_hist,
+                pd.DataFrame({sensor: [value]}, index=[df_hist.index[-1] + 1 if not df_hist.empty else 0])
+            ], axis=0, ignore_index=True)
     return predictions
 
-def get_prediction_summary(predictions, time_windows=[6, 24, 48, 72]):
-    """Get summary statistics for different time windows"""
+
+def get_prediction_summary(predictions: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """Return summary stats (min/max/mean) for each sensor's predicted series."""
     summary = {}
-    
-    for sensor, pred_list in predictions.items():
-        summary[sensor] = {}
-        
-        for window in time_windows:
-            window_preds = [p for p in pred_list if p['hours_ahead'] <= window]
-            if window_preds:
-                values = [p['value'] for p in window_preds]
-                summary[sensor][f'{window}h'] = {
-                    'mean': np.mean(values),
-                    'max': np.max(values),
-                    'min': np.min(values),
-                    'trend': 'increasing' if values[-1] > values[0] else 'decreasing',
-                    'volatility': np.std(values)
-                }
-    
+    for sensor, preds in predictions.items():
+        values = [p["value"] for p in preds]
+        summary[sensor] = {
+            "min": float(np.min(values)),
+            "max": float(np.max(values)),
+            "mean": float(np.mean(values))
+        }
     return summary
 
-if __name__ == "__main__":
-    print("Creating advanced 72-hour prediction models...")
-    models = create_advanced_prediction_model()
-    
-    print("Testing 72-hour predictions...")
-    predictions = predict_future_values_72h(models, 72)
-    
-    print("Sample predictions for first sensor:")
-    first_sensor = list(predictions.keys())[0]
-    for i in [0, 11, 23, 47, 71]:  # Show predictions at 1h, 12h, 24h, 48h, 72h
-        if i < len(predictions[first_sensor]):
-            pred = predictions[first_sensor][i]
-            print(f"  {pred['hours_ahead']}h: {pred['value']:.2f} (confidence: {pred['confidence']:.2f})")
-    
-    summary = get_prediction_summary(predictions)
-    print("Prediction summary created successfully!")
 
+# Example usage (can be removed in prod):
+if __name__ == "__main__":
+    df = pd.read_csv("sensor_data_simulated.csv")
+    models = train_models(df)
+    preds = predict_future(models, df.tail(100), hours_ahead=72)
+    print(get_prediction_summary(preds))
