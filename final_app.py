@@ -36,8 +36,6 @@ translations = {
         "How to extend": "How to extend",
         "Developer": "Developer",
         "Name": "Name",
-        "Emails": "Emails",
-        "Phones": "Phones",
         "Demo use only: Not for live plant operation": "Demo use only: Not for live plant operation",
     },
     "ar": {
@@ -67,8 +65,6 @@ translations = {
         "How to extend": "كيفية التوسيع",
         "Developer": "المطور",
         "Name": "الاسم",
-        "Emails": "البريد الإلكتروني",
-        "Phones": "أرقام الهواتف",
         "Demo use only: Not for live plant operation": "للعرض فقط: غير مخصص للتشغيل الفعلي",
     }
 }
@@ -113,6 +109,15 @@ def render_logo():
 
 with st.sidebar:
     render_logo()
+    # --- Language switcher FIRST ---
+    lang_choice = st.radio(
+        "",
+        (translations["en"]["English"], translations["en"]["Arabic"]),
+        horizontal=True,
+        index=0 if st.session_state["lang"] == "en" else 1
+    )
+    st.session_state["lang"] = "en" if lang_choice == translations["en"]["English"] else "ar"
+    # --- Section options according to language ---
     SECTIONS = [
         "Digital Twin",
         "Advanced Dashboard",
@@ -147,25 +152,23 @@ with st.sidebar:
         "رؤى مستقبلية",
         "حول النظام"
     ]
-    sec = st.radio(
-        " ",
-        SECTIONS if st.session_state["lang"] == "en" else SECTIONS_AR,
-        index=0
-    )
+    section_options = SECTIONS if st.session_state["lang"] == "en" else SECTIONS_AR
+    sec = st.radio(" ", section_options, index=0)
     st.markdown("---")
     st.write(get_label("Contact Info"))
     st.write(
         "- Rakan Almarri: rakan.almarri.2@aramco.com (0532559664)\n"
-        "- Abdulrahman Alzahrani: abdulrahman.alzhrani.2@aramco.com (0549202574)")
-    lang_choice = st.radio(
-        "",
-        (get_label("English"), get_label("Arabic")),
-        horizontal=True,
-        index=0 if st.session_state["lang"] == "en" else 1
+        "- Abdulrahman Alzahrani: abdulrahman.alzhrani.2@aramco.com (0549202574)"
     )
-    st.session_state["lang"] = "en" if lang_choice == translations["en"]["English"] else "ar"
 
-page = SECTIONS[SECTIONS_AR.index(sec)] if st.session_state["lang"] == "ar" else sec
+# Now, safely get the page value:
+if st.session_state["lang"] == "ar":
+    if sec in SECTIONS_AR:
+        page = SECTIONS[SECTIONS_AR.index(sec)]
+    else:
+        page = SECTIONS[0]
+else:
+    page = sec
 
 # --- DEMO DATA ---
 np.random.seed(0)
@@ -399,17 +402,17 @@ elif page == "Plant Heatmap":
 elif page == "Root Cause Explorer":
     st.title("🔎 " + get_label("Root Cause Explorer"))
     st.markdown(rtl("Trace faults to their origin with interactive cause-effect mapping."))
-    st.info(rtl("Click nodes to expand and understand the propagation of issues (demo coming soon)."))
+    st.info(rtl("Visual: Click nodes to expand and see propagation paths (add D3/Plotly trees for live)."))
 
 elif page == "AI Copilot Chat":
     st.title("🤝 " + get_label("AI Copilot Chat"))
     st.markdown(rtl("Chat with your AI assistant for instant plant troubleshooting and learning."))
-    st.info(rtl("Type a question about your plant, process, or code. (Full chatbot integration can be added.)"))
+    st.info(rtl("Visual: Chatbot UI here. Integrate with OpenAI or Copilot for Q/A."))
 
 elif page == "Live Plant 3D":
     st.title("🪄 " + get_label("Live Plant 3D"))
     st.markdown(rtl("A 3D schematic of your plant. (For demo, view the enhanced 2D schematic in Digital Twin.)"))
-    st.info(rtl("Upgrade to true 3D when deploying with specialized visualization tools."))
+    st.info(rtl("Visual: 3D Plotly mesh or WebGL here for production."))
 
 elif page == "Incident Timeline":
     st.title("🕒 " + get_label("Incident Timeline"))
