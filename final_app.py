@@ -6,6 +6,10 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import random
 
+# Helper function for Arabic-Indic numerals (for display only)
+def to_arabic_numerals(num):
+    return str(num).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))
+
 # ----- Custom CSS for Peak Visuals and RTL/LTR -----
 st.markdown("""
     <style>
@@ -675,17 +679,19 @@ elif section == T["side_sections"][5]:  # Smart Solutions
         st.session_state["solution_idx"] = (idx + 1) % len(T["solutions"])
 
 elif section == T["side_sections"][6]:  # KPI Wall
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['kpiwall_header']}</div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="{{ 'gradient-ar' if rtl else 'gradient-header' }}">{T['kpiwall_header']}</div>""", unsafe_allow_html=True)
     kpis = T["kpi_wall"]
-    vals = [96, 272, 62, 1] if lang == "en" else [٩٦, ٢٧٢, ٦٢, ١]
+    vals = [96, 272, 62, 1]
     goals = [98, 250, 70, 0]
     st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
     for i, (name, icon, color) in enumerate(kpis):
+        display_val = to_arabic_numerals(vals[i]) if lang == "ar" else str(vals[i])
+        display_goal = to_arabic_numerals(goals[i]) if lang == "ar" else str(goals[i])
         st.markdown(f"""<div class="kpi-card" style="background:{color}c0;">
             <span style="font-size:2.1em;">{icon}</span><br>
             <b>{name}</b><br>
-            <span style="font-size:2.3em;font-weight:900">{vals[i]}</span>
-            <div style="font-size:.95em;color:#222;">{('Goal' if lang=='en' else 'الهدف')}: {goals[i]}</div>
+            <span style="font-size:2.3em;font-weight:900">{display_val}</span>
+            <div style="font-size:.95em;color:#222;">{('Goal' if lang=='en' else 'الهدف')}: {display_goal}</div>
         </div>""", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
