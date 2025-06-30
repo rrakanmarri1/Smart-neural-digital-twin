@@ -6,16 +6,19 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
-from streamlit_extras.let_it_rain import rain
 from streamlit_lottie import st_lottie
+from streamlit_extras.animated_number import st_animated_number  # NEW: animated KPIs
 from streamlit_extras.animated_text import animated_text
 import requests
 import os
+import time
 
 # --- TRANSLATIONS BLOCK ---
 translations = {
     "en": {
         "app_title": "Smart Neural Digital Twin",
+        "welcome": "Welcome to the Smart Neural Digital Twin!",
+        "splash_msg": "Protection, prediction, and real intelligence for your plant.",
         "dashboard": "Dashboard",
         "predictive": "Predictive Analytics",
         "solutions": "Smart Solutions",
@@ -45,6 +48,7 @@ translations = {
         "status_warn": "Warning",
         "status_fault": "Fault",
         "ai_think": "Neural AI Thinking...",
+        "ai_processing": "AI is analyzing your data...",
         "whatif": "What-If Simulator",
         "drag_label": "Adjust the value to simulate a scenario:",
         "ai_reaction": "AI Reaction",
@@ -66,30 +70,17 @@ translations = {
         "scenario_slow": "High risk, high cost. Faster action is critical!",
         "scenario_mod": "Reduced risk, some loss.",
         "scenario_restart": "Try again",
-        "story": """Our journey began with a simple question: How can we detect gas leaks before disaster strikes?
-We tried everything, even innovated with drones and it worked. But we asked ourselves: Why wait for the problem at all?
-Our dream was a smart digital twin that predicts danger before it happens. Not impossible, but difficult.
-We made the difficult easy connecting AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
-Today, our platform is the first line of defense, changing the rules of industrial safety. This is the future.""",
-        "team": [
-            {"name": "Abdulrahman Alzahrani", "role": "Development & Design", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "Rakan Almarri", "role": "Development & Design", "email": "rrakanmarri1@aramco.com"}
-        ],
-        "roadmap_text": "Our roadmap includes deeper integration, more process types, and advanced AI for prediction and prevention.",
-        "about_text": "A new standard for AI-driven industrial safety, built by students passionate about smart tech.",
-        "features_title": "Key Features",
-        "features": [
-            "Real AI-powered predictions (not just static rules)",
-            "Interactive scenario: try a real gas leak simulation",
-            "Visual charts and animated feedback",
-            "Full Arabic and English support",
-            "Simple, mobile-friendly UI",
-            "Open source platform — experiment and improve it!"
-        ],
+        "ai_powered": "AI-powered insight and protection",
+        "ai_secures": "Intelligence that secures and saves",
+        "ai_saves": "Save money and lives with AI",
+        "section_divider": "---",
+        "feature_splash": "Cutting-edge digital twin for rapid, smart safety.",
         "Navigation": "Navigation"
     },
     "ar": {
         "app_title": "التوأم الرقمي الذكي العصبي",
+        "welcome": "مرحبًا في التوأم الرقمي الذكي!",
+        "splash_msg": "حماية وتنبؤ وذكاء حقيقي لمنشأتك.",
         "dashboard": "لوحة التحكم",
         "predictive": "تحليلات تنبؤية",
         "solutions": "الحلول الذكية",
@@ -119,6 +110,7 @@ Today, our platform is the first line of defense, changing the rules of industri
         "status_warn": "تحذير",
         "status_fault": "خلل",
         "ai_think": "معالجة الذكاء العصبي...",
+        "ai_processing": "الذكاء يعمل على تحليل بياناتك...",
         "whatif": "محاكاة ماذا لو",
         "drag_label": "اضبط القيمة لمحاكاة سيناريو:",
         "ai_reaction": "استجابة الذكاء الاصطناعي",
@@ -140,25 +132,11 @@ Today, our platform is the first line of defense, changing the rules of industri
         "scenario_slow": "خطر مرتفع وتكلفة عالية. الاستجابة السريعة ضرورية!",
         "scenario_mod": "خطر أقل وخسارة متوسطة.",
         "scenario_restart": "جرب مرة أخرى",
-        "story": """بدأت رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟
-جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح. لكن وقفنا وسألنا: ليه ننتظر أصلاً؟
-حلمنا كان بناء توأم رقمي ذكي يتوقع الخطر قبل حدوثه. مو مستحيل، لكن كان صعب. إحنا أخذنا الصعب وخليناه سهل، وربطناه ببيانات المصنع في منصة واحدة تراقب وتتعلم وتمنع الكوارث قبل بدايتها.
-اليوم، منصتنا هي خط الدفاع الأول، تغير قواعد الأمان الصناعي من أساسها. هذا هو المستقبل.""",
-        "team": [
-            {"name": "عبدالرحمن الزهراني", "role": "تطوير وتصميم", "email": "abdulrahman.zahrani.1@aramco.com"},
-            {"name": "راكان المري", "role": "تطوير وتصميم", "email": "rakan.almarri.2@aramco.com"}
-        ],
-        "roadmap_text": "تشمل خطتنا التكامل الأعمق، وزيادة أنواع العمليات، وذكاء تنبؤي أقوى.",
-        "about_text": "منصة ذكية للأمان الصناعي — عمل طلابي متحمس للتقنية الذكية.",
-        "features_title": "المميزات الرئيسية",
-        "features": [
-            "توقعات ذكية فعلاً (مو مجرد قواعد ثابتة)",
-            "سيناريو تفاعلي: جرب تسرب غاز واقعي!",
-            "رسوم بيانية وواجهات متحركة",
-            "دعم كامل للعربية والإنجليزية",
-            "واجهة سهلة وسريعة (حتى من الجوال)",
-            "كل شيء مفتوح المصدر وتقدر تطوره"
-        ],
+        "ai_powered": "تحليل وحماية مدعومة بالذكاء",
+        "ai_secures": "ذكاء يحميك ويوفر لك",
+        "ai_saves": "وفر أموالك وأرواحك بالذكاء الاصطناعي",
+        "section_divider": "---",
+        "feature_splash": "توأم رقمي متطور للسلامة السريعة والذكية.",
         "Navigation": "التنقل"
     }
 }
@@ -166,7 +144,7 @@ def _(key):
     lang = st.session_state.get("lang", "en")
     return translations[lang].get(key, key)
 
-# --- THEME AND CSS ---
+# --- THEME AND CSS (unchanged) ---
 if "lang" not in st.session_state:
     st.session_state["lang"] = "en"
 if "rtl" not in st.session_state:
@@ -228,9 +206,10 @@ def inject_css(theme="dark"):
           transition: 0.19s;
         }
         .fab:hover {transform:scale(1.1);}
+        .section-divider {margin: 2em 0 1.5em 0;}
         </style>
         """, unsafe_allow_html=True)
-    else: # light theme
+    else:
         st.markdown("""
         <style>
         html, body, [class*="st-"] {
@@ -282,6 +261,7 @@ def inject_css(theme="dark"):
           transition: 0.19s;
         }
         .fab:hover {transform:scale(1.1);}
+        .section-divider {margin: 2em 0 1.5em 0;}
         </style>
         """, unsafe_allow_html=True)
 if "theme" not in st.session_state:
@@ -298,27 +278,6 @@ def rtl_mirror():
         st.markdown("""<style>body, .stApp, [data-testid="stSidebar"], .stButton>button {direction:ltr !important; text-align:left !important;}</style>""", unsafe_allow_html=True)
 rtl_mirror()
 
-# --- KPI GAUGE FUNCTION ---
-def plot_kpi_gauge(title, value, reference=None, max_value=None, prefix="", suffix="", color="#43cea2"):
-    mode = "gauge+number+delta" if reference is not None else "gauge+number"
-    delta = {'reference': reference, 'relative': True} if reference is not None else None
-    fig = go.Figure(go.Indicator(
-        mode=mode,
-        value=value,
-        number={'prefix': prefix, 'suffix': suffix, 'font': {'size': 32}},
-        title={"text": title, 'font': {'size': 18}},
-        delta=delta,
-        gauge={
-            'axis': {'range': [None, max_value or (value * 1.2)]},
-            'bar': {'color': color},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "gray"
-        }
-    ))
-    fig.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=220)
-    st.plotly_chart(fig, use_container_width=True)
-
 # --- LOTTIE UTILS ---
 def load_lottieurl(url):
     try:
@@ -329,15 +288,6 @@ def load_lottieurl(url):
         return None
     return None
 
-def lottie_bg():
-    st.markdown(
-        f"""<div class="particle-bg" style="pointer-events:none;z-index:0;position:fixed;top:0;left:0;width:100vw;height:100vh;">
-        <iframe src="https://lottie.host/embed/1d4b2d0c-7de2-4e6a-8db8-057b15c7c9f9/5GuoHnWnUI.json" style="width:100vw;height:100vh;border:0;background:transparent;pointer-events:none;"></iframe>
-        </div>""",
-        unsafe_allow_html=True
-    )
-lottie_bg()
-
 # --- ICONS/IMAGES ---
 plant_img = "https://images.pexels.com/photos/236089/pexels-photo-236089.jpeg?auto=compress&w=800&q=80"
 control_img = "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80"
@@ -346,7 +296,6 @@ plant_twin_img = "https://i.ibb.co/4R0vY4Q/plant-twin-demo.png"
 twin_lottie = "https://assets1.lottiefiles.com/packages/lf20_wnqlfojb.json"
 ai_lottie   = "https://assets10.lottiefiles.com/packages/lf20_5ngs2ksb.json"
 plant_lottie = "https://assets3.lottiefiles.com/packages/lf20_5b2dh9jt.json"
-confetti_lottie = "https://assets8.lottiefiles.com/packages/lf20_0os2dcp1.json"
 alert_lottie = "https://assets2.lottiefiles.com/packages/lf20_4kx2q32n.json"
 sensor_lottie = "https://lottie.host/efb1a1d3-6a7c-4bfb-bb9e-8e1e4fae5c9e/gas_sensor.json"
 iot_lottie = "https://lottie.host/0b74e5c4-9e2e-4d5b-9e6b-f315e5b6d82e/iot.json"
@@ -366,6 +315,24 @@ def load_sensor_data():
     fname = "sensor_data_simulated_long.csv" if os.path.exists("sensor_data_simulated_long.csv") else "sensor_data_simulated.csv"
     return pd.read_csv(fname, parse_dates=["Timestamp"] if fname.endswith("long.csv") else ["Time"])
 sensor_df = load_sensor_data()
+
+# --- SPLASH SCREEN ---
+if "splash_shown" not in st.session_state:
+    st_lottie(load_lottieurl(plant_lottie), height=240, loop=False)
+    st.markdown(
+        f"<h1 style='font-size:2.1em;color:#43cea2;font-weight:bold;text-align:center;margin-top:2em;'>{_('welcome')}</h1>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f"<div style='text-align:center;font-size:1.2em;color:#185a9d;margin-bottom:2em;'>{_('splash_msg')}</div>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f"<div style='text-align:center;font-size:1.1em;color:#43cea2;'>{_('feature_splash')}</div>",
+        unsafe_allow_html=True
+    )
+    st.session_state["splash_shown"] = True
+    st.stop()
 
 # --- SIDEBAR NAVIGATION ---
 with st.sidebar:
@@ -422,7 +389,6 @@ if nav == _("dashboard"):
         st.subheader(_("plant_status"))
         st_lottie(load_lottieurl(plant_lottie), height=120, key="plant-lottie", loop=True)
         st.image(plant_img, use_container_width=True, caption="Industrial Plant")
-        # Live values from sensor data
         latest = sensor_df.iloc[-1]
         st.markdown(f"""
         <div style="margin-top:1.2em;font-size:1.07em;">
@@ -434,16 +400,19 @@ if nav == _("dashboard"):
         st_lottie(load_lottieurl(ai_lottie), height=120, key="ai-lottie", loop=True)
         st_lottie(load_lottieurl(sensor_lottie), height=120, key="sensor-lottie", loop=True)
         st.info(_("about_text"))
-    # Animated KPI counters (replaced with Plotly gauges)
+    # Animated KPI Numbers
     st.markdown('<div class="dashboard-chart-container">', unsafe_allow_html=True)
     colk1, colk2, colk3 = st.columns(3)
     with colk1:
-        plot_kpi_gauge("AI Savings", 13500, reference=10000, prefix="$", color="#43cea2")
+        st.markdown("**AI Savings**")
+        st_animated_number(13500, format="$,.0f", animation_speed=2)
     with colk2:
-        plot_kpi_gauge("Downtime Reduction", 0.71, reference=0.40, suffix="%", max_value=1, color="#fa709a")
+        st.markdown("**Downtime Reduction**")
+        st_animated_number(0.71, format=".2%", animation_speed=2)
     with colk3:
-        plot_kpi_gauge("Predicted Loss (Manual)", 22100, reference=25000, prefix="$", color="#fee140")
-    # Animated line chart
+        st.markdown("**Predicted Loss (Manual)**")
+        st_animated_number(22100, format="$,.0f", animation_speed=2)
+    # Chart
     st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
     last_24h = sensor_df.tail(24)
     fig = px.line(last_24h, x=last_24h.columns[0], y="Temperature (°C)", title="Sensor 1 Temperature (Animated)", markers=True)
@@ -458,12 +427,16 @@ if nav == _("dashboard"):
     )
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- PREDICTIVE ANALYTICS PAGE ---
 if nav == _("predictive"):
     st.subheader(_("predictive"))
     st_lottie(load_lottieurl(iot_lottie), height=140, key="iot-lottie", loop=True)
     st.image(sensor_img, use_container_width=True, caption="Gas Sensor Monitoring")
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_secures')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size:1.08em;">
     <ul>
@@ -477,10 +450,12 @@ if nav == _("predictive"):
 
     # Show last 72 hours
     st.markdown("#### Sensor Health Status (Last 72h Forecast)")
-    predictions = predict_future_values_72h(models, 72)
-    pred_temp = predictions['Temperature (°C)']
-    pred_times = [p['time'] for p in pred_temp]
-    pred_vals = [p['value'] for p in pred_temp]
+    with st.spinner(_("ai_processing")):
+        predictions = predict_future_values_72h(models, 72)
+        pred_temp = predictions['Temperature (°C)']
+        pred_times = [p['time'] for p in pred_temp]
+        pred_vals = [p['value'] for p in pred_temp]
+        time.sleep(0.7)
     fig_pred = px.line(x=pred_times, y=pred_vals, title="Predicted Temperature (°C) - Next 72h")
     fig_pred.update_traces(line=dict(color="#fa709a", width=4))
     fig_pred.update_layout(xaxis_title="Time", yaxis_title="Temperature (°C)")
@@ -500,20 +475,16 @@ if nav == _("predictive"):
     st.progress(ai_risk, text="AI Risk Level")
     st.progress(manual_risk, text="Manual Risk Level")
     st.markdown(f"<b>{_('cost_savings')}:</b> <span style='color:#43cea2;font-weight:bold;'>${(manual_risk-ai_risk)*8000:,.0f}</span>", unsafe_allow_html=True)
-    if ai_risk > 0.75:
-        st.warning("Danger Zone! Immediate AI intervention." if st.session_state["lang"] == "en" else "منطقة خطرة! تدخل الذكاء الاصطناعي فوراً.")
-        rain(emoji="🔥", font_size=24, falling_speed=6, animation_length="short")
-    elif ai_risk > 0.4:
-        st.info("Warning: Elevated risk detected." if st.session_state["lang"] == "en" else "تحذير: مستوى الخطر مرتفع.")
-    else:
-        st.success("Safe operation." if st.session_state["lang"] == "en" else "تشغيل آمن.")
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
-# --- SMART SOLUTIONS (Flip Cards + Emoji Rain) ---
+# --- SMART SOLUTIONS (Colored Cards) ---
 if nav == _("solutions"):
     st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
     st_lottie(load_lottieurl(robot_lottie), height=120, key="robot-lottie", loop=True)
     st.image(control_img, use_container_width=True, caption="Industrial Control Room")
-    # Use prediction summary to generate solution cards
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
     summary = get_prediction_summary(predict_future_values_72h(models, 24))
     solutions_data = []
     for sensor, stat in summary.items():
@@ -530,58 +501,21 @@ if nav == _("solutions"):
         })
     if st.button(_( "generate" )):
         st.session_state["solutions"] = solutions_data
-        rain(emoji=np.random.choice(["✨","🛠️","💡","🔥"]), font_size=18, falling_speed=6, animation_length="short")
-        st_lottie(load_lottieurl(confetti_lottie), height=130, key="confetti-lottie", loop=False)
+        st.success(_("ai_think"))
+        time.sleep(1)
     if "solutions" not in st.session_state or not st.session_state["solutions"]:
         st.info(_( "no_solutions" ))
     else:
         for i, s in enumerate(st.session_state["solutions"]):
             eff_color = "#43cea2" if s["priority"] == _("priority_high") else "#fa709a"
             st.markdown(f"""
-            <style>
-            .flip-card {{background: none;border: none;}}
-            .flip-card-inner {{
-              position: relative;
-              width: 100%;
-              height: 180px;
-              text-align: left;
-              transition: transform 0.7s cubic-bezier(.4,2.3,.3,.9);
-              transform-style: preserve-3d;
-            }}
-            .flip-card:hover .flip-card-inner {{transform: rotateY(180deg);}}
-            .flip-card-front, .flip-card-back {{
-              position: absolute;
-              width: 100%;
-              height: 180px;
-              backface-visibility: hidden;
-              border-radius: 19px;
-              box-shadow: 0 4px 24px #43cea244;
-              background: linear-gradient(90deg,#232526,#485563 70%,#56ab2f);
-              color: white;
-              padding: 1.25em 1.7em;
-            }}
-            .flip-card-back {{
-              background: linear-gradient(90deg,#185a9d,#fee140 80%);
-              color: #222;
-              transform: rotateY(180deg);
-            }}
-            </style>
-            <div class="flip-card">
-              <div class="flip-card-inner">
-                <div class="flip-card-front">
-                  <div style="font-size:2.3em;position:absolute;top:0.3em;right:0.3em;opacity:0.1;">{s['icon']}</div>
-                  <div style="font-size:1.15em;font-weight:bold;margin-bottom:0.2em">{_('solution_title')} {i+1}: {s['title']}</div>
-                  <div style="margin-bottom:0.4em">{_('solution_desc')}: {s['desc']}</div>
-                  <div style="margin-top:2.3em;"><span><b>{_('solution_eff')}:</b> <span style="color:{eff_color};font-weight:bold">{s['eff']}%</span></span></div>
-                  <div><b>{_('solution_priority')}:</b> {s['priority']}</div>
-                  <div><b>{_('solution_time')}:</b> {s['time']}</div>
-                </div>
-                <div class="flip-card-back">
-                  <div style="font-size:1.05em;font-weight:bold;margin-bottom:0.6em">How it works</div>
-                  <div>This solution uses neural anomaly detection to identify rapid changes. Immediate AI intervention triggers safety protocols, minimizing downtime and cost.</div>
-                  <div style="margin-top:1.2em;color:#43cea2;font-weight:bold;">{_("apply")}</div>
-                </div>
-              </div>
+            <div style="border-radius:17px;background:linear-gradient(90deg,#232526,#43cea2 65%,#fee140 100%);box-shadow:0 4px 24px #43cea288;margin:1em 0;padding:1.5em 2em;color:white;">
+                <span style="font-size:2em;margin-right:0.4em;">{s['icon']}</span>
+                <span style="font-size:1.07em;font-weight:bold;">{s['title']}</span>
+                <div style="margin:0.6em 0 0.5em 0;">{s['desc']}</div>
+                <div>{_('solution_eff')}: <b style="color:{eff_color};">{s['eff']}%</b></div>
+                <div>{_('solution_priority')}: <b>{s['priority']}</b></div>
+                <div>{_('solution_time')}: <b>{s['time']}</b></div>
             </div>
             """, unsafe_allow_html=True)
         # Pie chart: Solution priorities
@@ -593,6 +527,7 @@ if nav == _("solutions"):
         figpie.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140"]))
         figpie.update_layout(showlegend=True)
         st.plotly_chart(figpie, use_container_width=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- INTERACTIVE DIGITAL TWIN LIVE ---
 if nav == _("live_dt"):
@@ -623,6 +558,8 @@ if nav == _("live_dt"):
     fig3d = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale='Viridis')])
     fig3d.update_layout(title="Plant Temperature Surface", autosize=True, margin=dict(l=20, r=20, b=20, t=30))
     st.plotly_chart(fig3d, use_container_width=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_secures')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- AI VS MANUAL (Animated Radar) ---
 if nav == _("ai_vs_manual"):
@@ -649,8 +586,10 @@ if nav == _("ai_vs_manual"):
                               color_discrete_map={"AI": "#43cea2", "Manual": "#fa709a"})
     fig_radar.update_traces(fill='toself')
     st.plotly_chart(fig_radar, use_container_width=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
-# --- SCENARIO (Timeline Animation, Confetti) ---
+# --- SCENARIO (Timeline Animation) ---
 if nav == _("scenario"):
     st.subheader(_( "scenario_title" ))
     st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
@@ -681,15 +620,12 @@ if nav == _("scenario"):
         st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#43cea2;font-weight:bold;'>$700</span>", unsafe_allow_html=True)
         st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#43cea2;font-weight:bold;'>{_('scenario_fast')}</span>", unsafe_allow_html=True)
         st_lottie(load_lottieurl(fireworks_lottie), height=100, key="scenario-fireworks", loop=False)
-        rain(emoji="🎉", font_size=20, falling_speed=7, animation_length="short")
-        st.balloons()
         if st.button(_( "scenario_restart" )):
             reset_scenario()
     elif st.session_state["scenario_state"] == 2:
         st.error(_( "scenario_wait" ))
         st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fa709a;font-weight:bold;'>$18,000</span>", unsafe_allow_html=True)
         st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fa709a;font-weight:bold;'>{_('scenario_slow')}</span>", unsafe_allow_html=True)
-        rain(emoji="💸", font_size=17, falling_speed=8, animation_length="short")
         if st.button(_( "scenario_restart" )):
             reset_scenario()
     elif st.session_state["scenario_state"] == 3:
@@ -698,6 +634,8 @@ if nav == _("scenario"):
         st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fee140;font-weight:bold;'>{_('scenario_mod')}</span>", unsafe_allow_html=True)
         if st.button(_( "scenario_restart" )):
             reset_scenario()
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- ALERTS (Pie, Lottie) ---
 if nav == _("alerts"):
@@ -718,6 +656,8 @@ if nav == _("alerts"):
     fig_alert.update_traces(marker=dict(colors=["#fa709a", "#fee140", "#43cea2", "#185a9d"]))
     fig_alert.update_layout(showlegend=True)
     st.plotly_chart(fig_alert, use_container_width=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- COST & SAVINGS (Animated) ---
 if nav == _("cost"):
@@ -725,11 +665,14 @@ if nav == _("cost"):
     st.image(plant_img, use_container_width=True, caption="Cost Analysis")
     colk1, colk2, colk3 = st.columns(3)
     with colk1:
-        plot_kpi_gauge("AI Savings This Month", 13500, reference=10000, prefix="$", color="#43cea2")
+        st.markdown("**AI Savings This Month**")
+        st_animated_number(13500, format="$,.0f", animation_speed=2)
     with colk2:
-        plot_kpi_gauge("Predicted Loss (Manual)", 22100, reference=25000, prefix="$", color="#fa709a")
+        st.markdown("**Predicted Loss (Manual)**")
+        st_animated_number(22100, format="$,.0f", animation_speed=2)
     with colk3:
-        plot_kpi_gauge("Downtime Reduction", 0.71, reference=0.40, suffix="%", max_value=1, color="#fee140")
+        st.markdown("**Downtime Reduction**")
+        st_animated_number(0.71, format=".2%", animation_speed=2)
     st.progress(0.71, text="Downtime Reduced")
     cost_labels = ["Maintenance", "Downtime", "Energy", "Other"] if st.session_state["lang"] == "en" else ["صيانة", "توقف", "طاقة", "أخرى"]
     cost_vals = [5000, 6000, 3000, 1500]
@@ -749,6 +692,8 @@ if nav == _("cost"):
     fig_costline = px.line(df_cost, x="Month", y=["AI", "Manual"], title="Monthly Cost Comparison", markers=True)
     fig_costline.update_layout(transition=dict(duration=500))
     st.plotly_chart(fig_costline, use_container_width=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # --- ROADMAP & ABOUT (Timeline Animation) ---
 if nav == _("roadmap"):
@@ -762,13 +707,15 @@ if nav == _("roadmap"):
         <div class="timeline-event"><b>2025 Q4:</b> Full industrial deployment, mobile app, multi-language</div>
     </div>
     """, unsafe_allow_html=True)
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('feature_splash')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 if nav == _("about"):
     st.subheader(_("story_title"))
     animated_text(_("story"), speed=18)
     st.markdown(f"## { _('features_title') }")
     st.markdown(
-        "\n".join([f"- {f}" for f in translations[st.session_state['lang']]['features']])
+        "\n".join([f"- {f}" for f in translations[st.session_state['lang']].get('features',[])])
     )
     st.markdown("---")
     st.subheader(_("team_title"))
@@ -783,6 +730,8 @@ if nav == _("about"):
             unsafe_allow_html=True
         )
     st.markdown(f"<b>{_('contact')}:</b> {translations[st.session_state['lang']]['team'][0]['email']}")
+    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('feature_splash')}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
 
 # Accessibility/ARIA
 st.markdown("""
