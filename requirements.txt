@@ -12,5 +12,3 @@ openpyxl
 streamlit-extras
 streamlit-lottie
 streamlit-option-menu
-streamlit-animated-number
-requests
