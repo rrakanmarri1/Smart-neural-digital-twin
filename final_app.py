@@ -1,743 +1,451 @@
+# SS-level Smart Neural Digital Twin (BILINGUAL, VISUALS PEAK, INNOVATIVE SECTIONS, SMART SOLUTIONS)
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-from datetime import datetime, timedelta
-import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_option_menu import option_menu
-from streamlit_lottie import st_lottie
-from streamlit_extras.animated_number import st_animated_number  # NEW: animated KPIs
-from streamlit_extras.animated_text import animated_text
-import requests
-import os
+import plotly.express as px
+from datetime import datetime, timedelta
+import random
 import time
 
-# --- TRANSLATIONS BLOCK ---
+# ---------------------- SVG LOGO ----------------------
+def render_logo():
+    st.markdown("""
+<div style="display:flex; align-items:center; gap:1em; margin-bottom:1em;">
+<svg width="70" height="70" viewBox="0 0 80 80" fill="none">
+    <circle cx="40" cy="40" r="34" fill="#E9F5FF" stroke="#0080FF" stroke-width="3"/>
+    <path d="M40 12 C54 24, 66 38, 40 68" stroke="#0077B6" stroke-width="3" fill="none"/>
+    <path d="M40 12 C26 24, 14 38, 40 68" stroke="#00B686" stroke-width="3" fill="none"/>
+    <circle cx="40" cy="12" r="4" fill="#00B686" stroke="#0077B6" stroke-width="2"/>
+    <circle cx="66" cy="38" r="3" fill="#0080FF"/>
+    <circle cx="14" cy="38" r="3" fill="#00B686"/>
+    <circle cx="40" cy="68" r="5" fill="#0077B6" stroke="#0080FF" stroke-width="2"/>
+    <circle cx="54" cy="24" r="2" fill="#0080FF"/>
+    <circle cx="26" cy="24" r="2" fill="#00B686"/>
+    <circle cx="40" cy="40" r="3" fill="white" stroke="#0077B6" stroke-width="2"/>
+</svg>
+<div style="display:flex; flex-direction:column;">
+  <span style="font-size:2.1em; font-weight:800; color:#0077B6; letter-spacing:1px;">Smart Neural Digital Twin</span>
+  <span style="font-size:1.2em; font-weight:500; color:#00B686; letter-spacing:.5px;">التوأم الرقمي العصبي الذكي</span>
+</div>
+</div>
+    """, unsafe_allow_html=True)
+
+# ---------------------- TRANSLATIONS (ENGLISH/ARABIC) ----------------------
 translations = {
     "en": {
-        "app_title": "Smart Neural Digital Twin",
-        "welcome": "Welcome to the Smart Neural Digital Twin!",
-        "splash_msg": "Protection, prediction, and real intelligence for your plant.",
-        "dashboard": "Dashboard",
-        "predictive": "Predictive Analytics",
-        "solutions": "Smart Solutions",
-        "alerts": "Alerts",
-        "cost": "Cost & Savings",
-        "ai_vs_manual": "AI vs. Manual",
-        "scenario": "Realistic Scenario",
-        "roadmap": "Roadmap & Changelog",
-        "about": "About",
-        "select_lang": "Select Language",
-        "generate": "✨ Generate Solutions",
-        "no_solutions": "No solutions generated yet. Click the button to create AI-driven solutions.",
-        "solution_title": "Solution",
-        "solution_desc": "Description",
-        "solution_eff": "Effectiveness",
-        "solution_priority": "Priority",
-        "solution_time": "Time Estimate",
-        "priority_high": "High",
-        "priority_med": "Medium",
-        "priority_low": "Low",
-        "apply": "Apply",
-        "simulate": "Simulate",
-        "live_dt": "Digital Twin Live",
-        "plant_status": "Plant Status",
-        "sensor": "Sensor",
-        "status_ok": "OK",
-        "status_warn": "Warning",
-        "status_fault": "Fault",
-        "ai_think": "Neural AI Thinking...",
-        "ai_processing": "AI is analyzing your data...",
-        "whatif": "What-If Simulator",
-        "drag_label": "Adjust the value to simulate a scenario:",
-        "ai_reaction": "AI Reaction",
-        "manual_reaction": "Manual Reaction",
-        "cost_savings": "Estimated Cost Savings",
-        "milestones": "Milestones & Changelog",
-        "story_title": "Our Story",
-        "team_title": "Team",
-        "contact": "Contact",
-        "scenario_title": "Gas Leak Incident – Interactive Demo",
-        "scenario_intro": "Experience a simulated gas leak and choose how to respond. See how AI vs. manual action impacts safety and cost.",
-        "scenario_detected": "Gas leak detected near compressor room. What do you do?",
-        "scenario_report_ai": "AI instantly flagged the leak and triggered emergency protocols. Incident contained in 50 seconds.",
-        "scenario_wait": "Manual response: Leak spreads for 14 minutes before discovery! Major risk and high cost.",
-        "scenario_check": "Manual check: Leak noticed after 7 minutes. Containment slow, moderate loss.",
-        "scenario_stats": "Resulting cost: ",
-        "scenario_safety": "Safety Impact: ",
-        "scenario_fast": "Optimal! Risk minimized, cost saved.",
-        "scenario_slow": "High risk, high cost. Faster action is critical!",
-        "scenario_mod": "Reduced risk, some loss.",
-        "scenario_restart": "Try again",
-        "ai_powered": "AI-powered insight and protection",
-        "ai_secures": "Intelligence that secures and saves",
-        "ai_saves": "Save money and lives with AI",
-        "section_divider": "---",
-        "feature_splash": "Cutting-edge digital twin for rapid, smart safety.",
-        "Navigation": "Navigation"
+        "Digital Twin": "Digital Twin",
+        "Advanced Dashboard": "Advanced Dashboard",
+        "Predictive Analytics": "Predictive Analytics",
+        "Scenario Playback": "Scenario Playback",
+        "Alerts & Fault Log": "Alerts & Fault Log",
+        "Smart Solutions": "Smart Solutions",
+        "Generate Solution": "Generate Solution",
+        "Generate Code": "Generate Code",
+        "Generated Solution": "Generated Solution",
+        "Solution": "Solution",
+        "Priority": "Priority",
+        "Effectiveness": "Effectiveness",
+        "Estimated Time": "Estimated Time",
+        "Cost": "Cost",
+        "Savings": "Savings",
+        "High": "High",
+        "Medium": "Medium",
+        "Low": "Low",
+        "About": "About",
+        "Team Collaboration": "Team Collaboration",
+        "Live Plant 3D": "Live Plant 3D",
+        "Root Cause Explorer": "Root Cause Explorer",
+        "AI Copilot Chat": "AI Copilot Chat",
+        "KPI Wall": "KPI Wall",
+        "Custom Reports": "Custom Reports",
+        "Plant Heatmap": "Plant Heatmap",
+        "Process Flow": "Process Flow",
+        "AI Copilot": "AI Copilot",
+        "Efficiency Monitor": "Efficiency Monitor",
+        "Health Index": "Health Index",
+        "Savings Estimator": "Savings Estimator",
+        "Asset Tracker": "Asset Tracker",
+        "Incident Timeline": "Incident Timeline",
+        "Energy Optimization": "Energy Optimization",
+        "Future Insights": "Future Insights",
+        "Mission Statement": "Mission Statement",
+        "Developer": "Developer",
+        "Features": "Features",
+        "How to extend": "How to extend",
+        "Contact": "Contact",
+        "Restart": "Restart",
+        "Next": "Next",
+        "Timeline": "Timeline",
+        "Play/Pause": "Play/Pause",
+        "Scenario Step": "Scenario Step",
+        "Demo use only: Not for live plant operation": "Demo use only: Not for live plant operation",
+        "Name": "Name",
+        "Emails": "Emails",
+        "Phones": "Phones",
+        "Contact Info": "Contact Info",
     },
     "ar": {
-        "app_title": "التوأم الرقمي الذكي العصبي",
-        "welcome": "مرحبًا في التوأم الرقمي الذكي!",
-        "splash_msg": "حماية وتنبؤ وذكاء حقيقي لمنشأتك.",
-        "dashboard": "لوحة التحكم",
-        "predictive": "تحليلات تنبؤية",
-        "solutions": "الحلول الذكية",
-        "alerts": "التنبيهات",
-        "cost": "التكلفة والتوفير",
-        "ai_vs_manual": "الذكاء الاصطناعي مقابل اليدوي",
-        "scenario": "سيناريو واقعي",
-        "roadmap": "خريطة الطريق والتحديثات",
-        "about": "عن المنصة",
-        "select_lang": "اختر اللغة",
-        "generate": "✨ توليد الحلول",
-        "no_solutions": "لم يتم توليد حلول بعد. اضغط الزر لابتكار حلول بالذكاء الاصطناعي.",
-        "solution_title": "الحل",
-        "solution_desc": "الوصف",
-        "solution_eff": "الفعالية",
-        "solution_priority": "الأولوية",
-        "solution_time": "الوقت المقدر",
-        "priority_high": "عالية",
-        "priority_med": "متوسطة",
-        "priority_low": "منخفضة",
-        "apply": "تطبيق",
-        "simulate": "محاكاة",
-        "live_dt": "التوأم الرقمي الحي",
-        "plant_status": "حالة المصنع",
-        "sensor": "المستشعر",
-        "status_ok": "جيد",
-        "status_warn": "تحذير",
-        "status_fault": "خلل",
-        "ai_think": "معالجة الذكاء العصبي...",
-        "ai_processing": "الذكاء يعمل على تحليل بياناتك...",
-        "whatif": "محاكاة ماذا لو",
-        "drag_label": "اضبط القيمة لمحاكاة سيناريو:",
-        "ai_reaction": "استجابة الذكاء الاصطناعي",
-        "manual_reaction": "الاستجابة اليدوية",
-        "cost_savings": "حساب التوفير",
-        "milestones": "الإنجازات والتحديثات",
-        "story_title": "قصتنا",
-        "team_title": "الفريق",
-        "contact": "تواصل",
-        "scenario_title": "حادثة تسرب غاز – تجربة تفاعلية",
-        "scenario_intro": "عش سيناريو تسرب غاز واختبر استجابتك: الذكاء الاصطناعي مقابل التدخل اليدوي، وشاهد أثر كل خيار على السلامة والتكلفة.",
-        "scenario_detected": "تم رصد تسرب غاز قرب غرفة الضواغط. ماذا ستفعل؟",
-        "scenario_report_ai": "النظام الذكي كشف التسرب فورًا وفعّل بروتوكولات الطوارئ. تم احتواء الحادث خلال ٥٠ ثانية.",
-        "scenario_wait": "استجابة يدوية: انتشر التسرب ١٤ دقيقة قبل اكتشافه! خطر مرتفع وتكلفة عالية.",
-        "scenario_check": "فحص يدوي: تم ملاحظة التسرب بعد ٧ دقائق. الاحتواء بطيء، خسارة متوسطة.",
-        "scenario_stats": "التكلفة الناتجة: ",
-        "scenario_safety": "أثر السلامة: ",
-        "scenario_fast": "ممتاز! الخطر في أدنى حد والتكلفة وفرت.",
-        "scenario_slow": "خطر مرتفع وتكلفة عالية. الاستجابة السريعة ضرورية!",
-        "scenario_mod": "خطر أقل وخسارة متوسطة.",
-        "scenario_restart": "جرب مرة أخرى",
-        "ai_powered": "تحليل وحماية مدعومة بالذكاء",
-        "ai_secures": "ذكاء يحميك ويوفر لك",
-        "ai_saves": "وفر أموالك وأرواحك بالذكاء الاصطناعي",
-        "section_divider": "---",
-        "feature_splash": "توأم رقمي متطور للسلامة السريعة والذكية.",
-        "Navigation": "التنقل"
+        "Digital Twin": "التوأم الرقمي",
+        "Advanced Dashboard": "لوحة القيادة المتقدمة",
+        "Predictive Analytics": "التحليلات التنبؤية",
+        "Scenario Playback": "تشغيل السيناريو",
+        "Alerts & Fault Log": "التنبيهات وسجل الأعطال",
+        "Smart Solutions": "الحلول الذكية",
+        "Generate Solution": "توليد الحل",
+        "Generate Code": "توليد الكود",
+        "Generated Solution": "الحل الناتج",
+        "Solution": "الحل",
+        "Priority": "الأولوية",
+        "Effectiveness": "الفعالية",
+        "Estimated Time": "الوقت المتوقع",
+        "Cost": "التكلفة",
+        "Savings": "التوفير",
+        "High": "عالية",
+        "Medium": "متوسطة",
+        "Low": "منخفضة",
+        "About": "حول النظام",
+        "Team Collaboration": "تعاون الفريق",
+        "Live Plant 3D": "مصنع ثلاثي الأبعاد",
+        "Root Cause Explorer": "مستكشف السبب الجذري",
+        "AI Copilot Chat": "محادثة الذكاء الصناعي",
+        "KPI Wall": "جدار المؤشرات",
+        "Custom Reports": "تقارير مخصصة",
+        "Plant Heatmap": "خريطة حرارة المصنع",
+        "Process Flow": "تدفق العمليات",
+        "AI Copilot": "المساعد الذكي",
+        "Efficiency Monitor": "مراقبة الكفاءة",
+        "Health Index": "مؤشر الصحة",
+        "Savings Estimator": "تقدير التوفير",
+        "Asset Tracker": "تتبع الأصول",
+        "Incident Timeline": "جدول الحوادث",
+        "Energy Optimization": "تحسين الطاقة",
+        "Future Insights": "رؤى مستقبلية",
+        "Mission Statement": "بيان المهمة",
+        "Developer": "المطور",
+        "Features": "الميزات",
+        "How to extend": "كيفية التوسيع",
+        "Contact": "الاتصال",
+        "Restart": "إعادة تشغيل",
+        "Next": "التالي",
+        "Timeline": "الجدول الزمني",
+        "Play/Pause": "تشغيل/إيقاف",
+        "Scenario Step": "خطوة السيناريو",
+        "Demo use only: Not for live plant operation": "للعرض فقط: غير مخصص للتشغيل الفعلي",
+        "Name": "الاسم",
+        "Emails": "البريد الإلكتروني",
+        "Phones": "أرقام الهواتف",
+        "Contact Info": "معلومات التواصل",
     }
 }
-def _(key):
+
+def get_label(key):
     lang = st.session_state.get("lang", "en")
     return translations[lang].get(key, key)
 
-# --- THEME AND CSS (unchanged) ---
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "en"
-if "rtl" not in st.session_state:
-    st.session_state["rtl"] = False
-def lang_switch():
-    st.session_state["lang"] = "ar" if st.session_state["lang"] == "en" else "en"
-    st.session_state["rtl"] = not st.session_state["rtl"]
+def rtl(text):
+    if st.session_state.get("lang", "en") == "ar":
+        return f"<div dir='rtl' style='text-align:right'>{text}</div>"
+    return text
 
-def inject_css(theme="dark"):
-    if theme == "dark":
-        st.markdown("""
-        <style>
-        html, body, [class*="st-"] {
-            font-family: 'Cairo', 'IBM Plex Sans', sans-serif !important;
-        }
-        body, .stApp {
-            background: linear-gradient(120deg,#181a20 0%,#232526 65%,#43cea2 80%,#fee140 100%);
-        }
-        .particle-bg {position:fixed;z-index:0;top:0;left:0;width:100vw;height:100vh;pointer-events:none;}
-        [data-testid="stSidebar"] > div:first-child {
-            background: linear-gradient(135deg,#232526,#485563 70%,#43cea2);
-        }
-        .stButton>button {
-            background: linear-gradient(90deg,#43cea2,#185a9d);
-            color: white;
-            border: none;
-            font-size:1.13em;
-            font-weight:bold;
-            padding: 0.7em 2.3em;
-            border-radius: 17px;
-            box-shadow: 0 8px 22px #0003;
-            transition: 0.15s;
-            animation: pulse 1.7s infinite;
-        }
-        .stButton>button:hover {
-            background: linear-gradient(90deg,#fa709a,#fee140);
-            color: #222;
-            transform: scale(1.04);
-            box-shadow: 0 12px 32px #fa709a55;
-        }
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 #43cea288; }
-          70% { box-shadow: 0 0 0 15px #43cea200; }
-          100% { box-shadow: 0 0 0 0 #43cea200; }
-        }
-        .fab {
-          position: fixed;
-          bottom: 2.6em;
-          right: 2.6em;
-          z-index: 15;
-          background: linear-gradient(90deg,#43cea2,#fa709a);
-          color: white;
-          border-radius: 50%;
-          width: 62px; height: 62px;
-          display: flex;align-items:center;justify-content:center;
-          box-shadow: 0 4px 24px #fa709a77;
-          cursor: pointer;
-          font-size:2em;
-          transition: 0.19s;
-        }
-        .fab:hover {transform:scale(1.1);}
-        .section-divider {margin: 2em 0 1.5em 0;}
-        </style>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <style>
-        html, body, [class*="st-"] {
-            font-family: 'Cairo', 'IBM Plex Sans', sans-serif !important;
-        }
-        body, .stApp {
-            background: linear-gradient(120deg,#fffbe6 0%,#f7f7f7 55%,#43cea2 90%,#fee140 100%);
-            color: #222;
-        }
-        [data-testid="stSidebar"] > div:first-child {
-            background: linear-gradient(135deg,#f7f7f7,#fee140 70%,#43cea2);
-        }
-        .stButton>button {
-            background: linear-gradient(90deg,#fee140,#43cea2);
-            color: #222;
-            border: none;
-            font-size:1.13em;
-            font-weight:bold;
-            padding: 0.7em 2.3em;
-            border-radius: 17px;
-            box-shadow: 0 8px 22px #fee14088;
-            transition: 0.15s;
-            animation: pulse 1.7s infinite;
-        }
-        .stButton>button:hover {
-            background: linear-gradient(90deg,#fa709a,#43cea2);
-            color: #fff;
-            transform: scale(1.04);
-            box-shadow: 0 12px 32px #fa709a55;
-        }
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 #fee14088; }
-          70% { box-shadow: 0 0 0 15px #fee14000; }
-          100% { box-shadow: 0 0 0 0 #fee14000; }
-        }
-        .fab {
-          position: fixed;
-          bottom: 2.6em;
-          right: 2.6em;
-          z-index: 15;
-          background: linear-gradient(90deg,#fee140,#43cea2);
-          color: #222;
-          border-radius: 50%;
-          width: 62px; height: 62px;
-          display: flex;align-items:center;justify-content:center;
-          box-shadow: 0 4px 24px #fee14077;
-          cursor: pointer;
-          font-size:2em;
-          transition: 0.19s;
-        }
-        .fab:hover {transform:scale(1.1);}
-        .section-divider {margin: 2em 0 1.5em 0;}
-        </style>
-        """, unsafe_allow_html=True)
-if "theme" not in st.session_state:
-    st.session_state["theme"] = "dark"
-inject_css(st.session_state["theme"])
-def toggle_theme():
-    st.session_state["theme"] = "light" if st.session_state["theme"] == "dark" else "dark"
-    inject_css(st.session_state["theme"])
+# ---------------------- APP CONFIG ----------------------
+st.set_page_config(
+    page_title="Smart Neural Digital Twin",
+    layout="wide",
+    page_icon="🧠"
+)
 
-def rtl_mirror():
-    if st.session_state["rtl"]:
-        st.markdown("""<style>body, .stApp, [data-testid="stSidebar"], .stButton>button {direction:rtl !important; text-align:right !important;}</style>""", unsafe_allow_html=True)
-    else:
-        st.markdown("""<style>body, .stApp, [data-testid="stSidebar"], .stButton>button {direction:ltr !important; text-align:left !important;}</style>""", unsafe_allow_html=True)
-rtl_mirror()
-
-# --- LOTTIE UTILS ---
-def load_lottieurl(url):
-    try:
-        r = requests.get(url)
-        if r.status_code == 200:
-            return r.json()
-    except:
-        return None
-    return None
-
-# --- ICONS/IMAGES ---
-plant_img = "https://images.pexels.com/photos/236089/pexels-photo-236089.jpeg?auto=compress&w=800&q=80"
-control_img = "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=80"
-sensor_img = "https://images.pexels.com/photos/3850752/pexels-photo-3850752.jpeg?auto=compress&w=800&q=80"
-plant_twin_img = "https://i.ibb.co/4R0vY4Q/plant-twin-demo.png"
-twin_lottie = "https://assets1.lottiefiles.com/packages/lf20_wnqlfojb.json"
-ai_lottie   = "https://assets10.lottiefiles.com/packages/lf20_5ngs2ksb.json"
-plant_lottie = "https://assets3.lottiefiles.com/packages/lf20_5b2dh9jt.json"
-alert_lottie = "https://assets2.lottiefiles.com/packages/lf20_4kx2q32n.json"
-sensor_lottie = "https://lottie.host/efb1a1d3-6a7c-4bfb-bb9e-8e1e4fae5c9e/gas_sensor.json"
-iot_lottie = "https://lottie.host/0b74e5c4-9e2e-4d5b-9e6b-f315e5b6d82e/iot.json"
-robot_lottie = "https://lottie.host/503c7d51-9b64-495a-8e0e-25e80c2e7aaa/robot.json"
-fireworks_lottie = "https://assets7.lottiefiles.com/packages/lf20_8wREpI.json"
-
-# --- ADVANCED PREDICTION ENGINE INTEGRATION ---
-from advanced_prediction_engine import predict_future_values_72h, get_prediction_summary
-
-@st.cache_resource
-def load_prediction_models():
-    return joblib.load("advanced_prediction_models.pkl")
-models = load_prediction_models()
-
-@st.cache_data
-def load_sensor_data():
-    fname = "sensor_data_simulated_long.csv" if os.path.exists("sensor_data_simulated_long.csv") else "sensor_data_simulated.csv"
-    return pd.read_csv(fname, parse_dates=["Timestamp"] if fname.endswith("long.csv") else ["Time"])
-sensor_df = load_sensor_data()
-
-# --- SPLASH SCREEN ---
-if "splash_shown" not in st.session_state:
-    st_lottie(load_lottieurl(plant_lottie), height=240, loop=False)
-    st.markdown(
-        f"<h1 style='font-size:2.1em;color:#43cea2;font-weight:bold;text-align:center;margin-top:2em;'>{_('welcome')}</h1>",
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        f"<div style='text-align:center;font-size:1.2em;color:#185a9d;margin-bottom:2em;'>{_('splash_msg')}</div>",
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        f"<div style='text-align:center;font-size:1.1em;color:#43cea2;'>{_('feature_splash')}</div>",
-        unsafe_allow_html=True
-    )
-    st.session_state["splash_shown"] = True
-    st.stop()
-
-# --- SIDEBAR NAVIGATION ---
+# Sidebar: Logo + Language switcher
 with st.sidebar:
-    st_lottie(load_lottieurl(twin_lottie), height=70, key="icon-lottie", speed=1.1, loop=True)
-    nav = option_menu(
-        None,
-        [
-            _("dashboard"), _("predictive"), _("solutions"), _("scenario"),
-            _("alerts"), _("cost"), _("ai_vs_manual"), _("live_dt"),
-            _("roadmap"), _("about")
-        ],
-        icons=[
-            "speedometer", "activity", "lightbulb", "flag", "bell",
-            "cash", "cpu", "layers", "clock-history", "info-circle"
-        ],
-        menu_icon="cast",
-        default_index=0,
-        orientation="vertical",
-        styles={
-            "container": {"padding": "0!important"},
-            "icon": {"color": "#fa709a", "font-size": "1.5em"},
-            "nav-link-selected": {"background": "linear-gradient(90deg,#43cea2,#fa709a)", "color": "#fff"},
-            "nav-link": {"color": "#fff" if st.session_state["theme"] == "dark" else "#222"}
-        }
+    render_logo()
+    st.markdown("### "+get_label("About"))
+    if "lang" not in st.session_state:
+        st.session_state["lang"] = "en"
+    lang_choice = st.radio(
+        "",
+        (get_label("English"), get_label("Arabic")),
+        index=0 if st.session_state["lang"]=="en" else 1,
+        horizontal=True,
     )
-    # Theme toggle
-    theme_label = "🌑/🌕 Switch Mode" if st.session_state["lang"] == "en" else "الوضع الليلي/النهاري"
-    st.button(theme_label, on_click=toggle_theme)
-    # Language
-    st.selectbox(
-        f"🌐 {_('select_lang')}",
-        options=[("English", "en"), ("العربية", "ar")],
-        index=0 if st.session_state["lang"] == "en" else 1,
-        key="lang_select",
-        on_change=lang_switch,
-        format_func=lambda x: x[0]
-    )
+    st.session_state["lang"] = "en" if lang_choice==translations["en"]["English"] else "ar"
+    st.markdown("---")
+    st.markdown("### "+get_label("Contact Info"))
+    st.markdown(f"""
+- **Rakan Almarri**: rakan.almarri.2@aramco.com (0532559664)  
+- **Abdulrahman Alzahrani**: abdulrahman.alzhrani.2@aramco.com (0549202574)
+""")
 
-# --- FLOATING ACTION BUTTON (Feedback) ---
-st.markdown("""
-<div class="fab" onclick="window.open('mailto:your@email.com?subject=SmartTwin Feedback','_blank')"
- title="Feedback/Help" aria-label="Feedback" tabindex="0" role="button">
-    💬
+# ---------------------- SECTIONS ----------------------
+SECTIONS = [
+    "Digital Twin",
+    "Advanced Dashboard",
+    "Predictive Analytics",
+    "Scenario Playback",
+    "Alerts & Fault Log",
+    "Smart Solutions",
+    "KPI Wall",
+    "Plant Heatmap",
+    "Root Cause Explorer",
+    "AI Copilot Chat",
+    "Live Plant 3D",
+    "Incident Timeline",
+    "Energy Optimization",
+    "Future Insights",
+    "About"
+]
+SECTIONS_AR = [
+    "التوأم الرقمي",
+    "لوحة القيادة المتقدمة",
+    "التحليلات التنبؤية",
+    "تشغيل السيناريو",
+    "التنبيهات وسجل الأعطال",
+    "الحلول الذكية",
+    "جدار المؤشرات",
+    "خريطة حرارة المصنع",
+    "مستكشف السبب الجذري",
+    "محادثة الذكاء الصناعي",
+    "مصنع ثلاثي الأبعاد",
+    "جدول الحوادث",
+    "تحسين الطاقة",
+    "رؤى مستقبلية",
+    "حول النظام"
+]
+
+page_idx = st.sidebar.radio(
+    "",
+    SECTIONS if st.session_state["lang"]=="en" else SECTIONS_AR,
+    index=0
+)
+page = SECTIONS[SECTIONS_AR.index(page_idx)] if st.session_state["lang"]=="ar" else page_idx
+
+# --------- SMART SOLUTIONS SECTION (DEMO 8 CARDS) -------------
+if page == "Smart Solutions":
+    render_logo()
+    st.title(f"🤖 {get_label('Smart Solutions')}")
+    st.caption(rtl("AI-generated actionable solutions for detected problems, optimization, and innovation."))
+    if "show_solutions" not in st.session_state:
+        st.session_state["show_solutions"] = False
+
+    if not st.session_state["show_solutions"]:
+        if st.button(get_label("Generate Solution")):
+            st.session_state["show_solutions"] = True
+        st.info(rtl("Press 'Generate Solution' to view the top smart solutions for your plant."))
+    else:
+        # Demo: 8 generated cards, each a solution
+        solutions = [
+            {
+                "title_en": "Automated Leak Detection & Shutdown",
+                "title_ar": "كشف التسرب الآلي والإيقاف",
+                "details_en": "Integrate advanced methane sensors with auto-shutdown logic to instantly contain leaks.",
+                "details_ar": "ربط حساسات الميثان مع منطق إيقاف فوري لاحتواء التسرب بشكل آلي.",
+                "priority": "High",
+                "effectiveness": "High",
+                "time": "2 days",
+                "cost": "$3,000",
+                "savings": "$20,000/year"
+            },
+            {
+                "title_en": "Energy Usage Optimization",
+                "title_ar": "تحسين استهلاك الطاقة",
+                "details_en": "Deploy AI-driven analytics to reduce compressor overuse and cut energy bills.",
+                "details_ar": "استخدم التحليلات الذكية لتقليل تشغيل الضواغط وخفض استهلاك الطاقة.",
+                "priority": "Medium",
+                "effectiveness": "High",
+                "time": "1 week",
+                "cost": "$7,000",
+                "savings": "$32,000/year"
+            },
+            {
+                "title_en": "Predictive Maintenance for Pumps",
+                "title_ar": "صيانة استباقية للمضخات",
+                "details_en": "Monitor vibration and temperature for early pump failure prediction.",
+                "details_ar": "راقب الاهتزاز والحرارة للتنبؤ بأعطال المضخات مبكراً.",
+                "priority": "High",
+                "effectiveness": "Medium",
+                "time": "4 days",
+                "cost": "$6,000",
+                "savings": "$16,000/year"
+            },
+            {
+                "title_en": "Digital Twin Operator Training",
+                "title_ar": "تدريب المشغلين باستخدام التوأم الرقمي",
+                "details_en": "Use the twin for scenario-based operator drills to improve safety culture.",
+                "details_ar": "استخدم التوأم الرقمي لسيناريوهات تدريبية لتعزيز السلامة.",
+                "priority": "Medium",
+                "effectiveness": "Medium",
+                "time": "2 weeks",
+                "cost": "$12,000",
+                "savings": "$8,000/year"
+            },
+            {
+                "title_en": "H₂S Real-time Monitoring",
+                "title_ar": "مراقبة H₂S اللحظية",
+                "details_en": "Deploy real-time H₂S alarms in high-risk areas.",
+                "details_ar": "ركب حساسات إنذار كبريتيد الهيدروجين في المناطق الحرجة.",
+                "priority": "High",
+                "effectiveness": "High",
+                "time": "3 days",
+                "cost": "$2,500",
+                "savings": "Lives, incident cost"
+            },
+            {
+                "title_en": "Water Consumption Analytics",
+                "title_ar": "تحليل استهلاك المياه",
+                "details_en": "AI identifies abnormal water usage and suggests process adjustments.",
+                "details_ar": "الذكاء الاصطناعي يحدد استهلاك المياه غير الطبيعي ويقترح الحلول.",
+                "priority": "Low",
+                "effectiveness": "Medium",
+                "time": "1 week",
+                "cost": "$1,500",
+                "savings": "$5,000/year"
+            },
+            {
+                "title_en": "Asset Tracking Dashboard",
+                "title_ar": "لوحة تتبع الأصول",
+                "details_en": "Track all assets and maintenance state in one live dashboard.",
+                "details_ar": "تتبع حالة الأصول والصيانة في لوحة واحدة حية.",
+                "priority": "Medium",
+                "effectiveness": "High",
+                "time": "5 days",
+                "cost": "$4,000",
+                "savings": "$10,000/year"
+            },
+            {
+                "title_en": "Remote Expert Collaboration",
+                "title_ar": "التعاون مع الخبراء عن بعد",
+                "details_en": "Enable video/AR remote support for field incidents.",
+                "details_ar": "دعم عن بعد بالفيديو/الواقع المعزز للحوادث الميدانية.",
+                "priority": "High",
+                "effectiveness": "High",
+                "time": "3 days",
+                "cost": "$3,500",
+                "savings": "$12,000/year"
+            }
+        ]
+        lang = st.session_state["lang"]
+        for i, sol in enumerate(solutions):
+            c = ["#e3f6fc", "#e2ffe3", "#fffadd", "#ffe3e3"][i%4]
+            st.markdown(
+                f"""
+<div style="background:{c};border-radius:16px;padding:1.6em 1.5em;box-shadow:0 4px 18px #ccc2; margin-bottom:1.2em;">
+  <div style="font-size:1.7em;font-weight:900;color:#0077B6;margin-bottom:0.2em;">{sol['title_en'] if lang=="en" else sol['title_ar']}</div>
+  <div style="font-size:1.13em;margin-bottom:1em;">{sol['details_en'] if lang=="en" else sol['details_ar']}</div>
+  <div style="display:flex;gap:0.9em;flex-wrap:wrap;margin-bottom:0.7em;">
+    <span style="background:#fff;padding:0.35em 0.9em;border-radius:7px;font-weight:700;">{get_label('Priority')}: {get_label(sol['priority'])}</span>
+    <span style="background:#fff;padding:0.35em 0.9em;border-radius:7px;font-weight:700;">{get_label('Effectiveness')}: {get_label(sol['effectiveness'])}</span>
+    <span style="background:#fff;padding:0.35em 0.9em;border-radius:7px;font-weight:700;">{get_label('Estimated Time')}: {sol['time']}</span>
+    <span style="background:#fff;padding:0.35em 0.9em;border-radius:7px;font-weight:700;">{get_label('Cost')}: {sol['cost']}</span>
+    <span style="background:#fff;padding:0.35em 0.9em;border-radius:7px;font-weight:700;">{get_label('Savings')}: {sol['savings']}</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- TITLE ---
-st.markdown(f"<h1 style='font-weight:bold;color:#43cea2;text-shadow:0 2px 16px #185a9d44;'>{_('app_title')}</h1>", unsafe_allow_html=True)
-
-# --- DASHBOARD PAGE ---
-if nav == _("dashboard"):
-    col1, col2 = st.columns([2,3])
-    with col1:
-        st.subheader(_("plant_status"))
-        st_lottie(load_lottieurl(plant_lottie), height=120, key="plant-lottie", loop=True)
-        st.image(plant_img, use_container_width=True, caption="Industrial Plant")
-        latest = sensor_df.iloc[-1]
-        st.markdown(f"""
-        <div style="margin-top:1.2em;font-size:1.07em;">
-            <b>{_('sensor')} 1:</b> <span style="color:#43cea2">{latest['Temperature (°C)']:.1f} °C</span><br>
-            <b>{_('sensor')} 2:</b> <span style="color:#fa709a">{latest['Pressure (psi)']:.1f} psi</span><br>
-            <b>{_('sensor')} 3:</b> <span style="color:#fee140">{latest['Methane (CH₄ ppm)']:.2f} ppm</span>
-        </div>""", unsafe_allow_html=True)
-    with col2:
-        st_lottie(load_lottieurl(ai_lottie), height=120, key="ai-lottie", loop=True)
-        st_lottie(load_lottieurl(sensor_lottie), height=120, key="sensor-lottie", loop=True)
-        st.info(_("about_text"))
-    # Animated KPI Numbers
-    st.markdown('<div class="dashboard-chart-container">', unsafe_allow_html=True)
-    colk1, colk2, colk3 = st.columns(3)
-    with colk1:
-        st.markdown("**AI Savings**")
-        st_animated_number(13500, format="$,.0f", animation_speed=2)
-    with colk2:
-        st.markdown("**Downtime Reduction**")
-        st_animated_number(0.71, format=".2%", animation_speed=2)
-    with colk3:
-        st.markdown("**Predicted Loss (Manual)**")
-        st_animated_number(22100, format="$,.0f", animation_speed=2)
-    # Chart
-    st.markdown("<b>Sensor 1 readings (last 24h):</b>", unsafe_allow_html=True)
-    last_24h = sensor_df.tail(24)
-    fig = px.line(last_24h, x=last_24h.columns[0], y="Temperature (°C)", title="Sensor 1 Temperature (Animated)", markers=True)
-    fig.update_layout(
-        transition=dict(duration=500),
-        showlegend=False,
-        margin=dict(l=30, r=30, t=40, b=30),
-        height=320,
-        xaxis_title="Time",
-        yaxis_title="Temperature (°C)",
-        font=dict(size=15)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
-
-# --- PREDICTIVE ANALYTICS PAGE ---
-if nav == _("predictive"):
-    st.subheader(_("predictive"))
-    st_lottie(load_lottieurl(iot_lottie), height=140, key="iot-lottie", loop=True)
-    st.image(sensor_img, use_container_width=True, caption="Gas Sensor Monitoring")
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_secures')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
-    st.markdown("""
-    <div style="font-size:1.08em;">
-    <ul>
-        <li>📈 Real-time anomaly detection on all sensors</li>
-        <li>🔮 Early warning on predicted faults (e.g., days/hours before they occur)</li>
-        <li>🌡️ Trend analysis for critical process parameters</li>
-        <li>🧠 AI confidence heatmap for every prediction</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Show last 72 hours
-    st.markdown("#### Sensor Health Status (Last 72h Forecast)")
-    with st.spinner(_("ai_processing")):
-        predictions = predict_future_values_72h(models, 72)
-        pred_temp = predictions['Temperature (°C)']
-        pred_times = [p['time'] for p in pred_temp]
-        pred_vals = [p['value'] for p in pred_temp]
-        time.sleep(0.7)
-    fig_pred = px.line(x=pred_times, y=pred_vals, title="Predicted Temperature (°C) - Next 72h")
-    fig_pred.update_traces(line=dict(color="#fa709a", width=4))
-    fig_pred.update_layout(xaxis_title="Time", yaxis_title="Temperature (°C)")
-    st.plotly_chart(fig_pred, use_container_width=True)
-
-    # ML confidence
-    summary = get_prediction_summary(predictions)
-    conf = np.mean([p['confidence'] for p in pred_temp])
-    st.progress(conf, text=f"AI Confidence: {int(conf*100)}%")
-
-    # What-if Simulator
-    st.markdown("---")
-    st.subheader(_("whatif"))
-    val = st.slider(_("drag_label"), min_value=0, max_value=100, value=30, step=5, key="simu_slider")
-    ai_risk = min(val/100, 1.0)
-    manual_risk = min((val+35)/100, 1.0)
-    st.progress(ai_risk, text="AI Risk Level")
-    st.progress(manual_risk, text="Manual Risk Level")
-    st.markdown(f"<b>{_('cost_savings')}:</b> <span style='color:#43cea2;font-weight:bold;'>${(manual_risk-ai_risk)*8000:,.0f}</span>", unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
-
-# --- SMART SOLUTIONS (Colored Cards) ---
-if nav == _("solutions"):
-    st.markdown(f"<h2>{_('solutions')}</h2>", unsafe_allow_html=True)
-    st_lottie(load_lottieurl(robot_lottie), height=120, key="robot-lottie", loop=True)
-    st.image(control_img, use_container_width=True, caption="Industrial Control Room")
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
-    summary = get_prediction_summary(predict_future_values_72h(models, 24))
-    solutions_data = []
-    for sensor, stat in summary.items():
-        eff = int(100 - stat["24h"]["volatility"])
-        priority = _("priority_high") if stat["24h"]["trend"] == "increasing" else _("priority_med")
-        icon = "🛡️" if priority == _("priority_high") else "💡"
-        solutions_data.append({
-            "icon": icon,
-            "title": f"Optimize {sensor}",
-            "desc": f"AI recommends action as {sensor} is showing a {stat['24h']['trend']} trend.",
-            "eff": eff,
-            "priority": priority,
-            "time": "Immediate" if priority == _("priority_high") else "Within 2h"
-        })
-    if st.button(_( "generate" )):
-        st.session_state["solutions"] = solutions_data
-        st.success(_("ai_think"))
-        time.sleep(1)
-    if "solutions" not in st.session_state or not st.session_state["solutions"]:
-        st.info(_( "no_solutions" ))
-    else:
-        for i, s in enumerate(st.session_state["solutions"]):
-            eff_color = "#43cea2" if s["priority"] == _("priority_high") else "#fa709a"
-            st.markdown(f"""
-            <div style="border-radius:17px;background:linear-gradient(90deg,#232526,#43cea2 65%,#fee140 100%);box-shadow:0 4px 24px #43cea288;margin:1em 0;padding:1.5em 2em;color:white;">
-                <span style="font-size:2em;margin-right:0.4em;">{s['icon']}</span>
-                <span style="font-size:1.07em;font-weight:bold;">{s['title']}</span>
-                <div style="margin:0.6em 0 0.5em 0;">{s['desc']}</div>
-                <div>{_('solution_eff')}: <b style="color:{eff_color};">{s['eff']}%</b></div>
-                <div>{_('solution_priority')}: <b>{s['priority']}</b></div>
-                <div>{_('solution_time')}: <b>{s['time']}</b></div>
+# --------- OTHER PEAK VISUAL/INNOVATIVE SECTIONS -------------
+if page == "KPI Wall":
+    render_logo()
+    st.title("📈 " + get_label("KPI Wall"))
+    st.caption(rtl("Live KPIs, health indexes, and dynamic plant performance."))
+    cols = st.columns(4)
+    for i, (name, val, goal, color) in enumerate([
+        ("Overall Efficiency", 96, 98, "#43cea2"),
+        ("Energy Use (kWh)", 272, 250, "#fee140"),
+        ("Water Saved (m³)", 62, 70, "#43cea2"),
+        ("Incidents This Year", 1, 0, "#fa709a"),
+    ]):
+        delta = val-goal if i!=3 else goal-val
+        icon = "✅" if (i==0 and val >= goal) or (i==2 and val >= goal) else "⚠️" if i!=3 else "🛑"
+        st.markdown(
+            f"""<div style="background:{color}22;border-radius:12px;padding:1.2em;text-align:center;font-size:1.3em;margin-bottom:.5em;">
+            <b>{get_label(name) if name in translations['en'] else name}</b><br>
+            <span style="font-size:2.3em;font-weight:900">{icon} {val}</span>
+            <div style="color:gray;font-size:.9em;">Goal: {goal}</div>
             </div>
             """, unsafe_allow_html=True)
-        # Pie chart: Solution priorities
-        st.markdown("<b>Solution Priority Distribution:</b>", unsafe_allow_html=True)
-        priorities = [s["priority"] for s in st.session_state["solutions"]]
-        labels = [_("priority_high"), _("priority_med"), _("priority_low")]
-        counts = [priorities.count(lab) for lab in labels]
-        figpie = go.Figure(data=[go.Pie(labels=labels, values=counts, hole=0.4)])
-        figpie.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140"]))
-        figpie.update_layout(showlegend=True)
-        st.plotly_chart(figpie, use_container_width=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+    st.markdown(rtl("Track all major KPIs at a glance. Customize this wall for your operation."))
 
-# --- INTERACTIVE DIGITAL TWIN LIVE ---
-if nav == _("live_dt"):
-    st.markdown(f"<h2>{_('live_dt')}</h2>", unsafe_allow_html=True)
-    st_lottie(load_lottieurl(twin_lottie), height=180, key="livedt-lottie", loop=True)
-    st.image(plant_twin_img, use_container_width=True, caption="Live Plant Digital Twin")
-    # Overlay sensor values from latest row
-    latest = sensor_df.iloc[-1]
-    st.markdown(f"""
-    <div style="font-size:1.03em;">
-    <b>Plant Diagram (AI Overlay):</b>
-    <br>
-    <img src="{plant_twin_img}" style="width:80%;border-radius:14px;box-shadow:0 2px 12px #43cea277;"/>
-    <br>
-    <b>Sensors (Live):</b>
-    <ul>
-        <li>🌡️ Temp: <b style='color:#43cea2'>{latest['Temperature (°C)']:.1f} °C</b></li>
-        <li>🧪 Gas: <b style='color:#fa709a'>{latest['Methane (CH₄ ppm)']:.2f} ppm</b></li>
-        <li>💧 Pressure: <b style='color:#fee140'>{latest['Pressure (psi)']:.1f} psi</b></li>
-        <li>🔋 Power: <b style='color:#43cea2'>Stable</b></li>
-    </ul>
-    <b>Fault Propagation:</b> <span style="color:#fa709a;font-weight:bold;">None</span>
-    </div>
-    """, unsafe_allow_html=True)
-    # Animated surface plot (fake heatmap for demo)
-    x, y = np.meshgrid(np.linspace(0, 10, 12), np.linspace(0, 10, 12))
-    z = np.sin(x) * np.cos(y) * 10 + latest['Temperature (°C)']
-    fig3d = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale='Viridis')])
-    fig3d.update_layout(title="Plant Temperature Surface", autosize=True, margin=dict(l=20, r=20, b=20, t=30))
-    st.plotly_chart(fig3d, use_container_width=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_secures')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Plant Heatmap":
+    render_logo()
+    st.title("🌡️ " + get_label("Plant Heatmap"))
+    st.caption(rtl("Visualize real-time temperature/pressure distribution across the plant."))
+    # Demo heatmap
+    x = np.linspace(0, 10, 12)
+    y = np.linspace(0, 8, 12)
+    z = np.random.uniform(28, 55, (12, 12))
+    fig = go.Figure(data=go.Heatmap(z=z, x=x, y=y, colorscale='YlGnBu'))
+    fig.update_layout(height=420, margin=dict(l=12, r=12, t=20, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(rtl("High temperature/pressure zones are highlighted for quick action."))
 
-# --- AI VS MANUAL (Animated Radar) ---
-if nav == _("ai_vs_manual"):
-    st.subheader(_("ai_vs_manual"))
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(f"<b>{_('ai_reaction')}</b>", unsafe_allow_html=True)
-        st_lottie(load_lottieurl(ai_lottie), height=90, key="ai-vs-lottie", loop=True)
-        st.success("AI detects & responds in 1.2s")
-    with col2:
-        st.markdown(f"<b>{_('manual_reaction')}</b>", unsafe_allow_html=True)
-        st_lottie(load_lottieurl(robot_lottie), height=90, key="manual-vs-lottie", loop=True)
-        st.error("Manual detection: 18 min average")
-    # Animated radar
-    metrics = ["Speed", "Accuracy", "Cost", "Downtime", "Safety"] if st.session_state["lang"] == "en" else ["السرعة", "الدقة", "التكلفة", "التوقف", "السلامة"]
-    ai_vals = [95, 92, 90, 85, 98]
-    man_vals = [60, 70, 70, 60, 75]
-    radar_df = pd.DataFrame({
-        "Metric": metrics*2,
-        "Value": ai_vals + man_vals,
-        "Type": (["AI"]*5)+(["Manual"]*5)
-    })
-    fig_radar = px.line_polar(radar_df, r="Value", theta="Metric", color="Type", line_close=True, template="plotly_dark" if st.session_state["theme"]=="dark" else "plotly_white",
-                              color_discrete_map={"AI": "#43cea2", "Manual": "#fa709a"})
-    fig_radar.update_traces(fill='toself')
-    st.plotly_chart(fig_radar, use_container_width=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Root Cause Explorer":
+    render_logo()
+    st.title("🔎 " + get_label("Root Cause Explorer"))
+    st.caption(rtl("Trace faults to their origin with interactive cause-effect mapping."))
+    st.info(rtl("Click nodes to expand and understand the propagation of issues (demo coming soon)."))
 
-# --- SCENARIO (Timeline Animation) ---
-if nav == _("scenario"):
-    st.subheader(_( "scenario_title" ))
-    st.markdown(f"<div style='font-size:1.08em;color:#185a9d;font-weight:bold;'>{_('scenario_intro')}</div>", unsafe_allow_html=True)
-    st_lottie(load_lottieurl(alert_lottie), height=130, key="scenario-lottie", loop=True)
-    st.image(sensor_img, use_container_width=True, caption="Gas Sensor Scenario")
-    if "scenario_state" not in st.session_state:
-        st.session_state["scenario_state"] = 0
-    def reset_scenario():
-        st.session_state["scenario_state"] = 0
-    # Timeline progress
-    progress = [0.0, 0.33, 0.66, 1.0]
-    st.progress(progress[st.session_state["scenario_state"]], text=f"Step {st.session_state['scenario_state']+1}/4")
-    # Scenario logic
-    if st.session_state["scenario_state"] == 0:
-        st.markdown(f"<div class='scenario-box'>{_('scenario_detected')}</div>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("📢 " + (_("apply") if st.session_state["lang"] == "en" else "أبلغ الذكاء الاصطناعي")):
-                st.session_state["scenario_state"] = 1
-        with col2:
-            if st.button("⏳ " + ("Wait" if st.session_state["lang"] == "en" else "انتظر")):
-                st.session_state["scenario_state"] = 2
-        with col3:
-            if st.button("🔍 " + ("Manual check" if st.session_state["lang"] == "en" else "فحص يدوي")):
-                st.session_state["scenario_state"] = 3
-    elif st.session_state["scenario_state"] == 1:
-        st.success(_( "scenario_report_ai" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#43cea2;font-weight:bold;'>$700</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#43cea2;font-weight:bold;'>{_('scenario_fast')}</span>", unsafe_allow_html=True)
-        st_lottie(load_lottieurl(fireworks_lottie), height=100, key="scenario-fireworks", loop=False)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-    elif st.session_state["scenario_state"] == 2:
-        st.error(_( "scenario_wait" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fa709a;font-weight:bold;'>$18,000</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fa709a;font-weight:bold;'>{_('scenario_slow')}</span>", unsafe_allow_html=True)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-    elif st.session_state["scenario_state"] == 3:
-        st.warning(_( "scenario_check" ))
-        st.markdown(f"<b>{_('scenario_stats')}</b> <span style='color:#fee140;font-weight:bold;'>$8,000</span>", unsafe_allow_html=True)
-        st.markdown(f"<b>{_('scenario_safety')}</b> <span style='color:#fee140;font-weight:bold;'>{_('scenario_mod')}</span>", unsafe_allow_html=True)
-        if st.button(_( "scenario_restart" )):
-            reset_scenario()
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "AI Copilot Chat":
+    render_logo()
+    st.title("🤝 " + get_label("AI Copilot Chat"))
+    st.caption(rtl("Chat with your AI assistant for instant plant troubleshooting and learning."))
+    st.info(rtl("Type a question about your plant, process, or code. (Full chatbot integration can be added.)"))
 
-# --- ALERTS (Pie, Lottie) ---
-if nav == _("alerts"):
-    st.subheader(_("alerts"))
-    st_lottie(load_lottieurl(alert_lottie), height=120, key="alert-lottie", loop=True)
-    st.image(sensor_img, use_container_width=True, caption="Live Alerts")
-    # Example: if methane forecast is risky
-    predictions = predict_future_values_72h(models, 24)
-    summary = get_prediction_summary(predictions)
-    methane_max_24h = summary["Methane (CH₄ ppm)"]["24h"]["max"]
-    if methane_max_24h > 4.0:
-        st.error("⚠️ Predicted methane spike in next 24h! Immediate action suggested.")
-    else:
-        st.success("Methane levels predicted to remain safe in next 24h.")
-    labels = ["Sensor Fault", "Leak", "Power", "Other"] if st.session_state["lang"] == "en" else ["خلل مستشعر", "تسرب", "كهرباء", "أخرى"]
-    values = [2, 1, 0, 1]
-    fig_alert = go.Figure(data=[go.Pie(labels=labels, values=values, hole=0.5)])
-    fig_alert.update_traces(marker=dict(colors=["#fa709a", "#fee140", "#43cea2", "#185a9d"]))
-    fig_alert.update_layout(showlegend=True)
-    st.plotly_chart(fig_alert, use_container_width=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_powered')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Live Plant 3D":
+    render_logo()
+    st.title("🪄 " + get_label("Live Plant 3D"))
+    st.caption(rtl("A 3D schematic of your plant. (For demo, view the enhanced 2D schematic in Digital Twin.)"))
+    st.info(rtl("Upgrade to true 3D when deploying with specialized visualization tools."))
 
-# --- COST & SAVINGS (Animated) ---
-if nav == _("cost"):
-    st.subheader(_("cost"))
-    st.image(plant_img, use_container_width=True, caption="Cost Analysis")
-    colk1, colk2, colk3 = st.columns(3)
-    with colk1:
-        st.markdown("**AI Savings This Month**")
-        st_animated_number(13500, format="$,.0f", animation_speed=2)
-    with colk2:
-        st.markdown("**Predicted Loss (Manual)**")
-        st_animated_number(22100, format="$,.0f", animation_speed=2)
-    with colk3:
-        st.markdown("**Downtime Reduction**")
-        st_animated_number(0.71, format=".2%", animation_speed=2)
-    st.progress(0.71, text="Downtime Reduced")
-    cost_labels = ["Maintenance", "Downtime", "Energy", "Other"] if st.session_state["lang"] == "en" else ["صيانة", "توقف", "طاقة", "أخرى"]
-    cost_vals = [5000, 6000, 3000, 1500]
-    fig_cost = go.Figure(data=[go.Pie(labels=cost_labels, values=cost_vals, hole=0.5)])
-    fig_cost.update_traces(marker=dict(colors=["#43cea2", "#fa709a", "#fee140", "#185a9d"]))
-    fig_cost.update_layout(showlegend=True)
-    st.plotly_chart(fig_cost, use_container_width=True)
-    # Cost trend (random for now, can be replaced with real values)
-    months = pd.date_range(end=pd.Timestamp.now(), periods=12, freq="M")
-    ai_cost = np.random.randint(8000, 12000, size=12)
-    man_cost = ai_cost + np.random.randint(3000, 8000, size=12)
-    df_cost = pd.DataFrame({
-        "Month": months,
-        "AI": ai_cost,
-        "Manual": man_cost
-    })
-    fig_costline = px.line(df_cost, x="Month", y=["AI", "Manual"], title="Monthly Cost Comparison", markers=True)
-    fig_costline.update_layout(transition=dict(duration=500))
-    st.plotly_chart(fig_costline, use_container_width=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('ai_saves')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Incident Timeline":
+    render_logo()
+    st.title("🕒 " + get_label("Incident Timeline"))
+    st.caption(rtl("Review all major incidents and actions chronologically."))
+    st.markdown(rtl("No major incidents in the last 30 days. (Simulate more in Scenario Playback.)"))
 
-# --- ROADMAP & ABOUT (Timeline Animation) ---
-if nav == _("roadmap"):
-    st.subheader(_("milestones"))
-    st.info(_( "roadmap_text" ))
-    st.markdown("""
-    <div class="timeline">
-        <div class="timeline-event"><b>2025 Q1:</b> Platform launch 🚀</div>
-        <div class="timeline-event"><b>2025 Q2:</b> Real-time AI alerts, scenario engine, and live dashboard</div>
-        <div class="timeline-event"><b>2025 Q3:</b> External API integration, new ML models, custom analytics</div>
-        <div class="timeline-event"><b>2025 Q4:</b> Full industrial deployment, mobile app, multi-language</div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('feature_splash')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Energy Optimization":
+    render_logo()
+    st.title("⚡ " + get_label("Energy Optimization"))
+    st.caption(rtl("Monitor and optimize plant energy usage for sustainability and cost savings."))
+    st.markdown(rtl("AI recommends reducing compressor runtime during off-peak hours for immediate savings."))
 
-if nav == _("about"):
-    st.subheader(_("story_title"))
-    animated_text(_("story"), speed=18)
-    st.markdown(f"## { _('features_title') }")
-    st.markdown(
-        "\n".join([f"- {f}" for f in translations[st.session_state['lang']].get('features',[])])
-    )
-    st.markdown("---")
-    st.subheader(_("team_title"))
-    for member in translations[st.session_state["lang"]]["team"]:
-        st.markdown(
-            f"""
-            <div class="team-card">
-                <b>{member['name']}</b> — {member['role']}<br>
-                <span style="font-size:.9em;color:#eee;">{member['email']}</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    st.markdown(f"<b>{_('contact')}:</b> {translations[st.session_state['lang']]['team'][0]['email']}")
-    st.markdown(f"<div style='font-size:1.1em;color:#43cea2;font-weight:bold;'>{_('feature_splash')}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-divider'>{_('section_divider')}</div>", unsafe_allow_html=True)
+if page == "Future Insights":
+    render_logo()
+    st.title("🔮 " + get_label("Future Insights"))
+    st.caption(rtl("Predict emerging risks, improvement opportunities, and innovation pathways."))
+    st.markdown(rtl("Upgrade to AI-powered forecasting for proactive plant management."))
 
-# Accessibility/ARIA
-st.markdown("""
-<script>
-document.querySelectorAll('.fab')[0]?.setAttribute('tabindex', 0);
-document.querySelectorAll('.fab')[0]?.setAttribute('role', 'button');
-document.querySelectorAll('.fab')[0]?.setAttribute('aria-label', 'Feedback');
-</script>
-""", unsafe_allow_html=True)
+# --------- ABOUT PAGE -------------
+if page == "About":
+    render_logo()
+    st.title("ℹ️ " + get_label("About"))
+    st.markdown(rtl(f"""
+### {get_label("Mission Statement")}
+This digital twin demonstrates how advanced monitoring, predictive analytics, and real-time process intelligence can improve safety, efficiency, and sustainability in industrial operations.
+
+---
+### {get_label("Features")}
+- 🌐 Digital Twin: Interactive plant schematic, overlays, and live simulation.
+- 📊 Advanced Dashboard: KPIs, health widgets, and live sensor trends.
+- 🤖 Smart Solutions: AI-generated solutions and code for plant challenges.
+- 🧠 AI Copilot: Chat, guidance, and knowledge for your team.
+- 🔥 Plant Heatmap: Visualize hotspots and pressure zones.
+- 🔎 Root Cause Explorer: Drilldown issue tracing.
+- 🏭 Live Plant 3D: Future-ready visual immersion.
+- ⚡ Energy Optimization: Save cost and emissions.
+- 🕒 Incident Timeline: All incidents at a glance.
+- 🔮 Future Insights: Stay ahead with prediction.
+
+---
+### {get_label("How to extend")}
+- Plug in real plant schematic and sensor data sources.
+- Integrate with historian/data lake for live operation.
+- Expand scenario logic, add dashboards, connect to control logic.
+- Contact the developer for enhancements.
+
+---
+### {get_label("Developer")}
+- **{get_label("Name")}:** Rakan Almarri (0532559664)  
+  **Email:** rakan.almarri.2@aramco.com
+- **{get_label("Name")}:** Abdulrahman Alzahrani (0549202574)  
+  **Email:** abdulrahman.alzhrani.2@aramco.com
+---
+*{get_label('Demo use only: Not for live plant operation')}*
+    """))
