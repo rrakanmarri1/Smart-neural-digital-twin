@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import time
 import threading
 import paho.mqtt.client as mqtt
-import os  # For environment variables
+import os
 
 # ----- LOGO SVG -----
 logo_svg = """
@@ -430,7 +430,11 @@ demo_df = pd.DataFrame({
 if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
     show_logo()
     st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][0]}</div>""", unsafe_allow_html=True)
-    st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
+    # Use a placeholder image if realtime_streaming.png is missing
+    try:
+        st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
+    except Exception:
+        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption="Demo Image")
     st.markdown(rtl_wrap("Live Temperature (MQTT, topic: digitaltwin/test/temperature)" if lang=="en" else "قراءة درجة الحرارة الحية (MQTT)"))
     temp = st.session_state["mqtt_temp"]
     if temp is not None:
