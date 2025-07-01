@@ -8,7 +8,9 @@ streamlit-folium
 streamlit-autorefresh
 scikit-learn
 joblib
-openpyxl
 streamlit-extras
 streamlit-lottie
 streamlit-option-menu
+openai
+twilio
+paho-mqtt
