@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import time
 import threading
 import paho.mqtt.client as mqtt
+import os  # For environment variables
 
 # ----- LOGO SVG -----
 logo_svg = """
@@ -30,19 +31,19 @@ logo_svg = """
 </svg>
 """
 
-# ----- MQTT CONFIG -----
+# MQTT Config
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
 MQTT_TOPIC = "digitaltwin/test/temperature"
 
-# ----- OPENAI & TWILIO CONFIG -----
-OPENAI_API_KEY = "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"
-TWILIO_SID = "AC7c2e48bb172cd9bb284b08b081ec0b3c"
-TWILIO_AUTH = "1e9d484de32a200da6a2afedf71a22d3"
-TWILIO_FROM = "+18563676703"
-TWILIO_TO = "+966532559664"  # Example supervisor number
+# Secure config via environment
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+TWILIO_SID = os.environ.get("TWILIO_SID")
+TWILIO_AUTH = os.environ.get("TWILIO_AUTH")
+TWILIO_FROM = os.environ.get("TWILIO_FROM")
+TWILIO_TO = os.environ.get("TWILIO_TO")
 
-# ----- STATE -----
+# App state initialization
 for key, default in [
     ("lang", "en"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "dark"),
     ("mqtt_temp", None), ("mqtt_last", None), ("mqtt_started", False), ("sms_sent", False),
@@ -51,7 +52,7 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
-# ----- MQTT BACKGROUND THREAD -----
+# MQTT background thread
 def on_connect(client, userdata, flags, rc):
     client.subscribe(MQTT_TOPIC)
 def on_message(client, userdata, msg):
@@ -75,7 +76,7 @@ if not st.session_state["mqtt_started"]:
     t.start()
     st.session_state["mqtt_started"] = True
 
-# ----- OPENAI SETUP (LLM) -----
+# OpenAI setup
 openai.api_key = OPENAI_API_KEY
 def ask_llm(prompt, lang):
     system = "You are an expert AI assistant for an industrial digital twin platform." if lang=="en" else "أنت مساعد ذكاء صناعي خبير في منصة التوأم الرقمي الصناعي."
@@ -93,7 +94,7 @@ def ask_llm(prompt, lang):
     except Exception as e:
         return "LLM Error: "+str(e)
 
-# ----- TWILIO SMS -----
+# Twilio SMS
 def send_sms(to, message):
     try:
         client = Client(TWILIO_SID, TWILIO_AUTH)
@@ -106,17 +107,15 @@ def send_sms(to, message):
     except Exception as e:
         return False, str(e)
 
-# ----- HELPER -----
+# Helper functions
 def to_arabic_numerals(num):
     return str(num).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))
-
 def rtl_wrap(txt):
     return f'<div class="rtl">{txt}</div>' if st.session_state["lang"] == "ar" else f'<div class="ltr">{txt}</div>'
-
 def show_logo():
     st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
 
-# ----- TRANSLATIONS -----
+# Translations dictionary (FULL)
 texts = {
     "en": {
         "app_title": "Smart Neural Digital Twin",
@@ -133,7 +132,7 @@ texts = {
         "about_header": "Our Story",
         "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?
 We tried every solution, even innovated with drones, and it worked. But we stopped and asked: Why wait for the problem at all?
-Our dream was to build a smart device that predicts danger before it happens. It wasn’t impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI with plant data in a single platform that monitors, learns, and prevents disasters before they start.
+Our dream was to build a smart device that predicts danger before it happens. It wasn’t impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI and plant data.
 Today, our platform is the first line of defense, standing apart from any traditional system because it predicts problems hours before they happen. Even days!
 This is the future of industrial safety… and this is our project.""",
         "about_colorful": [
@@ -197,20 +196,16 @@ This is the future of industrial safety… and this is our project.""",
         "side_sections": [
             "التوأم الرقمي", "لوحة القيادة المتقدمة", "التحليلات التنبؤية", "تشغيل السيناريو",
             "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري",
-            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول النظام"
+            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول"
         ],
         "lang_en": "الإنجليزية",
         "lang_ar": "العربية",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": """بدأنا رحلتنا من سؤال بسيط كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة ؟ جربنا كل الحلول، وابتكرنا حتى استخدمنا الدرون بنجاح.
-
-لكن وقفنا وسألنا ليه ننتظر أصلاً؟ حلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه كان شيء صعب، لكنه مو مستحيل. إحنا أخذنا الصعب وخليناه سهل باضافة التوأم الرقمي العصبي مربوطا بالذكاء الاصطناعي مع بيانات المصنع في منصة واحدة تراقب تتعلم، وتمنع الكوارث قبل أن تبدأ.
-
-اليوم، منصتنا هي خط الدفاع الأول، وتفرق عن أي
-نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها. ممكن توصل لأيام !
-
+        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار ونجحنا. لكن وقفنا وسألنا: لماذا ننتظر المشكلة أصلاً؟
+حلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه. لم يكن مستحيلاً، لكنه كان صعبًا. جعلنا الصعب سهلاً مع التوأم الرقمي العصبي الذكي الذي يربط الذكاء الاصطناعي ببيانات المصنع.
+اليوم، منصتنا هي خط الدفاع الأول، وتختلف عن أي نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها، وأحيانًا بأيام!
 هذا هو مستقبل الأمان الصناعي... وهذا هو مشروعنا.""",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
@@ -240,8 +235,8 @@ This is the future of industrial safety… and this is our project.""",
         "contact": "معلومات التواصل",
         "demo_note": "للعرض فقط: غير مخصص للتشغيل الفعلي",
         "live3d_header": "مصنع ثلاثي الأبعاد مباشر",
-        "live3d_intro": "تفاعل مع النموذج ثلاثي الأبعاد أدناه. استخدم الماوس لتحريك وتكبير المصنع!",
-        "live3d_404": "تعذر تحميل النموذج، شاهد صورة المصنع ثلاثي الأبعاد بالأسفل.",
+        "live3d_intro": "تفاعل مع النموذج الثلاثي الأبعاد أدناه. استخدم الماوس للتحريك والتكبير.",
+        "live3d_404": "تعذر تحميل النموذج، شاهد صورة المصنع الثلاثي الأبعاد بالأسفل.",
         "static_3d_caption": "مشهد ثلاثي الأبعاد لمصنع صناعي",
         "solutions": [
             {
@@ -285,7 +280,6 @@ else:
     </style>
     """,unsafe_allow_html=True)
 
-# Add all your CSS block here (same as before, for cards, RTL, etc.)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap');
@@ -405,7 +399,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----- SIDEBAR -----
+# Sidebar
 with st.sidebar:
     st.markdown(
         f"""<div class="sidebar-title">{texts[st.session_state["lang"]]["app_title"]}</div>
@@ -422,7 +416,7 @@ lang = st.session_state["lang"]
 T = texts[lang]
 rtl = True if lang == "ar" else False
 
-# ----- DEMO DATA -----
+# Demo data
 np.random.seed(1)
 demo_df = pd.DataFrame({
     "time": pd.date_range(datetime.now() - timedelta(hours=24), periods=48, freq="30min"),
@@ -444,7 +438,7 @@ if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
         st.metric(T["features"][0] if lang=="en" else T["features"][0], f"{display_temp} °C", delta=None)
         # Trigger alert if temp > 60°C and send SMS
         if temp > 60 and not st.session_state["sms_sent"]:
-            ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد الآمن! {temp:.1f}°C"))
+            ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد المسموح! درجة الحرارة={to_arabic_numerals(round(temp,1))}°م"))
             st.session_state["sms_sent"] = True
             st.warning("⚠️ SMS Alert sent to supervisor!" if lang=="en" else "⚠️ تم إرسال تنبيه SMS للمشرف!")
     else:
@@ -553,7 +547,7 @@ elif section == T["side_sections"][7]:  # Plant Heatmap
 elif section == T["side_sections"][8]:  # Root Cause Explorer
     show_logo()
     st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][8]}</div>""", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."))
     st.markdown("""
     <div style="margin-top:1em;display:flex;justify-content:center;">
     <svg width="340" height="180" viewBox="0 0 340 180">
@@ -586,7 +580,7 @@ elif section == T["side_sections"][8]:  # Root Cause Explorer
 elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
     show_logo()
     st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][9]}</div>""", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو الشرح."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."))
     user_prompt = st.text_input(("Ask AI a question..." if lang=="en" else "اكتب سؤالاً للذكاء الصناعي..."), key="ai_input")
     if user_prompt:
         with st.spinner("Thinking..." if lang=="en" else "يفكر..."):
@@ -638,7 +632,7 @@ elif section == T["side_sections"][11]:  # Incident Timeline
 elif section == T["side_sections"][12]:  # Energy Optimization
     show_logo()
     st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][12]}</div>""", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي أدناه."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي بالأسفل."))
     energy_sect = ["Compressor", "Pump", "Lighting", "Other"] if lang=="en" else ["ضاغط", "مضخة", "إضاءة", "أخرى"]
     vals = [51, 28, 9, 12]
     fig = px.bar(x=energy_sect, y=vals, color=energy_sect, color_discrete_sequence=px.colors.sequential.Plasma)
