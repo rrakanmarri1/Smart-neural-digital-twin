@@ -78,7 +78,33 @@ if not st.session_state["mqtt_started"]:
 # OpenAI setup
 openai.api_key = OPENAI_API_KEY
 def ask_llm(prompt, lang):
-    system = "You are an expert AI assistant for an industrial digital twin platform." if lang=="en" else "أنت مساعد ذكاء صناعي خبير في منصة التوأم الرقمي الصناعي."
+    system_en = """You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'.
+This platform monitors various plant parameters in real-time, including temperature, pressure, and methane levels.
+It provides advanced dashboards, predictive analytics (forecasting methane and temperature for the next 7 days),
+scenario playback, alerts and fault logs, smart solutions for issues like methane leaks or pump failures,
+KPIs, plant heatmaps, root cause analysis, and incident timelines.
+
+When answering questions, prioritize information related to the 'Smart Neural Digital Twin' project and its data.
+If asked about current sensor readings (like temperature, pressure, methane), or recent alerts, or daily metrics for vibration or levels, or future predictions for the next few hours/days, provide answers based on the context of the project's capabilities.
+For example, if asked 'What is the current temperature?', you can state that the platform monitors live temperature via MQTT.
+If asked about predictions, mention the 7-day forecast capability.
+
+If the question is general and not directly related to the project, answer it to the best of your general knowledge.
+"""
+    system_ar = """أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
+تراقب هذه المنصة معلمات المصنع المختلفة في الوقت الفعلي، بما في ذلك درجة الحرارة والضغط ومستويات الميثان.
+توفر لوحات تحكم متقدمة، وتحليلات تنبؤية (تتنبأ بالميثان ودرجة الحرارة للأيام السبعة القادمة)،
+وإعادة تشغيل السيناريوهات، وسجلات التنبيهات والأعطال، وحلول ذكية لمشكلات مثل تسرب الميثان أو أعطال المضخات،
+ومؤشرات الأداء الرئيسية (KPIs)، وخرائط حرارة المصنع، وتحليل السبب الجذري، والجداول الزمنية للحوادث.
+
+عند الإجابة على الأسئلة، أعط الأولوية للمعلومات المتعلقة بمشروع 'التوأم الرقمي العصبي الذكي' وبياناته.
+إذا سُئلت عن قراءات المستشعرات الحالية (مثل درجة الحرارة، الضغط، الميثان)، أو التنبيهات الأخيرة، أو المقاييس اليومية للاهتزاز أو المستويات، أو التوقعات المستقبلية للساعات/الأيام القادمة، قدم إجابات بناءً على سياق قدرات المشروع.
+على سبيل المثال، إذا سُئلت 'كم درجة الحرارة الحالية؟'، يمكنك الإشارة إلى أن المنصة تراقب درجة الحرارة الحية عبر MQTT.
+إذا سُئلت عن التوقعات، اذكر قدرة التنبؤ لمدة 7 أيام.
+
+إذا كان السؤال عامًا ولا يتعلق مباشرة بالمشروع، أجب عليه بناءً على معرفتك العامة.
+"""
+    system = system_en if lang == "en" else system_ar
     try:
         resp = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -108,7 +134,7 @@ def send_sms(to, message):
 
 # Helper functions
 def to_arabic_numerals(num):
-    return str(num).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))
+    return str(num).translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
 def rtl_wrap(txt):
     if st.session_state["lang"] == "ar":
         return f'<div style="direction:rtl;text-align:right">{txt}</div>'
@@ -132,11 +158,7 @@ texts = {
         "solution_btn": "Next Solution",
         "logo_alt": "Smart Neural Digital Twin Logo",
         "about_header": "Our Story",
-        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?
-We tried every solution, even innovated with drones, and it worked. But we stopped and asked: Why wait for the problem at all?
-Our dream was to build a smart device that predicts danger before it happens. It wasn’t impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI and plant data.
-Today, our platform is the first line of defense, standing apart from any traditional system because it predicts problems hours before they happen. Even days!
-This is the future of industrial safety… and this is our project.""",
+        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?\nWe tried every solution, even innovated with drones, and it worked. But we stopped and asked: Why wait for the problem at all?\nOur dream was to build a smart device that predicts danger before it happens. It wasn’t impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI and plant data.\nToday, our platform is the first line of defense, standing apart from any traditional system because it predicts problems hours before they happen. Even days!\nThis is the future of industrial safety… and this is our project.""",
         "about_colorful": [
             ("#43cea2", "AI at the Core"),
             ("#fa709a", "Real-time Sensing"),
@@ -205,10 +227,7 @@ This is the future of industrial safety… and this is our project.""",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار ونجحنا. لكن وقفنا وسألنا: لماذا ننتظر المشكلة أصلاً؟
-حلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه. لم يكن مستحيلاً، لكنه كان صعبًا. جعلنا الصعب سهلاً مع التوأم الرقمي العصبي الذكي الذي يربط الذكاء الاصطناعي ببيانات المصنع.
-اليوم، منصتنا هي خط الدفاع الأول، وتختلف عن أي نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها، وأحيانًا بأيام!
-هذا هو مستقبل الأمان الصناعي... وهذا هو مشروعنا.""",
+        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار ونجحنا. لكن وقفنا وسألنا: لماذا ننتظر المشكلة أصلاً؟\nحلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه. لم يكن مستحيلاً، لكنه كان صعبًا. جعلنا الصعب سهلاً مع التوأم الرقمي العصبي الذكي الذي يربط الذكاء الاصطناعي ببيانات المصنع.\nاليوم، منصتنا هي خط الدفاع الأول، وتختلف عن أي نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها، وأحيانًا بأيام!\nهذا هو مستقبل الأمان الصناعي... وهذا هو مشروعنا.""",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
             ("#fa709a", "استشعار لحظي"),
@@ -284,7 +303,7 @@ else:
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap');
+    @import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap\');
     .peak-card {
         background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
         border-radius: 18px;
@@ -310,12 +329,12 @@ st.markdown("""
     .rtl {
         direction: rtl;
         text-align: right;
-        font-family: 'Cairo', sans-serif !important;
+        font-family: \'Cairo\', sans-serif !important;
     }
     .ltr {
         direction: ltr;
         text-align: left;
-        font-family: 'Montserrat', sans-serif !important;
+        font-family: \'Montserrat\', sans-serif !important;
     }
     .sidebar-title {
         font-size: 2em !important;
@@ -346,7 +365,7 @@ st.markdown("""
         position: relative;
     }
     .timeline-step:before {
-        content: '';
+        content: \'\';
         position: absolute;
         left: -14px;
         top: 0.18em;
@@ -502,11 +521,11 @@ elif section == T["side_sections"][5]:  # Smart Solutions
         <div style="margin:0.8em 0 0.5em 0;">{sol["desc"]}</div>
         <ul style="margin-bottom:0.7em;">{steps_html}</ul>
         <div style="display:flex;gap:0.9em;flex-wrap:wrap;">
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Priority' if lang=='en' else 'الأولوية')}: {sol['priority']}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Effectiveness' if lang=='en' else 'الفعالية')}: {sol['effectiveness']}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Time' if lang=='en' else 'المدة')}: {sol['time']}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Cost' if lang=='en' else 'التكلفة')}: {sol['cost']}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Savings' if lang=='en' else 'التوفير')}: {sol['savings']}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Priority\' if lang==\'en\' else \'الأولوية\')}: {sol[\'priority\]}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Effectiveness\' if lang==\'en\' else \'الفعالية\')}: {sol[\'effectiveness\]}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Time\' if lang==\'en\' else \'المدة\')}: {sol[\'time\]}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Cost\' if lang==\'en\' else \'التكلفة\')}: {sol[\'cost\]}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Savings\' if lang==\'en\' else \'التوفير\')}: {sol[\'savings\]}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -528,7 +547,7 @@ elif section == T["side_sections"][6]:  # KPI Wall
     ]
     vals = [96, 272, 62, 1]
     goals = [98, 250, 70, 0]
-    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
+    st.markdown("<div style=\'display:flex;gap:1.3em;flex-wrap:wrap;\'>", unsafe_allow_html=True)
     for i, (name, icon, color) in enumerate(kpis):
         display_val = to_arabic_numerals(vals[i]) if lang == "ar" else str(vals[i])
         display_goal = to_arabic_numerals(goals[i]) if lang == "ar" else str(goals[i])
@@ -536,7 +555,7 @@ elif section == T["side_sections"][6]:  # KPI Wall
             <span style="font-size:2.1em;">{icon}</span><br>
             <b>{name}</b><br>
             <span style="font-size:2.3em;font-weight:900">{display_val}</span>
-            <div style="font-size:.95em;color:#222;">{('Goal' if lang=='en' else 'الهدف')}: {display_goal}</div>
+            <div style="font-size:.95em;color:#222;">{(\'Goal\' if lang==\'en\' else \'الهدف\')}: {display_goal}}</div>
         </div>""", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -545,7 +564,7 @@ elif section == T["side_sections"][7]:  # Plant Heatmap
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][7]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("High temperature and pressure zones are highlighted below." if lang=="en" else "المناطق الحرجة للحرارة والضغط موضحة أدناه."))
     z = np.random.uniform(25, 70, (8, 10))
-    fig = go.Figure(data=go.Heatmap(z=z, colorscale='YlOrRd', colorbar=dict(title=('Temp °C' if lang=='en' else 'حرارة'))))
+    fig = go.Figure(data=go.Heatmap(z=z, colorscale=\'YlOrRd\', colorbar=dict(title=(\'Temp °C\' if lang==\'en\' else \'حرارة\'))))
     fig.update_layout(height=320, margin=dict(l=12, r=12, t=20, b=20))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -602,8 +621,8 @@ elif section == T["side_sections"][10]:  # Live Plant 3D
         )
         st.markdown(
             rtl_wrap(
-                '<sup>3D model courtesy of <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>' if lang=="en"
-                else '<sup>النموذج ثلاثي الأبعاد مقدم من <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>'
+                \'<sup>3D model courtesy of <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>\' if lang=="en"
+                else \'<sup>النموذج ثلاثي الأبعاد مقدم من <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>\'
             ),
             unsafe_allow_html=True
         )
@@ -658,7 +677,7 @@ elif section == T["side_sections"][12]:  # Energy Optimization
 elif section == T["side_sections"][13]:  # Future Insights
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][13]}</div>', unsafe_allow_html=True)
-    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
+    st.markdown("<div style=\'display:flex;gap:1.3em;flex-wrap:wrap;\'>", unsafe_allow_html=True)
     future_cards = [
         ("Predictive Risk Alert", "AI models forecast a risk spike for methane at Compressor 2 next week.", "🚨"),
         ("Efficiency Opportunity", "Upgrade control logic to boost plant efficiency by 3%.", "🌱")
@@ -695,20 +714,20 @@ elif section == T["side_sections"][14]:  # Operator Feedback
 elif section == T["side_sections"][15]:  # About
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["about_header"]}</div>', unsafe_allow_html=True)
-    st.markdown(f"<div class='about-bgcard'>", unsafe_allow_html=True)
+    st.markdown(f"<div class=\'about-bgcard\'>", unsafe_allow_html=True)
     st.markdown(
         "".join([
-            f"<span class='about-color' style='background:{color}30;color:{color}'>{value}</span> "
+            f"<span class=\'about-color\' style=\'background:{color}30;color:{color}\'>{value}</span> "
             for color, value in T["about_colorful"]
         ]), unsafe_allow_html=True
     )
-    st.markdown(f"<div class='about-story'>{rtl_wrap(T['about_story'])}</div>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class='about-feature'>Features</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>الميزات</div>"), unsafe_allow_html=True)
+    st.markdown(f"<div class=\'about-story\'>{rtl_wrap(T[\'about_story\'])}</div>", unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class=\'about-feature\'>Features</div>") if lang=="en" else rtl_wrap("<div class=\'about-feature\'>الميزات</div>"), unsafe_allow_html=True)
     st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in T["features"]])+"</ul>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class='about-feature'>How to extend</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>كيفية التوسيع</div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class=\'about-feature\'>How to extend</div>") if lang=="en" else rtl_wrap("<div class=\'about-feature\'>كيفية التوسيع</div>"), unsafe_allow_html=True)
     st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in T["howto_extend"]])+"</ul>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class='about-contact'><b>Contact</b></div>") if lang=="en" else rtl_wrap("<div class='about-contact'><b>تواصل معنا</b></div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class=\'about-contact\'><b>Contact</b></div>") if lang=="en" else rtl_wrap("<div class=\'about-contact\'><b>تواصل معنا</b></div>"), unsafe_allow_html=True)
     for name, mail, phone in T["developers"]:
-        st.markdown(f"{T['contact']}: {name}<br>Email: <a href='mailto:{mail}'>{mail}</a><br>Phone: {phone}<br>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<i>{T['demo_note']}</i>"), unsafe_allow_html=True)
+        st.markdown(f"{T[\'contact\']}: {name}<br>Email: <a href=\'mailto:{mail}\'>{mail}</a><br>Phone: {phone}<br>", unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<i>{T[\'demo_note\']}</i>"), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
