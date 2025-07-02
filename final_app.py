@@ -6,7 +6,6 @@ import plotly.express as px
 import openai
 from twilio.rest import Client
 from datetime import datetime, timedelta
-import time
 import threading
 import paho.mqtt.client as mqtt
 import os
@@ -111,11 +110,14 @@ def send_sms(to, message):
 def to_arabic_numerals(num):
     return str(num).translate(str.maketrans('0123456789', '٠١٢٣٤٥٦٧٨٩'))
 def rtl_wrap(txt):
-    return f'<div class="rtl">{txt}</div>' if st.session_state["lang"] == "ar" else f'<div class="ltr">{txt}</div>'
+    if st.session_state["lang"] == "ar":
+        return f'<div style="direction:rtl;text-align:right">{txt}</div>'
+    else:
+        return f'<div style="direction:ltr;text-align:left">{txt}</div>'
 def show_logo():
     st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
 
-# Translations dictionary (FULL)
+# Translations
 texts = {
     "en": {
         "app_title": "Smart Neural Digital Twin",
@@ -429,17 +431,16 @@ demo_df = pd.DataFrame({
 
 if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][0]}</div>""", unsafe_allow_html=True)
-    # Use a placeholder image if realtime_streaming.png is missing
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][0]}</div>', unsafe_allow_html=True)
     try:
         st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
     except Exception:
-        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption="Demo Image")
+        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption=rtl_wrap("Demo Image"))
     st.markdown(rtl_wrap("Live Temperature (MQTT, topic: digitaltwin/test/temperature)" if lang=="en" else "قراءة درجة الحرارة الحية (MQTT)"))
     temp = st.session_state["mqtt_temp"]
     if temp is not None:
         display_temp = to_arabic_numerals(round(temp,2)) if lang == "ar" else round(temp,2)
-        st.metric(T["features"][0] if lang=="en" else T["features"][0], f"{display_temp} °C", delta=None)
+        st.metric(T["features"][0], f"{display_temp} °C", delta=None)
         # Trigger alert if temp > 60°C and send SMS
         if temp > 60 and not st.session_state["sms_sent"]:
             ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد المسموح! درجة الحرارة={to_arabic_numerals(round(temp,1))}°م"))
@@ -451,7 +452,7 @@ if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
 
 elif section == T["side_sections"][1]:  # Advanced Dashboard
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][1]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][1]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("KPIs and live trends for the plant." if lang=="en" else "المؤشرات والاتجاهات الحية للمصنع."))
     fig = px.line(demo_df, x="time", y=["Temperature", "Pressure", "Methane"], labels={"value":"Reading", "variable":"Tag"})
     fig.update_layout(legend_title_text="Tag", height=350)
@@ -459,7 +460,7 @@ elif section == T["side_sections"][1]:  # Advanced Dashboard
 
 elif section == T["side_sections"][2]:  # Predictive Analytics
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][2]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][2]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("Forecast of methane and temperature for next 7 days." if lang=="en" else "توقع الميثان ودرجة الحرارة للأيام السبعة القادمة."))
     days = pd.date_range(datetime.now(), periods=7)
     forecast = pd.DataFrame({
@@ -471,16 +472,16 @@ elif section == T["side_sections"][2]:  # Predictive Analytics
 
 elif section == T["side_sections"][3]:  # Scenario Playback
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][3]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][3]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("Replay plant incident scenarios hour by hour." if lang=="en" else "تشغيل سيناريوهات الحوادث ساعة بساعة."))
     step = st.slider(T["side_sections"][3], 0, 23, 0)
-    st.write(rtl_wrap(f"Scenario at hour {step}" if lang=="en" else f"السيناريو عند الساعة {to_arabic_numerals(step)}"))
+    st.markdown(rtl_wrap(f"Scenario at hour {step}" if lang=="en" else f"السيناريو عند الساعة {to_arabic_numerals(step)}"))
     chart_data = np.cumsum(np.random.randn(24)) + 50
     st.line_chart(chart_data[:step+1])
 
 elif section == T["side_sections"][4]:  # Alerts & Fault Log
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][4]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][4]}</div>', unsafe_allow_html=True)
     alert_log = pd.DataFrame([
         {"Time":"2025-07-01 05:00","Type":("High Temp" if lang=="en" else "حرارة عالية"),"Status":("Open" if lang=="en" else "مفتوح")},
         {"Time":"2025-07-01 03:32","Type":("Methane Spike" if lang=="en" else "ارتفاع الميثان"),"Status":("Closed" if lang=="en" else "مغلق")},
@@ -541,7 +542,7 @@ elif section == T["side_sections"][6]:  # KPI Wall
 
 elif section == T["side_sections"][7]:  # Plant Heatmap
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][7]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][7]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("High temperature and pressure zones are highlighted below." if lang=="en" else "المناطق الحرجة للحرارة والضغط موضحة أدناه."))
     z = np.random.uniform(25, 70, (8, 10))
     fig = go.Figure(data=go.Heatmap(z=z, colorscale='YlOrRd', colorbar=dict(title=('Temp °C' if lang=='en' else 'حرارة'))))
@@ -550,7 +551,7 @@ elif section == T["side_sections"][7]:  # Plant Heatmap
 
 elif section == T["side_sections"][8]:  # Root Cause Explorer
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][8]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][8]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."))
     st.markdown("""
     <div style="margin-top:1em;display:flex;justify-content:center;">
@@ -583,7 +584,7 @@ elif section == T["side_sections"][8]:  # Root Cause Explorer
 
 elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][9]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][9]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."))
     user_prompt = st.text_input(("Ask AI a question..." if lang=="en" else "اكتب سؤالاً للذكاء الصناعي..."), key="ai_input")
     if user_prompt:
@@ -593,7 +594,7 @@ elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
 
 elif section == T["side_sections"][10]:  # Live Plant 3D
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['live3d_header']}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["live3d_header"]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap(T["live3d_intro"]), unsafe_allow_html=True)
     try:
         st.components.v1.iframe(
@@ -615,7 +616,7 @@ elif section == T["side_sections"][10]:  # Live Plant 3D
 
 elif section == T["side_sections"][11]:  # Incident Timeline
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][11]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][11]}</div>', unsafe_allow_html=True)
     timeline_steps = [
         ("2025-06-30 11:23", "🛑", "Methane leak detected at Compressor 2. Emergency shutdown triggered."),
         ("2025-06-30 10:58", "⚠️", "Flow rate anomaly at Pump 1. Operator notified."),
@@ -635,7 +636,7 @@ elif section == T["side_sections"][11]:  # Incident Timeline
 
 elif section == T["side_sections"][12]:  # Energy Optimization
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][12]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][12]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي بالأسفل."))
     energy_sect = ["Compressor", "Pump", "Lighting", "Other"] if lang=="en" else ["ضاغط", "مضخة", "إضاءة", "أخرى"]
     vals = [51, 28, 9, 12]
@@ -656,7 +657,7 @@ elif section == T["side_sections"][12]:  # Energy Optimization
 
 elif section == T["side_sections"][13]:  # Future Insights
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][13]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][13]}</div>', unsafe_allow_html=True)
     st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
     future_cards = [
         ("Predictive Risk Alert", "AI models forecast a risk spike for methane at Compressor 2 next week.", "🚨"),
@@ -681,7 +682,7 @@ elif section == T["side_sections"][13]:  # Future Insights
 
 elif section == T["side_sections"][14]:  # Operator Feedback
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['side_sections'][14]}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][14]}</div>', unsafe_allow_html=True)
     if "feedback_list" not in st.session_state:
         st.session_state["feedback_list"] = []
     feedback = st.text_area(rtl_wrap("Add operator feedback or incident note:" if lang=="en" else "أضف ملاحظة أو ملاحظة حادث للمشغل:"), key="feedbackbox")
@@ -693,11 +694,14 @@ elif section == T["side_sections"][14]:  # Operator Feedback
 
 elif section == T["side_sections"][15]:  # About
     show_logo()
-    st.markdown(f"""<div class="{ 'gradient-ar' if rtl else 'gradient-header' }">{T['about_header']}</div>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["about_header"]}</div>', unsafe_allow_html=True)
     st.markdown(f"<div class='about-bgcard'>", unsafe_allow_html=True)
-    # Colorful "pills" for values
-    for color, value in T["about_colorful"]:
-        st.markdown(f"<span class='about-color' style='background:{color}30;color:{color}'>{value}</span>", unsafe_allow_html=True)
+    st.markdown(
+        "".join([
+            f"<span class='about-color' style='background:{color}30;color:{color}'>{value}</span> "
+            for color, value in T["about_colorful"]
+        ]), unsafe_allow_html=True
+    )
     st.markdown(f"<div class='about-story'>{rtl_wrap(T['about_story'])}</div>", unsafe_allow_html=True)
     st.markdown(rtl_wrap("<div class='about-feature'>Features</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>الميزات</div>"), unsafe_allow_html=True)
     st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in T["features"]])+"</ul>", unsafe_allow_html=True)
