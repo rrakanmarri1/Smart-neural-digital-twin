@@ -514,18 +514,28 @@ elif section == T["side_sections"][5]:  # Smart Solutions
     solutions = T["solutions"]
     sol = solutions[idx]
     steps_html = "".join([f"<li>{s}</li>" for s in sol["steps"]])
-    st.markdown(f"""\
+ st.markdown(f"""
     <div class="peak-card">
         <div style="font-size:2em;">{sol["icon"]}</div>
         <b style="font-size:1.3em">{sol["title"]}</b>
         <div style="margin:0.8em 0 0.5em 0;">{sol["desc"]}</div>
         <ul style="margin-bottom:0.7em;">{steps_html}</ul>
         <div style="display:flex;gap:0.9em;flex-wrap:wrap;">
-<span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{("Priority" if lang=="en" else "الأولوية")}: {sol["priority"]}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Effectiveness\' if lang==\'en\' else \'الفعالية\')}: {sol[\'effectiveness\]}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Time\' if lang==\'en\' else \'المدة\')}: {sol[\'time\]}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Cost\' if lang==\'en\' else \'التكلفة\')}: {sol[\'cost\]}</span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{(\'Savings\' if lang==\'en\' else \'التوفير\')}: {sol[\'savings\]}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+                {("Priority" if lang=="en" else "الأولوية")}: {sol["priority"]}
+            </span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+                {("Effectiveness" if lang=="en" else "الفعالية")}: {sol["effectiveness"]}
+            </span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+                {("Time" if lang=="en" else "المدة")}: {sol["time"]}
+            </span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+                {("Cost" if lang=="en" else "التكلفة")}: {sol["cost"]}
+            </span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+                {("Savings" if lang=="en" else "التوفير")}: {sol["savings"]}
+            </span>
         </div>
     </div>
     """, unsafe_allow_html=True)
