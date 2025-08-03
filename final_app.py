@@ -509,12 +509,13 @@ elif section == T["side_sections"][4]:  # Alerts & Fault Log
     st.table(alert_log)
 
 elif section == T["side_sections"][5]:  # Smart Solutions
+elif section == T["side_sections"][5]:  # Smart Solutions
     show_logo()
     idx = st.session_state["solution_idx"]
     solutions = T["solutions"]
     sol = solutions[idx]
     steps_html = "".join([f"<li>{s}</li>" for s in sol["steps"]])
- st.markdown(f"""
+    st.markdown(f"""
     <div class="peak-card">
         <div style="font-size:2em;">{sol["icon"]}</div>
         <b style="font-size:1.3em">{sol["title"]}</b>
@@ -539,6 +540,8 @@ elif section == T["side_sections"][5]:  # Smart Solutions
         </div>
     </div>
     """, unsafe_allow_html=True)
+    if st.button(T["solution_btn"], key=f"solution-next-{idx}"):
+        st.session_state["solution_idx"] = (idx + 1) % len(solutions)
 elif section == T["side_sections"][6]:  # KPI Wall
     show_logo()
     kpis = [
