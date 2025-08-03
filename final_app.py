@@ -3,12 +3,23 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import openai
-from twilio.rest import Client
+import os
 from datetime import datetime, timedelta
 import threading
 import paho.mqtt.client as mqtt
-import os
+
+# Try OpenAI import, handle missing gracefully
+try:
+    import openai
+    openai_available = True
+except ImportError:
+    openai_available = False
+
+try:
+    from twilio.rest import Client
+    twilio_available = True
+except ImportError:
+    twilio_available = False
 
 # ----- LOGO SVG -----
 logo_svg = """
@@ -31,7 +42,7 @@ logo_svg = """
 """
 
 # MQTT Config
-MQTT_BROKER = "broker.hivemq.com"
+MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
 MQTT_TOPIC = "digitaltwin/test/temperature"
 
@@ -76,12 +87,17 @@ if not st.session_state["mqtt_started"]:
     st.session_state["mqtt_started"] = True
 
 # OpenAI setup
-openai.api_key = OPENAI_API_KEY
+if openai_available and OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
 
 def ask_llm_advanced(prompt, lang, context=None, root_cause=None):
     """
     Enhanced AI Copilot: Now supports context, root cause analysis, and structured outputs.
+    Uses OpenAI API v1+.
     """
+    if not openai_available or not OPENAI_API_KEY:
+        return "LLM Error: OpenAI API not installed or API key not set."
+
     system_en = f"""You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'.
 You have access to real-time plant data and advanced analytics. Your core capabilities include:
 - Answering operational, troubleshooting, and data analysis questions.
@@ -113,8 +129,9 @@ If asked about specific values, refer to the latest in-memory data if available.
         messages.append({"role": "system", "content": f"root_cause: {root_cause}"})
     messages.append({"role": "user", "content": prompt})
 
+    # OpenAI 1.x+ Chat API (new)
     try:
-        resp = openai.ChatCompletion.create(
+        resp = openai.chat.completions.create(
             model="gpt-4",
             messages=messages,
             temperature=0.3,
@@ -126,6 +143,8 @@ If asked about specific values, refer to the latest in-memory data if available.
 
 # Twilio SMS
 def send_sms(to, message):
+    if not twilio_available:
+        return False, "Twilio not installed."
     try:
         if not all([TWILIO_SID, TWILIO_AUTH, TWILIO_FROM, to]):
             return False, "Twilio credentials or phone numbers not set."
@@ -139,7 +158,6 @@ def send_sms(to, message):
     except Exception as e:
         return False, str(e)
 
-# Helper functions
 def to_arabic_numerals(num):
     return str(num).translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
 def rtl_wrap(txt):
@@ -151,15 +169,18 @@ def show_logo():
     st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
 
 def highlight_metric(val, threshold, color="#fa709a"):
-    """
-    Returns background color if threshold exceeded.
-    """
     style = ""
     if val >= threshold:
         style = f"background:{color}22;border-radius:12px;padding:0.1em 0.4em;"
     return style
 
-# Translations
+# Colorful palette
+colorful_palette = [
+    "#43cea2", "#fa709a", "#ffb347", "#8fd3f4", "#185a9d",
+    "#ffe259", "#ffa751", "#fdc830", "#eecda3", "#e0eafc", "#cfdef3", "#fe8c00", "#f83600"
+]
+
+# Translations (All sections, all labels, all solutions, all features, all about, complete)
 texts = {
     "en": {
         "app_title": "Smart Neural Digital Twin",
@@ -174,14 +195,15 @@ texts = {
         "solution_btn": "Next Solution",
         "logo_alt": "Smart Neural Digital Twin Logo",
         "about_header": "Our Story",
-        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?
-We tried every solution, even innovated with drones, and it worked. But we wanted more: a digital twin that thinks and learns like an engineer, not just a dashboard. We built a platform that brings together AI, real-time sensors, and predictive analytics to empower every operator to prevent incidents, save costs, and optimize performance. That's our story—and it's just beginning.""",
+        "about_story": """Our journey began with a simple question: <b>How can we detect gas leaks before they become disasters?</b> <span style="color:#fa709a;font-weight:bold">We tried every solution, even innovated with drones, and it worked.</span> But we wanted more: a <b>digital twin that thinks and learns like an engineer, not just a dashboard</b>. We built a platform that brings together <span style="color:#43cea2;font-weight:bold">AI</span>, real-time sensors, and <span style="color:#ffb347;font-weight:bold">predictive analytics</span> to <b>empower every operator to prevent incidents, save costs, and optimize performance</b>. That's our story—and it's just beginning.""",
         "about_colorful": [
             ("#43cea2", "AI at the Core"),
             ("#fa709a", "Real-time Sensing"),
             ("#ffb347", "Predictive Analytics"),
             ("#8fd3f4", "Instant Actions"),
             ("#185a9d", "Peace of Mind"),
+            ("#ffe259", "Smart Monitoring"),
+            ("#ffa751", "Safety First"),
         ],
         "features": [
             "Interactive plant schematic & overlays",
@@ -189,7 +211,7 @@ We tried every solution, even innovated with drones, and it worked. But we wante
             "AI-driven fault detection & smart solutions",
             "Root-cause explorer & scenario playback",
             "Live 3D plant visualization",
-            "Bilingual support & peak design"
+            "Bilingual support & vibrant design"
         ],
         "howto_extend": [
             "Connect to real plant historian data",
@@ -243,20 +265,22 @@ We tried every solution, even innovated with drones, and it worked. But we wante
         "side_sections": [
             "التوأم الرقمي", "لوحة القيادة المتقدمة", "التحليلات التنبؤية", "تشغيل السيناريو",
             "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري",
-            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول المنصة"
+            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول"
         ],
         "lang_en": "الإنجليزية",
         "lang_ar": "العربية",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار، ونجح الأمر. لكننا أردنا أكثر: توأم رقمي يفكر ويتعلم كالمهندس، ليس مجرد لوحة تحكم. أنشأنا منصة تجمع الذكاء الاصطناعي، ومستشعرات الوقت الحقيقي، والتحليلات التنبؤية لتمكين كل مشغل من منع الحوادث، وتوفير التكاليف، وتحسين الأداء. هذه قصتنا—وما زلنا في البداية.""",
+        "about_story": """بدأنا رحلتنا من سؤال بسيط: <b>كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟</b> <span style="color:#fa709a;font-weight:bold">جربنا كل الحلول وابتكرنا حتى الطائرات بدون طيار ونجح الأمر.</span> لكن أردنا المزيد: <b>توأم رقمي يفكر ويتعلم كمهندس، ليس مجرد لوحة بيانات</b>. بنينا منصة تجمع بين <span style="color:#43cea2;font-weight:bold">الذكاء الاصطناعي</span>، الحساسات اللحظية، و<span style="color:#ffb347;font-weight:bold">تحليلات تنبؤية</span> <b>لتمكين كل مشغل من منع الحوادث، وتوفير التكاليف، وتحسين الأداء</b>. هذه قصتنا—ولا تزال في بدايتها.""",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
             ("#fa709a", "استشعار لحظي"),
             ("#ffb347", "تحليلات تنبؤية"),
             ("#8fd3f4", "إجراءات فورية"),
             ("#185a9d", "راحة البال"),
+            ("#ffe259", "مراقبة ذكية"),
+            ("#ffa751", "السلامة أولاً"),
         ],
         "features": [
             "مخطط مصنع تفاعلي وتراكب مباشر",
@@ -264,7 +288,7 @@ We tried every solution, even innovated with drones, and it worked. But we wante
             "كشف أعطال ذكي وحلول فورية",
             "مستكشف السبب الجذري وتشغيل السيناريوهات",
             "رؤية ثلاثية الأبعاد للمصنع",
-            "دعم لغتين وتصميم عصري"
+            "دعم لغتين وتصميم حيوي"
         ],
         "howto_extend": [
             "ربط مع بيانات المصنع الحقيقية",
@@ -317,41 +341,37 @@ We tried every solution, even innovated with drones, and it worked. But we wante
 # ----- THEME & CSS -----
 if st.sidebar.button("🌗 Theme", key="themebtn"):
     st.session_state["theme"] = "light" if st.session_state["theme"] == "dark" else "dark"
-if st.session_state["theme"] == "dark":
-    st.markdown("""
-    <style>
-    html, body, [class*="css"]  { background: #232526 !important; color:#fff !important;}
-    </style>
-    """,unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-    html, body, [class*="css"]  { background: #f3f8fc !important; color:#232526 !important;}
-    </style>
-    """,unsafe_allow_html=True)
 
-st.markdown("""
+# Custom gradient backgrounds for color and "fun"
+light_gradient = "linear-gradient(135deg, #e0eafc 0%, #ffe259 100%)"
+dark_gradient = "linear-gradient(135deg, #232526 0%, #185a9d 100%)"
+
+# Enhanced CSS for color, contrast, and fun
+st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap');
-    .peak-card {
-        background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+    html, body, [class*="css"] {{
+        background: {'#181a2a' if st.session_state["theme"] == "dark" else '#f6f6f7'} !important;
+        color: {'#f9fcff' if st.session_state["theme"] == "dark" else '#232526'} !important;
+        font-family: 'Montserrat', 'Cairo', sans-serif !important;
+    }}
+    .peak-card {{
+        background: linear-gradient(135deg, #e0eafc 0%, #ffe259 100%);
         border-radius: 18px;
-        box-shadow: 0 8px 32px 0 rgba(31,38,135,.15);
+        box-shadow: 0 8px 32px 0 rgba(31,38,135,.18);
         margin-bottom: 1.5em;
         padding: 1.5em 2em;
-        transition: box-shadow 0.2s;
         animation: peakfade 0.8s;
-    }
-    @keyframes peakfade {
-        0% { opacity: 0; transform: translateY(40px);}
-        100% { opacity: 1; transform: translateY(0);}
-    }
-    .peak-card:hover {
-        box-shadow: 0 12px 38px 0 rgba(31,38,135,.28);
-        transform: scale(1.01);
-    }
-    .kpi-card {
-        background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+        border-left: 8px solid #43cea2;
+        transition: box-shadow 0.21s, transform 0.18s;
+    }}
+    .peak-card:hover {{
+        box-shadow: 0 12px 38px 0 #fa709a55;
+        transform: scale(1.018);
+        border-left: 8px solid #fa709a;
+    }}
+    .kpi-card {{
+        background: linear-gradient(135deg, #43cea2 0%, #fa709a 82%, #ffe259 100%);
         border-radius: 13px;
         color: #fff !important;
         font-size: 1.25em;
@@ -362,93 +382,96 @@ st.markdown("""
         margin-bottom: 1em;
         transition: box-shadow 0.18s, transform 0.16s;
         animation: peakfade 0.7s;
-    }
-    .kpi-card:hover {
-        box-shadow: 0 8px 36px 0 rgba(31,38,135,.22);
-        transform: scale(1.015);
-    }
-    .rtl {
+    }}
+    .kpi-card:hover {{
+        box-shadow: 0 8px 36px 0 #ffe25977;
+        transform: scale(1.025);
+    }}
+    .rtl {{
         direction: rtl;
         text-align: right;
         font-family: 'Cairo', sans-serif !important;
-    }
-    .ltr {
+    }}
+    .ltr {{
         direction: ltr;
         text-align: left;
         font-family: 'Montserrat', sans-serif !important;
-    }
-    .sidebar-title {
+    }}
+    .sidebar-title {{
         font-size: 2em !important;
         font-weight: 900 !important;
         color: #43cea2 !important;
         letter-spacing: 0.5px;
         margin-bottom: 0.2em !important;
-    }
-    .sidebar-subtitle {
+        text-shadow: 0 3px 10px #185a9d22;
+    }}
+    .sidebar-subtitle {{
         font-size: 1.15em !important;
-        color: #cfdef3 !important;
+        color: #fa709a !important;
         margin-bottom: 1em;
         margin-top: -.7em !important;
-    }
-    .gradient-header, .gradient-ar {
+        text-shadow: 0 1px 6px #ffb34744;
+    }}
+    .gradient-header, .gradient-ar {{
         font-weight: 900;
         font-size: 2.1em;
-        background: linear-gradient(90deg,#43cea2,#185a9d 80%);
+        background: linear-gradient(90deg,#43cea2,#fa709a 60%,#ffe259 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.3em;
         letter-spacing: .5px;
         text-shadow: 0 1px 6px #185a9d1c;
-    }
-    .timeline-step {
+    }}
+    .timeline-step {{
         border-left: 4px solid #43cea2;
         margin-left: 0.8em;
         padding-left: 1.2em;
         margin-bottom: 1em;
         position: relative;
         animation: peakfade 0.7s;
-    }
-    .timeline-step:before {
+    }}
+    .timeline-step:before {{
         content: '';
         position: absolute;
         left: -14px;
         top: 0.18em;
         width: 18px;
         height: 18px;
-        background: #43cea2;
+        background: #fa709a;
         border-radius: 100%;
         border: 2px solid #fff;
-    }
-    .timeline-icon {
+        box-shadow: 0 0 0 3px #ffe25933;
+    }}
+    .timeline-icon {{
         font-size: 1.5em;
         margin-right: 0.5em;
         vertical-align: middle;
-    }
-    .about-bgcard {
-        background: linear-gradient(120deg,#185a9d10,#43cea210 98%);
+    }}
+    .about-bgcard {{
+        background: linear-gradient(140deg,#43cea210,#fa709a10 60%,#ffe25910 100%);
         border-radius: 22px;
         padding: 2.2em 2.1em 1.8em 2.1em;
         margin-top: 1.6em;
         margin-bottom: 2.2em;
-        box-shadow: 0 7px 32px 0 rgba(31,38,135,.07);
+        box-shadow: 0 7px 32px 0 #43cea233;
         position: relative;
         animation: peakfade 0.9s;
-    }
-    .about-story {
+    }}
+    .about-story {{
         font-size: 1.18em;
         font-weight: 600;
         margin-bottom: 2em;
-        background: linear-gradient(90deg,#e0eafc,#8fd3f4 80%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        padding: 0.2em 0.1em;
-    }
-    .about-feature {
+        color: {'#fff' if st.session_state["theme"] == "dark" else '#222'};
+        background: none;
+        line-height: 1.65em;
+        text-shadow: 0 2px 16px #43cea233, 0 1px 2px #fff4;
+    }}
+    .about-feature {{
         font-weight: 700;
         font-size: 1.16em;
         margin: .45em 0 .14em 0;
-    }
-    .about-color {
+    }}
+    .about-color {{
         font-weight: 900;
         font-size: 1.20em;
         margin-bottom: .45em;
@@ -456,21 +479,32 @@ st.markdown("""
         padding: .18em .9em;
         border-radius: 12px;
         margin-right: .9em;
-    }
-    .about-contact {
+        margin-bottom: .5em;
+        color: #232526;
+        background: #fff;
+        box-shadow: 0 2px 8px #185a9d22;
+        border: 2px solid #43cea2;
+    }}
+    .about-color:nth-child(2) {{border-color: #fa709a;}}
+    .about-color:nth-child(3) {{border-color: #ffb347;}}
+    .about-color:nth-child(4) {{border-color: #8fd3f4;}}
+    .about-color:nth-child(5) {{border-color: #185a9d;}}
+    .about-color:nth-child(6) {{border-color: #ffe259;}}
+    .about-color:nth-child(7) {{border-color: #ffa751;}}
+    .about-contact {{
         font-size: 1.13em;
         margin-top: 1.9em;
         margin-bottom: .6em;
-    }
-    .ai-action-bar {
+    }}
+    .ai-action-bar {{
         display: flex;
         gap: 1.1em;
         flex-wrap: wrap;
         margin: 1.3em 0 1em 0;
         justify-content: center;
-    }
-    .ai-action-btn {
-        background: linear-gradient(90deg,#43cea2,#185a9d 80%);
+    }}
+    .ai-action-btn {{
+        background: linear-gradient(90deg,#43cea2,#fa709a 80%);
         color: #fff;
         border: none;
         border-radius: 8px;
@@ -480,19 +514,30 @@ st.markdown("""
         cursor: pointer;
         box-shadow: 0 3px 14px #185a9d23;
         transition: background .19s, box-shadow .13s, transform .12s;
-    }
-    .ai-action-btn:hover {
-        background: linear-gradient(90deg,#185a9d 60%,#43cea2 100%);
-        box-shadow: 0 8px 28px #185a9d33;
+    }}
+    .ai-action-btn:hover {{
+        background: linear-gradient(90deg,#fa709a 60%,#43cea2 100%);
+        box-shadow: 0 8px 28px #fa709a33;
         transform: translateY(-1.5px) scale(1.03);
-    }
-    .feedback-bubble {
+    }}
+    .feedback-bubble {{
         background: #43cea222;
         border-radius: 12px;
         padding: 0.8em 1.1em;
         margin-bottom: 0.7em;
         box-shadow: 0 2px 10px #43cea207;
-    }
+    }}
+    .stButton>button[disabled], .stButton>button:disabled {{
+        background: #e0eafc !important;
+        color: #bdbdbd !important;
+    }}
+    @keyframes peakfade {{
+        0% {{ opacity: 0; transform: translateY(40px);}}
+        100% {{ opacity: 1; transform: translateY(0);}}
+    }}
+    .stTable, .stDataFrame, .stMarkdown, .stCaption, .stText, .stTextInput, .stTextArea {{
+        font-family: 'Montserrat', 'Cairo', sans-serif !important;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -513,7 +558,6 @@ lang = st.session_state["lang"]
 T = texts[lang]
 rtl = True if lang == "ar" else False
 
-# Demo data
 np.random.seed(1)
 demo_df = pd.DataFrame({
     "time": pd.date_range(datetime.now() - timedelta(hours=24), periods=48, freq="30min"),
@@ -522,7 +566,7 @@ demo_df = pd.DataFrame({
     "Methane": np.clip(np.random.normal(1.4, 0.7, 48), 0, 6)
 })
 
-# ========== MAIN SECTIONS ==========
+# ========== MAIN SECTIONS (all elif, all translations, fixed/enhanced) ==========
 
 if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
     show_logo()
@@ -541,11 +585,11 @@ if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
             style = highlight_metric(temp, 60)
             st.markdown(f"<div style='font-size:2.7em;font-weight:900;{style}'>{display_temp} °C</div>", unsafe_allow_html=True)
             if temp > 60 and not st.session_state["sms_sent"]:
-                ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد الآمن! الحرارة={to_arabic_numerals(round(temp,1))}°م"))
+                ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد المسموح! درجة الحرارة={temp:.1f}°م"))
                 st.session_state["sms_sent"] = True
                 st.warning("⚠️ SMS Alert sent to supervisor!" if lang=="en" else "⚠️ تم إرسال تنبيه SMS للمشرف!")
         else:
-            st.info("Waiting for MQTT..." if lang=="en" else "في انتظار بيانات MQTT...")
+            st.info(rtl_wrap("Waiting for MQTT..." if lang=="en" else "في انتظار بيانات MQTT..."))
         st.caption(f"{'Last update' if lang=='en' else 'آخر تحديث'}: {st.session_state['mqtt_last'] if st.session_state['mqtt_last'] else 'N/A'}")
 
 elif section == T["side_sections"][1]:  # Advanced Dashboard
@@ -556,7 +600,6 @@ elif section == T["side_sections"][1]:  # Advanced Dashboard
     fig.update_traces(mode="lines+markers")
     fig.update_layout(legend_title_text="Tag", height=350, hovermode="x unified", margin=dict(t=25,b=0))
     st.plotly_chart(fig, use_container_width=True)
-    # Advanced AI action bar
     st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
     if st.button(T["ai_kpi_btn"], key="ai_kpi_btn"):
         summary = ask_llm_advanced(
@@ -578,7 +621,6 @@ elif section == T["side_sections"][2]:  # Predictive Analytics
         "Temp": np.linspace(55, 63, 7) + np.random.normal(0, 1, 7)
     })
     st.line_chart(forecast.set_index("Day"))
-    # Advanced AI action bar
     st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
     if st.button(T["ai_whatif_btn"], key="ai_whatif_btn"):
         summary = ask_llm_advanced(
@@ -597,7 +639,6 @@ elif section == T["side_sections"][3]:  # Scenario Playback
     st.markdown(rtl_wrap(f"Scenario at hour {step}" if lang=="en" else f"السيناريو عند الساعة {to_arabic_numerals(step)}"))
     chart_data = np.cumsum(np.random.randn(24)) + 50
     st.line_chart(chart_data[:step+1])
-    # AI Action
     st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
     if st.button(T["ai_explain_btn"], key="ai_explain_btn_scenario"):
         summary = ask_llm_advanced(
@@ -644,16 +685,16 @@ elif section == T["side_sections"][5]:  # Smart Solutions
             <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
                 {("Priority" if lang=="en" else "الأولوية")}: {sol["priority"]}
             </span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+            <span style="background:#fa709a15;padding:0.3em 1em;border-radius:6px;">
                 {("Effectiveness" if lang=="en" else "الفعالية")}: {sol["effectiveness"]}
             </span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+            <span style="background:#ffe25922;padding:0.3em 1em;border-radius:6px;">
                 {("Time" if lang=="en" else "المدة")}: {sol["time"]}
             </span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+            <span style="background:#43cea222;padding:0.3em 1em;border-radius:6px;">
                 {("Cost" if lang=="en" else "التكلفة")}: {sol["cost"]}
             </span>
-            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">
+            <span style="background:#8fd3f433;padding:0.3em 1em;border-radius:6px;">
                 {("Savings" if lang=="en" else "التوفير")}: {sol["savings"]}
             </span>
         </div>
@@ -705,7 +746,7 @@ elif section == T["side_sections"][7]:  # Plant Heatmap
 elif section == T["side_sections"][8]:  # Root Cause Explorer
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][8]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."))
     st.markdown("""
     <div style="margin-top:1em;display:flex;justify-content:center;">
     <svg width="340" height="180" viewBox="0 0 340 180">
@@ -747,7 +788,7 @@ elif section == T["side_sections"][8]:  # Root Cause Explorer
 elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][9]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو التشغيل."))
     user_prompt = st.text_input(("Ask AI a question..." if lang=="en" else "اكتب سؤالاً للذكاء الصناعي..."), key="ai_input")
     ai_context = {
         "kpis": demo_df.tail(12).mean().to_dict(),
@@ -762,7 +803,6 @@ elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
                 root_cause = None
             answer = ask_llm_advanced(user_prompt, lang, context=str(ai_context), root_cause=root_cause)
         st.markdown(f"<div class='feedback-bubble'><b>AI:</b> {answer}</div>", unsafe_allow_html=True)
-    # AI action bar
     st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
     if st.button(T["ai_energy_btn"], key="ai_energy_btn_copilot"):
         ai_energy = ask_llm_advanced(
@@ -818,7 +858,7 @@ elif section == T["side_sections"][11]:  # Incident Timeline
 elif section == T["side_sections"][12]:  # Energy Optimization
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][12]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي أدناه."), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي أدناه."))
     energy_sect = ["Compressor", "Pump", "Lighting", "Other"] if lang=="en" else ["ضاغط", "مضخة", "إضاءة", "أخرى"]
     vals = [51, 28, 9, 12]
     fig = px.bar(x=energy_sect, y=vals, color=energy_sect, color_discrete_sequence=px.colors.sequential.Plasma)
