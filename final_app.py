@@ -77,43 +77,48 @@ if not st.session_state["mqtt_started"]:
 
 # OpenAI setup
 openai.api_key = OPENAI_API_KEY
-def ask_llm(prompt, lang):
-    system_en = """You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'.
-This platform monitors various plant parameters in real-time, including temperature, pressure, and methane levels.
-It provides advanced dashboards, predictive analytics (forecasting methane and temperature for the next 7 days),
-scenario playback, alerts and fault logs, smart solutions for issues like methane leaks or pump failures,
-KPIs, plant heatmaps, root cause analysis, and incident timelines.
 
-When answering questions, prioritize information related to the 'Smart Neural Digital Twin' project and its data.
-If asked about current sensor readings (like temperature, pressure, methane), or recent alerts, or daily metrics for vibration or levels, or future predictions for the next few hours/days, provide answers based on the context of the project's capabilities.
-For example, if asked 'What is the current temperature?', you can state that the platform monitors live temperature via MQTT.
-If asked about predictions, mention the 7-day forecast capability.
+def ask_llm_advanced(prompt, lang, context=None, root_cause=None):
+    """
+    Enhanced AI Copilot: Now supports context, root cause analysis, and structured outputs.
+    """
+    system_en = f"""You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'.
+You have access to real-time plant data and advanced analytics. Your core capabilities include:
+- Answering operational, troubleshooting, and data analysis questions.
+- Performing root cause analysis: if a user asks "why" or "root cause", analyze past incidents and suggest a probable root.
+- Giving actionable recommendations based on the plant's digital twin data, scenario playback, and forecast.
+- Summarizing plant KPIs, risk factors, and energy optimization opportunities.
+- If 'context' is provided, summarize and use it.
+- If 'root_cause' is provided, use it to explain system failures or propose mitigations.
 
-If the question is general and not directly related to the project, answer it to the best of your general knowledge.
+If asked about specific values, refer to the latest in-memory data if available. Reply in clear, concise, and helpful language.
 """
-    system_ar = """أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
-تراقب هذه المنصة معلمات المصنع المختلفة في الوقت الفعلي، بما في ذلك درجة الحرارة والضغط ومستويات الميثان.
-توفر لوحات تحكم متقدمة، وتحليلات تنبؤية (تتنبأ بالميثان ودرجة الحرارة للأيام السبعة القادمة)،
-وإعادة تشغيل السيناريوهات، وسجلات التنبيهات والأعطال، وحلول ذكية لمشكلات مثل تسرب الميثان أو أعطال المضخات،
-ومؤشرات الأداء الرئيسية (KPIs)، وخرائط حرارة المصنع، وتحليل السبب الجذري، والجداول الزمنية للحوادث.
+    system_ar = f"""أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
+لديك إمكانية الوصول إلى بيانات المصنع الحية والتحليلات المتقدمة. قدراتك الأساسية:
+- الإجابة عن أسئلة التشغيل والتحليل وحل المشكلات.
+- تحليل السبب الجذري: إذا سأل المستخدم "لماذا" أو "السبب الجذري"، قم بتحليل الحوادث واقترح السبب الممكن.
+- إعطاء توصيات عملية بناءً على بيانات التوأم الرقمي وتشغيل السيناريو والتوقعات.
+- تلخيص مؤشرات الأداء، عوامل المخاطر، وفرص تحسين الطاقة.
+- إذا تم توفير 'context'، لخصه واستخدمه.
+- إذا تم توفير 'root_cause'، فاشرح به أسباب الأعطال أو طرق المعالجة.
 
-عند الإجابة على الأسئلة، أعط الأولوية للمعلومات المتعلقة بمشروع 'التوأم الرقمي العصبي الذكي' وبياناته.
-إذا سُئلت عن قراءات المستشعرات الحالية (مثل درجة الحرارة، الضغط، الميثان)، أو التنبيهات الأخيرة، أو المقاييس اليومية للاهتزاز أو المستويات، أو التوقعات المستقبلية للساعات/الأيام القادمة، قدم إجابات بناءً على سياق قدرات المشروع.
-على سبيل المثال، إذا سُئلت 'كم درجة الحرارة الحالية؟'، يمكنك الإشارة إلى أن المنصة تراقب درجة الحرارة الحية عبر MQTT.
-إذا سُئلت عن التوقعات، اذكر قدرة التنبؤ لمدة 7 أيام.
-
-إذا كان السؤال عامًا ولا يتعلق مباشرة بالمشروع، أجب عليه بناءً على معرفتك العامة.
+إذا سُئلت عن قيم معينة، استند للبيانات الأحدث المتوفرة بالذاكرة. أجب بوضوح واحترافية.
 """
     system = system_en if lang == "en" else system_ar
+
+    messages = [{"role": "system", "content": system}]
+    if context:
+        messages.append({"role": "system", "content": f"context: {context}"})
+    if root_cause:
+        messages.append({"role": "system", "content": f"root_cause: {root_cause}"})
+    messages.append({"role": "user", "content": prompt})
+
     try:
         resp = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role":"system","content":system},
-                {"role":"user","content":prompt}
-            ],
-            temperature=0.4,
-            max_tokens=400,
+            model="gpt-4",
+            messages=messages,
+            temperature=0.3,
+            max_tokens=500,
         )
         return resp.choices[0].message.content
     except Exception as e:
@@ -122,6 +127,8 @@ If the question is general and not directly related to the project, answer it to
 # Twilio SMS
 def send_sms(to, message):
     try:
+        if not all([TWILIO_SID, TWILIO_AUTH, TWILIO_FROM, to]):
+            return False, "Twilio credentials or phone numbers not set."
         client = Client(TWILIO_SID, TWILIO_AUTH)
         message = client.messages.create(
             body=message,
@@ -143,6 +150,15 @@ def rtl_wrap(txt):
 def show_logo():
     st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
 
+def highlight_metric(val, threshold, color="#fa709a"):
+    """
+    Returns background color if threshold exceeded.
+    """
+    style = ""
+    if val >= threshold:
+        style = f"background:{color}22;border-radius:12px;padding:0.1em 0.4em;"
+    return style
+
 # Translations
 texts = {
     "en": {
@@ -158,7 +174,8 @@ texts = {
         "solution_btn": "Next Solution",
         "logo_alt": "Smart Neural Digital Twin Logo",
         "about_header": "Our Story",
-        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?\nWe tried every solution, even innovated with drones, and it worked. But we stopped and asked: Why wait for the problem at all?\nOur dream was to build a smart device that predicts danger before it happens. It wasn’t impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI and plant data.\nToday, our platform is the first line of defense, standing apart from any traditional system because it predicts problems hours before they happen. Even days!\nThis is the future of industrial safety… and this is our project.""",
+        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?
+We tried every solution, even innovated with drones, and it worked. But we wanted more: a digital twin that thinks and learns like an engineer, not just a dashboard. We built a platform that brings together AI, real-time sensors, and predictive analytics to empower every operator to prevent incidents, save costs, and optimize performance. That's our story—and it's just beginning.""",
         "about_colorful": [
             ("#43cea2", "AI at the Core"),
             ("#fa709a", "Real-time Sensing"),
@@ -190,6 +207,12 @@ texts = {
         "live3d_intro": "Explore the interactive 3D model below. Use your mouse to zoom, rotate, and explore the plant!",
         "live3d_404": "The 3D model failed to load. View the static 3D plant image below.",
         "static_3d_caption": "Sample Plant 3D Visual",
+        "ai_explain_btn": "Explain with AI",
+        "ai_rootcause_btn": "Root Cause Analysis",
+        "ai_whatif_btn": "What-if Scenario",
+        "ai_kpi_btn": "Analyze KPIs",
+        "ai_energy_btn": "Energy Optimization Advice",
+        "ai_feedback_btn": "Summarize Feedback",
         "solutions": [
             {
                 "title": "Automated Methane Leak Response",
@@ -220,14 +243,14 @@ texts = {
         "side_sections": [
             "التوأم الرقمي", "لوحة القيادة المتقدمة", "التحليلات التنبؤية", "تشغيل السيناريو",
             "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري",
-            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول"
+            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول المنصة"
         ],
         "lang_en": "الإنجليزية",
         "lang_ar": "العربية",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار ونجحنا. لكن وقفنا وسألنا: لماذا ننتظر المشكلة أصلاً؟\nحلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه. لم يكن مستحيلاً، لكنه كان صعبًا. جعلنا الصعب سهلاً مع التوأم الرقمي العصبي الذكي الذي يربط الذكاء الاصطناعي ببيانات المصنع.\nاليوم، منصتنا هي خط الدفاع الأول، وتختلف عن أي نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها، وأحيانًا بأيام!\nهذا هو مستقبل الأمان الصناعي... وهذا هو مشروعنا.""",
+        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار، ونجح الأمر. لكننا أردنا أكثر: توأم رقمي يفكر ويتعلم كالمهندس، ليس مجرد لوحة تحكم. أنشأنا منصة تجمع الذكاء الاصطناعي، ومستشعرات الوقت الحقيقي، والتحليلات التنبؤية لتمكين كل مشغل من منع الحوادث، وتوفير التكاليف، وتحسين الأداء. هذه قصتنا—وما زلنا في البداية.""",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
             ("#fa709a", "استشعار لحظي"),
@@ -259,6 +282,12 @@ texts = {
         "live3d_intro": "تفاعل مع النموذج الثلاثي الأبعاد أدناه. استخدم الماوس للتحريك والتكبير.",
         "live3d_404": "تعذر تحميل النموذج، شاهد صورة المصنع الثلاثي الأبعاد بالأسفل.",
         "static_3d_caption": "مشهد ثلاثي الأبعاد لمصنع صناعي",
+        "ai_explain_btn": "شرح الذكاء الصناعي",
+        "ai_rootcause_btn": "تحليل السبب الجذري",
+        "ai_whatif_btn": "سيناريو افتراضي",
+        "ai_kpi_btn": "تحليل مؤشرات الأداء",
+        "ai_energy_btn": "توصيات توفير الطاقة",
+        "ai_feedback_btn": "تلخيص الملاحظات",
         "solutions": [
             {
                 "title": "استجابة آلية لتسرب الميثان",
@@ -303,7 +332,7 @@ else:
 
 st.markdown("""
     <style>
-    @import url(\'https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap\');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap');
     .peak-card {
         background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
         border-radius: 18px;
@@ -311,9 +340,15 @@ st.markdown("""
         margin-bottom: 1.5em;
         padding: 1.5em 2em;
         transition: box-shadow 0.2s;
+        animation: peakfade 0.8s;
+    }
+    @keyframes peakfade {
+        0% { opacity: 0; transform: translateY(40px);}
+        100% { opacity: 1; transform: translateY(0);}
     }
     .peak-card:hover {
         box-shadow: 0 12px 38px 0 rgba(31,38,135,.28);
+        transform: scale(1.01);
     }
     .kpi-card {
         background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
@@ -325,16 +360,22 @@ st.markdown("""
         padding: 1.3em 1.3em;
         text-align: center;
         margin-bottom: 1em;
+        transition: box-shadow 0.18s, transform 0.16s;
+        animation: peakfade 0.7s;
+    }
+    .kpi-card:hover {
+        box-shadow: 0 8px 36px 0 rgba(31,38,135,.22);
+        transform: scale(1.015);
     }
     .rtl {
         direction: rtl;
         text-align: right;
-        font-family: \'Cairo\', sans-serif !important;
+        font-family: 'Cairo', sans-serif !important;
     }
     .ltr {
         direction: ltr;
         text-align: left;
-        font-family: \'Montserrat\', sans-serif !important;
+        font-family: 'Montserrat', sans-serif !important;
     }
     .sidebar-title {
         font-size: 2em !important;
@@ -356,6 +397,8 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.3em;
+        letter-spacing: .5px;
+        text-shadow: 0 1px 6px #185a9d1c;
     }
     .timeline-step {
         border-left: 4px solid #43cea2;
@@ -363,9 +406,10 @@ st.markdown("""
         padding-left: 1.2em;
         margin-bottom: 1em;
         position: relative;
+        animation: peakfade 0.7s;
     }
     .timeline-step:before {
-        content: \'\';
+        content: '';
         position: absolute;
         left: -14px;
         top: 0.18em;
@@ -388,6 +432,7 @@ st.markdown("""
         margin-bottom: 2.2em;
         box-shadow: 0 7px 32px 0 rgba(31,38,135,.07);
         position: relative;
+        animation: peakfade 0.9s;
     }
     .about-story {
         font-size: 1.18em;
@@ -417,6 +462,37 @@ st.markdown("""
         margin-top: 1.9em;
         margin-bottom: .6em;
     }
+    .ai-action-bar {
+        display: flex;
+        gap: 1.1em;
+        flex-wrap: wrap;
+        margin: 1.3em 0 1em 0;
+        justify-content: center;
+    }
+    .ai-action-btn {
+        background: linear-gradient(90deg,#43cea2,#185a9d 80%);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5em 1.3em;
+        font-size: 1.07em;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 3px 14px #185a9d23;
+        transition: background .19s, box-shadow .13s, transform .12s;
+    }
+    .ai-action-btn:hover {
+        background: linear-gradient(90deg,#185a9d 60%,#43cea2 100%);
+        box-shadow: 0 8px 28px #185a9d33;
+        transform: translateY(-1.5px) scale(1.03);
+    }
+    .feedback-bubble {
+        background: #43cea222;
+        border-radius: 12px;
+        padding: 0.8em 1.1em;
+        margin-bottom: 0.7em;
+        box-shadow: 0 2px 10px #43cea207;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -431,7 +507,7 @@ with st.sidebar:
     )
     st.session_state["lang"] = "en" if lang_sel == texts["en"]["lang_en"] else "ar"
     section_list = texts[st.session_state["lang"]]["side_sections"]
-    section = st.radio(" ", section_list, index=0)
+    section = st.radio(" ", section_list, index=0, label_visibility="collapsed")
 
 lang = st.session_state["lang"]
 T = texts[lang]
@@ -451,31 +527,45 @@ demo_df = pd.DataFrame({
 if section == T["side_sections"][0]:  # Digital Twin (Live MQTT)
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][0]}</div>', unsafe_allow_html=True)
-    try:
-        st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
-    except Exception:
-        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption=rtl_wrap("Demo Image"))
-    st.markdown(rtl_wrap("Live Temperature (MQTT, topic: digitaltwin/test/temperature)" if lang=="en" else "قراءة درجة الحرارة الحية (MQTT)"))
-    temp = st.session_state["mqtt_temp"]
-    if temp is not None:
-        display_temp = to_arabic_numerals(round(temp,2)) if lang == "ar" else round(temp,2)
-        st.metric(T["features"][0], f"{display_temp} °C", delta=None)
-        # Trigger alert if temp > 60°C and send SMS
-        if temp > 60 and not st.session_state["sms_sent"]:
-            ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد المسموح! درجة الحرارة={to_arabic_numerals(round(temp,1))}°م"))
-            st.session_state["sms_sent"] = True
-            st.warning("⚠️ SMS Alert sent to supervisor!" if lang=="en" else "⚠️ تم إرسال تنبيه SMS للمشرف!")
-    else:
-        st.info("Waiting for MQTT..." if lang=="en" else "في انتظار بيانات MQTT...")
-    st.caption(f"{'Last update' if lang=='en' else 'آخر تحديث'}: {st.session_state['mqtt_last'] if st.session_state['mqtt_last'] else 'N/A'}")
+    col1, col2 = st.columns([3,2])
+    with col1:
+        try:
+            st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
+        except Exception:
+            st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption=rtl_wrap("Demo Image"))
+    with col2:
+        st.markdown(rtl_wrap("Live Temperature (MQTT, topic: digitaltwin/test/temperature)" if lang=="en" else "قراءة درجة الحرارة الحية (MQTT)"))
+        temp = st.session_state["mqtt_temp"]
+        if temp is not None:
+            display_temp = to_arabic_numerals(round(temp,2)) if lang == "ar" else round(temp,2)
+            style = highlight_metric(temp, 60)
+            st.markdown(f"<div style='font-size:2.7em;font-weight:900;{style}'>{display_temp} °C</div>", unsafe_allow_html=True)
+            if temp > 60 and not st.session_state["sms_sent"]:
+                ok, msg = send_sms(TWILIO_TO, (f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد الآمن! الحرارة={to_arabic_numerals(round(temp,1))}°م"))
+                st.session_state["sms_sent"] = True
+                st.warning("⚠️ SMS Alert sent to supervisor!" if lang=="en" else "⚠️ تم إرسال تنبيه SMS للمشرف!")
+        else:
+            st.info("Waiting for MQTT..." if lang=="en" else "في انتظار بيانات MQTT...")
+        st.caption(f"{'Last update' if lang=='en' else 'آخر تحديث'}: {st.session_state['mqtt_last'] if st.session_state['mqtt_last'] else 'N/A'}")
 
 elif section == T["side_sections"][1]:  # Advanced Dashboard
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][1]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("KPIs and live trends for the plant." if lang=="en" else "المؤشرات والاتجاهات الحية للمصنع."))
     fig = px.line(demo_df, x="time", y=["Temperature", "Pressure", "Methane"], labels={"value":"Reading", "variable":"Tag"})
-    fig.update_layout(legend_title_text="Tag", height=350)
+    fig.update_traces(mode="lines+markers")
+    fig.update_layout(legend_title_text="Tag", height=350, hovermode="x unified", margin=dict(t=25,b=0))
     st.plotly_chart(fig, use_container_width=True)
+    # Advanced AI action bar
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_kpi_btn"], key="ai_kpi_btn"):
+        summary = ask_llm_advanced(
+            prompt="Summarize recent plant performance and KPIs. Highlight any anomalies or risks. Use the following data:\n"+demo_df.tail(24).to_csv(index=False),
+            lang=lang,
+            context=f"Recent KPIs: {demo_df.tail(24).to_dict(orient='list')}"
+        )
+        st.info(rtl_wrap(summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][2]:  # Predictive Analytics
     show_logo()
@@ -488,6 +578,16 @@ elif section == T["side_sections"][2]:  # Predictive Analytics
         "Temp": np.linspace(55, 63, 7) + np.random.normal(0, 1, 7)
     })
     st.line_chart(forecast.set_index("Day"))
+    # Advanced AI action bar
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_whatif_btn"], key="ai_whatif_btn"):
+        summary = ask_llm_advanced(
+            prompt="If methane rises 20% above the predicted trend, what are the operational risks and what should be done?",
+            lang=lang,
+            context=f"Forecast: {forecast.to_dict(orient='list')}"
+        )
+        st.info(rtl_wrap(summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][3]:  # Scenario Playback
     show_logo()
@@ -497,6 +597,16 @@ elif section == T["side_sections"][3]:  # Scenario Playback
     st.markdown(rtl_wrap(f"Scenario at hour {step}" if lang=="en" else f"السيناريو عند الساعة {to_arabic_numerals(step)}"))
     chart_data = np.cumsum(np.random.randn(24)) + 50
     st.line_chart(chart_data[:step+1])
+    # AI Action
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_explain_btn"], key="ai_explain_btn_scenario"):
+        summary = ask_llm_advanced(
+            prompt=f"Explain what happened in this scenario playback at hour {step}.",
+            lang=lang,
+            context=f"Scenario time series: {chart_data[:step+1].tolist()}"
+        )
+        st.info(rtl_wrap(summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][4]:  # Alerts & Fault Log
     show_logo()
@@ -507,8 +617,17 @@ elif section == T["side_sections"][4]:  # Alerts & Fault Log
         {"Time":"2025-06-30 22:10","Type":("Low Flow" if lang=="en" else "تدفق منخفض"),"Status":("Closed" if lang=="en" else "مغلق")},
     ])
     st.table(alert_log)
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_rootcause_btn"], key="ai_rootcause_btn_alerts"):
+        summary = ask_llm_advanced(
+            prompt="Analyze the cause of the latest open plant alert and propose mitigation.",
+            lang=lang,
+            context=f"Alert log: {alert_log.to_dict(orient='records')}",
+            root_cause="High temperature, recent methane spike"
+        )
+        st.info(rtl_wrap(summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
-elif section == T["side_sections"][5]:  # Smart Solutions
 elif section == T["side_sections"][5]:  # Smart Solutions
     show_logo()
     idx = st.session_state["solution_idx"]
@@ -542,6 +661,7 @@ elif section == T["side_sections"][5]:  # Smart Solutions
     """, unsafe_allow_html=True)
     if st.button(T["solution_btn"], key=f"solution-next-{idx}"):
         st.session_state["solution_idx"] = (idx + 1) % len(solutions)
+
 elif section == T["side_sections"][6]:  # KPI Wall
     show_logo()
     kpis = [
@@ -557,15 +677,18 @@ elif section == T["side_sections"][6]:  # KPI Wall
     ]
     vals = [96, 272, 62, 1]
     goals = [98, 250, 70, 0]
-    st.markdown("<div style=\'display:flex;gap:1.3em;flex-wrap:wrap;\'>", unsafe_allow_html=True)
+    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
     for i, (name, icon, color) in enumerate(kpis):
         display_val = to_arabic_numerals(vals[i]) if lang == "ar" else str(vals[i])
         display_goal = to_arabic_numerals(goals[i]) if lang == "ar" else str(goals[i])
-        st.markdown(f"""<div class="kpi-card" style="background:{color}c0;">
+        kpi_style = ""
+        if (lang == "en" and i == 3 and vals[i] > 0) or (lang == "ar" and i == 3 and vals[i] > 0):
+            kpi_style = "background:#fa709a33;"
+        st.markdown(f"""<div class="kpi-card" style="background:{color}c0;{kpi_style}">
             <span style="font-size:2.1em;">{icon}</span><br>
             <b>{name}</b><br>
             <span style="font-size:2.3em;font-weight:900">{display_val}</span>
-            <div style="font-size:.95em;color:#222;">{(\'Goal\' if lang==\'en\' else \'الهدف\')}: {display_goal}}</div>
+            <div style="font-size:.95em;color:#222;">{('Goal' if lang=='en' else 'الهدف')}: {display_goal}</div>
         </div>""", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -574,14 +697,15 @@ elif section == T["side_sections"][7]:  # Plant Heatmap
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][7]}</div>', unsafe_allow_html=True)
     st.markdown(rtl_wrap("High temperature and pressure zones are highlighted below." if lang=="en" else "المناطق الحرجة للحرارة والضغط موضحة أدناه."))
     z = np.random.uniform(25, 70, (8, 10))
-    fig = go.Figure(data=go.Heatmap(z=z, colorscale=\'YlOrRd\', colorbar=dict(title=(\'Temp °C\' if lang==\'en\' else \'حرارة\'))))
+    fig = go.Figure(data=go.Heatmap(z=z, colorscale='YlOrRd', colorbar=dict(title=('Temp °C' if lang=='en' else 'حرارة'))))
     fig.update_layout(height=320, margin=dict(l=12, r=12, t=20, b=20))
     st.plotly_chart(fig, use_container_width=True)
+    st.caption(rtl_wrap("Hover to inspect exact zone values." if lang=="en" else "مرر الفأرة لرؤية القيم الدقيقة."))
 
 elif section == T["side_sections"][8]:  # Root Cause Explorer
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][8]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."))
+    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."), unsafe_allow_html=True)
     st.markdown("""
     <div style="margin-top:1em;display:flex;justify-content:center;">
     <svg width="340" height="180" viewBox="0 0 340 180">
@@ -610,16 +734,44 @@ elif section == T["side_sections"][8]:  # Root Cause Explorer
         "Pump Overload" if lang=="en" else "تحميل زائد على المضخة",
         "Incident: Shutdown" if lang=="en" else "حادث: إيقاف"
     ), unsafe_allow_html=True)
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_rootcause_btn"], key="ai_rootcause_btn_rootcause"):
+        summary = ask_llm_advanced(
+            prompt="Given this root cause diagram, explain why the incident happened and recommend preventative actions.",
+            lang=lang,
+            root_cause="Methane leak led to compressor 2 fault, which overloaded the pump, leading to shutdown."
+        )
+        st.info(rtl_wrap(summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][9]:  # AI Copilot Chat (LLM)
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][9]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."))
+    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."), unsafe_allow_html=True)
     user_prompt = st.text_input(("Ask AI a question..." if lang=="en" else "اكتب سؤالاً للذكاء الصناعي..."), key="ai_input")
+    ai_context = {
+        "kpis": demo_df.tail(12).mean().to_dict(),
+        "alerts": ["High Temp", "Methane Spike"] if lang == "en" else ["حرارة عالية", "ارتفاع الميثان"],
+    }
     if user_prompt:
         with st.spinner("Thinking..." if lang=="en" else "يفكر..."):
-            answer = ask_llm(user_prompt, lang)
-        st.markdown(f"**AI:** {answer}")
+            # Root cause detection: if user asks "why", "cause", "root", etc.
+            if any(w in user_prompt.lower() for w in ["why", "cause", "root", "سبب", "جذر", "لماذا"]):
+                root_cause = "Recent temperature and methane spikes, compressor fault, and delayed maintenance"
+            else:
+                root_cause = None
+            answer = ask_llm_advanced(user_prompt, lang, context=str(ai_context), root_cause=root_cause)
+        st.markdown(f"<div class='feedback-bubble'><b>AI:</b> {answer}</div>", unsafe_allow_html=True)
+    # AI action bar
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_energy_btn"], key="ai_energy_btn_copilot"):
+        ai_energy = ask_llm_advanced(
+            prompt="Analyze current plant energy usage and recommend optimization actions.",
+            lang=lang,
+            context=f"KPIs: {ai_context['kpis']}"
+        )
+        st.info(rtl_wrap(ai_energy))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][10]:  # Live Plant 3D
     show_logo()
@@ -631,8 +783,8 @@ elif section == T["side_sections"][10]:  # Live Plant 3D
         )
         st.markdown(
             rtl_wrap(
-                \'<sup>3D model courtesy of <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>\' if lang=="en"
-                else \'<sup>النموذج ثلاثي الأبعاد مقدم من <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>\'
+                '<sup>3D model courtesy of <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>' if lang=="en"
+                else '<sup>النموذج ثلاثي الأبعاد مقدم من <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>'
             ),
             unsafe_allow_html=True
         )
@@ -666,7 +818,7 @@ elif section == T["side_sections"][11]:  # Incident Timeline
 elif section == T["side_sections"][12]:  # Energy Optimization
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][12]}</div>', unsafe_allow_html=True)
-    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي بالأسفل."))
+    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي أدناه."), unsafe_allow_html=True)
     energy_sect = ["Compressor", "Pump", "Lighting", "Other"] if lang=="en" else ["ضاغط", "مضخة", "إضاءة", "أخرى"]
     vals = [51, 28, 9, 12]
     fig = px.bar(x=energy_sect, y=vals, color=energy_sect, color_discrete_sequence=px.colors.sequential.Plasma)
@@ -683,11 +835,20 @@ elif section == T["side_sections"][12]:  # Energy Optimization
         st.markdown(f"""<div class="peak-card" style="background:#e0eafc;margin-bottom:0.6em;">
             <span class="timeline-icon">{icon}</span> {txt}
         </div>""", unsafe_allow_html=True)
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_energy_btn"], key="ai_energy_btn_energy"):
+        ai_energy = ask_llm_advanced(
+            prompt="Analyze plant energy usage and suggest optimization for each sector. Use the following as input.",
+            lang=lang,
+            context=f"Energy sectors: {dict(zip(energy_sect, vals))}"
+        )
+        st.info(rtl_wrap(ai_energy))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][13]:  # Future Insights
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][13]}</div>', unsafe_allow_html=True)
-    st.markdown("<div style=\'display:flex;gap:1.3em;flex-wrap:wrap;\'>", unsafe_allow_html=True)
+    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
     future_cards = [
         ("Predictive Risk Alert", "AI models forecast a risk spike for methane at Compressor 2 next week.", "🚨"),
         ("Efficiency Opportunity", "Upgrade control logic to boost plant efficiency by 3%.", "🌱")
@@ -712,32 +873,40 @@ elif section == T["side_sections"][13]:  # Future Insights
 elif section == T["side_sections"][14]:  # Operator Feedback
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["side_sections"][14]}</div>', unsafe_allow_html=True)
-    if "feedback_list" not in st.session_state:
-        st.session_state["feedback_list"] = []
     feedback = st.text_area(rtl_wrap("Add operator feedback or incident note:" if lang=="en" else "أضف ملاحظة أو ملاحظة حادث للمشغل:"), key="feedbackbox")
     if st.button("Submit Feedback" if lang=="en" else "إرسال الملاحظة"):
         if feedback.strip():
             st.session_state["feedback_list"].append((datetime.now().strftime("%Y-%m-%d %H:%M"), feedback.strip()))
     for t, fb in reversed(st.session_state["feedback_list"]):
-        st.info(rtl_wrap(f"**[{t}]** {fb}"))
+        st.markdown(f"<div class='feedback-bubble'>{rtl_wrap(f'**[{t}]** {fb}')}</div>", unsafe_allow_html=True)
+    st.markdown('<div class="ai-action-bar">', unsafe_allow_html=True)
+    if st.button(T["ai_feedback_btn"], key="ai_feedback_btn"):
+        notes_concat = " ".join([fb for _, fb in st.session_state["feedback_list"]])
+        ai_summary = ask_llm_advanced(
+            prompt="Summarize the main trends and concerns from recent operator feedback.",
+            lang=lang,
+            context=notes_concat
+        )
+        st.success(rtl_wrap(ai_summary))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 elif section == T["side_sections"][15]:  # About
     show_logo()
     st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{T["about_header"]}</div>', unsafe_allow_html=True)
-    st.markdown(f"<div class=\'about-bgcard\'>", unsafe_allow_html=True)
+    st.markdown(f"<div class='about-bgcard'>", unsafe_allow_html=True)
     st.markdown(
         "".join([
-            f"<span class=\'about-color\' style=\'background:{color}30;color:{color}\'>{value}</span> "
+            f"<span class='about-color' style='background:{color}30;color:{color}'>{value}</span> "
             for color, value in T["about_colorful"]
         ]), unsafe_allow_html=True
     )
-    st.markdown(f"<div class=\'about-story\'>{rtl_wrap(T[\'about_story\'])}</div>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class=\'about-feature\'>Features</div>") if lang=="en" else rtl_wrap("<div class=\'about-feature\'>الميزات</div>"), unsafe_allow_html=True)
+    st.markdown(f"<div class='about-story'>{rtl_wrap(T['about_story'])}</div>", unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class='about-feature'>Features</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>الميزات</div>"), unsafe_allow_html=True)
     st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in T["features"]])+"</ul>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class=\'about-feature\'>How to extend</div>") if lang=="en" else rtl_wrap("<div class=\'about-feature\'>كيفية التوسيع</div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class='about-feature'>How to extend</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>كيفية التوسيع</div>"), unsafe_allow_html=True)
     st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in T["howto_extend"]])+"</ul>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap("<div class=\'about-contact\'><b>Contact</b></div>") if lang=="en" else rtl_wrap("<div class=\'about-contact\'><b>تواصل معنا</b></div>"), unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class='about-contact'><b>Contact</b></div>") if lang=="en" else rtl_wrap("<div class='about-contact'><b>تواصل معنا</b></div>"), unsafe_allow_html=True)
     for name, mail, phone in T["developers"]:
-        st.markdown(f"{T[\'contact\']}: {name}<br>Email: <a href=\'mailto:{mail}\'>{mail}</a><br>Phone: {phone}<br>", unsafe_allow_html=True)
-    st.markdown(rtl_wrap(f"<i>{T[\'demo_note\']}</i>"), unsafe_allow_html=True)
+        st.markdown(f"{T['contact']}: {name}<br>Email: <a href='mailto:{mail}'>{mail}</a><br>Phone: {phone}<br>", unsafe_allow_html=True)
+    st.markdown(rtl_wrap(f"<i>{T['demo_note']}</i>"), unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
