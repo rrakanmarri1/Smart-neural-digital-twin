@@ -72,7 +72,7 @@ logo_svg = """
 
 # App version and last updated info
 APP_VERSION = "2.5.1"
-LAST_UPDATED = "2025-08-04 08:56:06"
+LAST_UPDATED = "2025-08-04 09:11:16"  # Updated to current time
 DEVELOPER = "rrakanmarri1"
 
 # ----- CONFIGURATION MANAGEMENT -----
@@ -411,18 +411,18 @@ def safe_execute(func, *args, context=None, **kwargs):
 # Default demo data for API failures
 MOCK_RESPONSES = {
     "en": {
-        "temperature": "Based on the latest data, the current temperature is around 57.3°C. This is within normal operating parameters for this system. The trend shows a slight increase over the past hour but still within acceptable limits.",
-        "why_high_temp": "The elevated temperature is likely due to three factors: 1) Increased production load over the past shift, 2) Seasonal ambient temperature rise, and 3) The compressor maintenance scheduled for last week was postponed. I recommend checking the cooling system filters and proceeding with the delayed maintenance.",
-        "energy": "Energy analysis shows compressors are consuming 51% of total usage. You could reduce consumption by 12% by implementing a staggered startup sequence and running at 85% capacity during non-peak hours. I estimate annual savings of approximately $21,000.",
-        "kpi": "Plant KPIs are generally positive. Efficiency is at 96% (target: 98%), water usage is optimized, but the incident rate is higher than target. The methane levels show concerning fluctuation in the past 48 hours - this requires investigation as it correlates with the temperature spikes.",
-        "feedback": "Operator feedback indicates recurring concerns about compressor #2 vibration and intermittent sensor readings on the eastern pipeline segment. Multiple operators have reported notification delays in the alert system. These issues should be prioritized for maintenance."
+        "temperature": "Based on the latest data, the current temperature is around 57.3°C. This is within normal operating parameters for this system. The trend shows a slight increase over the past hour, but nothing concerning.",
+        "why_high_temp": "The elevated temperature is likely due to three factors: 1) Increased production load over the past shift, 2) Seasonal ambient temperature rise, and 3) The compressor maintenance schedule being delayed by 2 days.",
+        "energy": "Energy analysis shows compressors are consuming 51% of total usage. You could reduce consumption by 12% by implementing a staggered startup sequence and running at 85% capacity during off-peak hours.",
+        "kpi": "Plant KPIs are generally positive. Efficiency is at 96% (target: 98%), water usage is optimized, but the incident rate is higher than target. The methane levels show concerning fluctuations that should be investigated.",
+        "feedback": "Operator feedback indicates recurring concerns about compressor #2 vibration and intermittent sensor readings on the eastern pipeline segment. Multiple operators have reported notification delays."
     },
     "ar": {
-        "temperature": "بناءً على أحدث البيانات، تبلغ درجة الحرارة الحالية حوالي 57.3 درجة مئوية. وهذا ضمن معايير التشغيل العادية لهذا النظام. يُظهر الاتجاه زيادة طفيفة على مدار الساعة الماضية ولكنه لا يزال ضمن الحدود المقبولة.",
-        "why_high_temp": "يرجع ارتفاع درجة الحرارة على الأرجح إلى ثلاثة عوامل: 1) زيادة حمل الإنتاج خلال الوردية الماضية، 2) ارتفاع درجة الحرارة المحيطة الموسمية، 3) تأجيل صيانة الضاغط المقررة الأسبوع الماضي. أوصي بفحص مرشحات نظام التبريد والمضي قدماً في الصيانة المتأخرة.",
-        "energy": "يظهر تحليل الطاقة أن الضواغط تستهلك 51٪ من إجمالي الاستخدام. يمكنك تقليل الاستهلاك بنسبة 12٪ من خلال تنفيذ تسلسل بدء تشغيل متدرج والتشغيل بسعة 85٪ خلال ساعات عدم الذروة. أقدر التوفير السنوي بحوالي 21,000 دولار.",
-        "kpi": "مؤشرات أداء المصنع إيجابية بشكل عام. الكفاءة عند 96٪ (الهدف: 98٪)، استخدام المياه محسن، لكن معدل الحوادث أعلى من المستهدف. تظهر مستويات الميثان تقلبات مثيرة للقلق في الساعات الـ 48 الماضية - وهذا يتطلب التحقيق لأنه يرتبط بارتفاعات درجة الحرارة.",
-        "feedback": "تشير ملاحظات المشغل إلى مخاوف متكررة بشأن اهتزاز الضاغط رقم 2 وقراءات المستشعر المتقطعة في قطاع خط الأنابيب الشرقي. أبلغ العديد من المشغلين عن تأخير الإخطارات في نظام التنبيه. يجب إعطاء الأولوية لهذه المشكلات للصيانة."
+        "temperature": "بناءً على أحدث البيانات، تبلغ درجة الحرارة الحالية حوالي 57.3 درجة مئوية. وهذا ضمن معايير التشغيل العادية لهذا النظام. يُظهر الاتجاه زيادة طفيفة خلال الساعة الماضية، لكن لا شيء مقلق.",
+        "why_high_temp": "يرجع ارتفاع درجة الحرارة على الأرجح إلى ثلاثة عوامل: 1) زيادة حمل الإنتاج خلال الوردية الماضية، 2) ارتفاع درجة الحرارة الموسمية المحيطة، و 3) تأخير جدول صيانة الضاغط لمدة يومين.",
+        "energy": "يظهر تحليل الطاقة أن الضواغط تستهلك 51٪ من إجمالي الاستخدام. يمكنك تقليل الاستهلاك بنسبة 12٪ من خلال تطبيق تسلسل بدء تشغيل متدرج والتشغيل بسعة 85٪ خلال ساعات خارج الذروة.",
+        "kpi": "مؤشرات أداء المصنع إيجابية بشكل عام. الكفاءة عند 96٪ (الهدف: 98٪)، استخدام المياه محسن، لكن معدل الحوادث أعلى من الهدف. تظهر مستويات الميثان تقلبات مثيرة للقلق يجب التحقيق فيها.",
+        "feedback": "تشير ملاحظات المشغل إلى مخاوف متكررة بشأن اهتزاز الضاغط رقم 2 وقراءات المستشعر المتقطعة في قطاع خط الأنابيب الشرقي. أبلغ العديد من المشغلين عن تأخيرات في الإشعارات."
     }
 }
 
@@ -650,7 +650,7 @@ You have access to real-time plant data and advanced analytics. Your core capabi
 - If 'root_cause' is provided, use it to explain system failures or propose mitigations.
 
 If asked about specific values, refer to the latest in-memory data if available. Reply in clear, concise, and helpful language.
-Current Date and Time: 2025-08-04 08:56:06 UTC
+Current Date and Time: 2025-08-04 09:11:16 UTC
 """
     system_ar = """أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
 لديك إمكانية الوصول إلى بيانات المصنع الحية والتحليلات المتقدمة. قدراتك الأساسية:
@@ -662,7 +662,7 @@ Current Date and Time: 2025-08-04 08:56:06 UTC
 - إذا تم توفير 'root_cause'، فاشرح به أسباب الأعطال أو طرق المعالجة.
 
 إذا سُئلت عن قيم معينة، استند للبيانات الأحدث المتوفرة بالذاكرة. أجب بوضوح واحترافية.
-التاريخ والوقت الحالي: 2025-08-04 08:56:06 UTC
+التاريخ والوقت الحالي: 2025-08-04 09:11:16 UTC
 """
     system = system_en if lang == "en" else system_ar
 
@@ -759,7 +759,7 @@ texts = {
         "solution_btn": "Next Solution",
         "logo_alt": "Smart Neural Digital Twin Logo",
         "about_header": "Our Story",
-        "about_story": "Our journey began with a simple question: <b>How can we detect gas leaks before they become disasters?</b> <span style=\"color:#fa709a;font-weight:bold\">We tried every solution, but realized we needed something smarter.</span> This digital twin platform was born from that need - combining AI, real-time sensing, and predictive analytics to create a nervous system for industrial plants. Now operators can see problems before they happen.",
+        "about_story": "Our journey began with a simple question: <b>How can we detect gas leaks before they become disasters?</b> <span style=\"color:#fa709a;font-weight:bold\">We tried every solution in the market</span>, but nothing was seamless enough to provide realtime insights for busy operators. So we built the <span style=\"color:#43cea2;font-weight:bold\">Smart Neural Digital Twin</span> - connecting IoT sensors with AI to give plant operators immediate awareness and predictive solutions.",
         "about_colorful": [
             ("#43cea2", "AI at the Core"),
             ("#fa709a", "Real-time Sensing"),
@@ -834,14 +834,15 @@ texts = {
         "side_sections": [
             "التوأم الرقمي", "لوحة القيادة المتقدمة", "التحليلات التنبؤية", "تشغيل السيناريو",
             "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري",
-            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "صحة النظام", "حول"
+            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغلين",
+            "صحة النظام", "حول"
         ],
         "lang_en": "الإنجليزية",
         "lang_ar": "العربية",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": "بدأنا رحلتنا من سؤال بسيط: <b>كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟</b> <span style=\"color:#fa709a;font-weight:bold\">جربنا كل الحلول، لكن أدركنا أننا نحتاج شيئًا أكثر ذكاءً.</span> ولدت منصة التوأم الرقمي هذه من هذه الحاجة - تجمع بين الذكاء الاصطناعي والاستشعار في الوقت الحقيقي والتحليلات التنبؤية لإنشاء نظام عصبي للمصانع الصناعية. الآن يمكن للمشغلين رؤية المشكلات قبل حدوثها.",
+        "about_story": "بدأنا رحلتنا من سؤال بسيط: <b>كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟</b> <span style=\"color:#fa709a;font-weight:bold\">جربنا كل الحلول المتاحة</span> لكن لم نجد ما يقدم رؤى فورية للمشغلين. فطورنا <span style=\"color:#43cea2;font-weight:bold\">التوأم الرقمي العصبي الذكي</span> - ربط حساسات إنترنت الأشياء بالذكاء الاصطناعي لتوفير وعي فوري وحلول تنبؤية.",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
             ("#fa709a", "استشعار لحظي"),
@@ -1290,55 +1291,794 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => this.classList.remove('click-pulse'), 300);
         });
     });
+});
 
-# Fix for the CSS JavaScript section - close the tags properly
-st.markdown(f"""
-<style>
-...existing CSS...
-</style>
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Alt + D: Toggle dark mode
+    if (e.altKey && e.key === 'd') {
+        const themeButton = document.querySelector('[data-testid="baseButton-themebtn"]');
+        if (themeButton) themeButton.click();
+    }
+    
+    // Alt + L: Toggle language
+    if (e.altKey && e.key === 'l') {
+        const langButton = document.querySelector('[data-testid="baseButton-langbtn"]');
+        if (langButton) langButton.click();
+    }
+    
+    // Alt + S: Next solution
+    if (e.altKey && e.key === 's') {
+        const solutionButton = document.querySelector('[data-testid="baseButton-nextbtn"]');
+        if (solutionButton) solutionButton.click();
+    }
+    
+    // Alt + H: Open help
+if (e.altKey && e.key === 'h') {
+    // Find a help or about section button and click it
+    const aboutSection = document.querySelector('[data-testid="stSidebarNav"] button:last-child');
+    if (aboutSection) aboutSection.click();
+}
 
-<script>
-// Add click animations to all buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(button => {
-        button.addEventListener('click', function() {
-            this.classList.add('click-pulse');
-            setTimeout(() => this.classList.remove('click-pulse'), 300);
-        });
-    });
+// Alt + A: Show analytics
+if (e.altKey && e.key === 'a') {
+    const analyticsSections = document.querySelectorAll('[data-testid="stSidebarNav"] button');
+    // Look for analytics related section
+    for (const section of analyticsSections) {
+        if (section.textContent.toLowerCase().includes('analytics')) {
+            section.click();
+            break;
+        }
+    }
+}
+
+// Alt + C: Focus on chat
+if (e.altKey && e.key === 'c') {
+    const chatInput = document.querySelector('textarea');
+    if (chatInput) {
+        chatInput.focus();
+    }
+}
 });
 </script>
-""", unsafe_allow_html=True)
 
-# Add keyboard shortcuts
-if CONFIG["ui"]["animation_enabled"]:
-    st.markdown("""
-    <script>
-    document.addEventListener('keydown', function(e) {
-        // Alt + D: Toggle dark mode
-        if (e.altKey && e.key === 'd') {
-            const themeBtn = document.querySelector('button[key="themebtn"]');
-            if (themeBtn) themeBtn.click();
-        }
+        # ----- MAIN UI IMPLEMENTATION -----
+
+# Update current date and time
+CURRENT_TIME = "2025-08-04 09:31:09"
+CURRENT_USER = "rrakanmarri1"
+
+# Language selector
+lang = st.session_state["lang"]
+tx = texts[lang]  # Get the correct language dictionary
+
+# Sidebar
+with st.sidebar:
+    st.markdown(f'<p class="sidebar-title">{tx["app_title"]}</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="sidebar-subtitle">{tx["app_sub"]}</p>', unsafe_allow_html=True)
+    
+    st.markdown(f"""<div style="text-align:center">{logo_svg}</div>""", unsafe_allow_html=True)
+    
+    # Language toggle
+    if st.button("🌐 " + (tx["lang_ar"] if lang == "en" else tx["lang_en"]), key="langbtn"):
+        st.session_state["lang"] = "ar" if lang == "en" else "en"
+        analytics.track_interaction("language_toggle", {"new_lang": st.session_state["lang"]})
+        st.experimental_rerun()
+    
+    st.markdown("---")
+    
+    # Navigation
+    st.subheader("Navigation")
+    for i, section in enumerate(tx["side_sections"]):
+        if st.button(section, key=f"nav_{i}", use_container_width=True):
+            analytics.track_page_view(section)
+            st.session_state["current_section"] = i
+            st.session_state["page_view_count"][section] = st.session_state["page_view_count"].get(section, 0) + 1
+    
+    # Initialize current section if not set
+    if "current_section" not in st.session_state:
+        st.session_state["current_section"] = 0
+            
+    st.markdown("---")
+    
+    # Live sensor data
+    st.subheader("Live Sensor")
+    simulate_mqtt_temp()  # Try to get MQTT data
+    if st.session_state["mqtt_temp"] is not None:
+        st.metric("Temperature", f"{st.session_state['mqtt_temp']:.2f}°C")
+        st.caption(f"Last update: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}")
+    else:
+        st.info("Waiting for sensor data...")
+    
+    # System info
+    st.markdown("---")
+    with st.expander("System Info"):
+        st.caption(f"{tx['app_version']}: {APP_VERSION}")
+        st.caption(f"{tx['last_updated']}: {LAST_UPDATED}")
+        st.caption(f"{tx['developer']}: {DEVELOPER}")
+        st.caption(f"Current User: {CURRENT_USER}")
+        st.caption(f"Current Time: {CURRENT_TIME}")
+
+# Get simulation data
+df = st.session_state["simulation_data"]
+
+# Main content based on selected section
+current_section = st.session_state["current_section"]
+section_name = tx["side_sections"][current_section]
+
+st.markdown(f'<h1 class="gradient-header">{section_name}</h1>', unsafe_allow_html=True)
+
+# ----- SECTION 0: DIGITAL TWIN -----
+if current_section == 0:  # Digital Twin
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.subheader("Live Plant Overview")
         
-        // Alt + number keys: Navigate sections
-        if (e.altKey && !isNaN(parseInt(e.key)) && parseInt(e.key) > 0) {
-            const sections = document.querySelectorAll('div[role="radio"]');
-            const index = parseInt(e.key) - 1;
-            if (index < sections.length) {
-                sections[index].click();
-            }
-        }
+        # Plot temperature, pressure, and methane
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df['time'], y=df['Temperature'], name="Temperature (°C)", 
+                                line=dict(color=colorful_palette[0], width=3)))
+        fig.add_trace(go.Scatter(x=df['time'], y=df['Pressure'], name="Pressure (bar)",
+                                line=dict(color=colorful_palette[1], width=3)))
+        fig.add_trace(go.Scatter(x=df['time'], y=df['Methane'], name="Methane (ppm)",
+                                line=dict(color=colorful_palette[2], width=3)))
         
-        // Alt + S: Search
-        if (e.altKey && e.key === 's') {
-            const searchBox = document.querySelector('input[type="text"]');
-            if (searchBox) {
-                searchBox.focus();
-                e.preventDefault();
-            }
+        fig.update_layout(
+            height=400,
+            margin=dict(l=20, r=20, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Plant diagram (simplified using st.image)
+        st.subheader("Interactive Plant Schematic")
+        st.image("https://i.imgur.com/ypWbTNB.png", caption="Plant Digital Twin Schematic")
+        
+    with col2:
+        st.subheader("Live Parameters")
+        
+        # Show KPIs
+        st.markdown('<div class="kpi-card">Temperature<br/>57.3 °C</div>', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-card">Pressure<br/>6.8 bar</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card" style="{highlight_metric(2.7, 2.0)}">Methane<br/>2.7 ppm</div>', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-card">Flow Rate<br/>42.1 m³/h</div>', unsafe_allow_html=True)
+        
+        # Quick actions
+        st.subheader("Quick Actions")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.button("📊 Export Data")
+            st.button("🔔 Set Alert")
+        with col_b:
+            st.button("📱 Send SMS")
+            st.button("📋 Report")
+
+# ----- SECTION 1: ADVANCED DASHBOARD -----
+elif current_section == 1:  # Advanced Dashboard
+    # Layout with tabs
+    tab1, tab2, tab3 = st.tabs(["System Overview", "Performance Metrics", "Energy"])
+    
+    with tab1:  # System Overview
+        # Multiple charts in columns
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Temperature Distribution")
+            temps = df['Temperature'].tolist()
+            fig = px.histogram(temps, nbins=20, 
+                               color_discrete_sequence=[colorful_palette[0]])
+            fig.update_layout(
+                margin=dict(l=20, r=20, t=20, b=20),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col2:
+            st.subheader("Pressure vs Temperature")
+            fig = px.scatter(df, x='Pressure', y='Temperature', 
+                             color_discrete_sequence=[colorful_palette[1]])
+            fig.update_layout(
+                margin=dict(l=20, r=20, t=20, b=20),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+        # System health indicators
+        st.subheader("System Health")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("CPU Load", "32%", "-5%")
+        with col2:
+            st.metric("Memory", "1.7 GB", "0.2 GB")
+        with col3:
+            st.metric("Disk Space", "47%", "-2%")
+        with col4:
+            st.metric("Network", "3.2 MB/s", "0.5 MB/s")
+    
+    with tab2:  # Performance Metrics
+        st.subheader("Performance Over Time")
+        
+        # Line chart for multiple metrics
+        metrics_df = pd.DataFrame({
+            'Time': df['time'],
+            'Efficiency': 95 + np.random.normal(0, 1, len(df)),
+            'Throughput': 78 + np.sin(np.linspace(0, 4*np.pi, len(df))) * 5 + np.random.normal(0, 1, len(df)),
+            'Utilization': 82 + np.cos(np.linspace(0, 2*np.pi, len(df))) * 7 + np.random.normal(0, 1, len(df))
+        })
+        
+        # Plot the metrics
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Efficiency'], name="Efficiency (%)",
+                                line=dict(color=colorful_palette[0], width=2)))
+        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Throughput'], name="Throughput (%)",
+                                line=dict(color=colorful_palette[1], width=2)))
+        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Utilization'], name="Utilization (%)",
+                                line=dict(color=colorful_palette[2], width=2)))
+        
+        fig.update_layout(
+            height=400,
+            margin=dict(l=20, r=20, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # KPIs in a grid
+        st.subheader("Key Performance Indicators")
+        kpi_cols = st.columns(3)
+        with kpi_cols[0]:
+            st.metric("OEE", "92.7%", "1.2%")
+        with kpi_cols[1]:
+            st.metric("MTBF", "187 hours", "15 hours")
+        with kpi_cols[2]:
+            st.metric("MTTR", "4.2 hours", "-0.8 hours")
+    
+    with tab3:  # Energy
+        st.subheader("Energy Consumption")
+        
+        # Energy by component pie chart
+        energy_data = {
+            'Component': ['Compressors', 'Pumps', 'Heating', 'Cooling', 'Lighting', 'Other'],
+            'Energy (kWh)': [428, 195, 147, 121, 89, 76]
         }
-    });
-    </script>
+        energy_df = pd.DataFrame(energy_data)
+        
+        fig = px.pie(energy_df, values='Energy (kWh)', names='Component', 
+                    color_discrete_sequence=colorful_palette)
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Energy optimization tips
+        st.subheader("Energy Optimization")
+        st.markdown('<div class="peak-card">Stagger compressor startup to avoid peak loads</div>', unsafe_allow_html=True)
+        st.markdown('<div class="peak-card">Reduce cooling temperature by 2°C during night shift</div>', unsafe_allow_html=True)
+        st.markdown('<div class="peak-card">Check insulation on eastern pipe section</div>', unsafe_allow_html=True)
+
+# ----- SECTION 2: PREDICTIVE ANALYTICS -----
+elif current_section == 2:  # Predictive Analytics
+    st.subheader("Failure Prediction")
+    
+    # Probability gauge chart
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Gauge chart for failure probability
+        failure_prob = 27  # Example probability
+        
+        gauge = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=failure_prob,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Failure Probability (%)"},
+            gauge={
+                'axis': {'range': [0, 100]},
+                'bar': {'color': colorful_palette[0]},
+                'steps': [
+                    {'range': [0, 20], 'color': "lightgreen"},
+                    {'range': [20, 50], 'color': "orange"},
+                    {'range': [50, 100], 'color': "red"}
+                ]
+            }
+        ))
+        gauge.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=30, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+        )
+        st.plotly_chart(gauge, use_container_width=True)
+        
+        # Add some KPIs
+        st.metric("Time to Failure", "14.3 days", "2.1 days")
+        st.metric("Confidence", "93%", "5%")
+    
+    with col2:
+        # Maintenance schedule
+        st.subheader("Predictive Maintenance Schedule")
+        
+        maintenance_data = {
+            'Equipment': ['Compressor A', 'Pump System', 'Heat Exchanger', 'Flow Controller'],
+            'Probability': [27, 15, 8, 42],
+            'Days': [14.3, 29.5, 65.2, 8.7],
+            'Action': ['Inspect', 'Monitor', 'Monitor', 'Replace']
+        }
+        maint_df = pd.DataFrame(maintenance_data)
+        
+        # Create a horizontal bar chart
+        fig = px.bar(maint_df, y='Equipment', x='Probability', orientation='h',
+                   color='Probability', color_continuous_scale=colorful_palette)
+        fig.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis_title="Failure Probability (%)"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Anomaly detection
+    st.subheader("Anomaly Detection")
+    
+    # Create example anomaly data
+    anomaly_df = pd.DataFrame({
+        'time': df['time'],
+        'value': df['Temperature'],
+        'upper': df['Temperature'] + 3,
+        'lower': df['Temperature'] - 3,
+        'anomaly': np.abs(df['Temperature'] - df['Temperature'].rolling(10).mean()) > 3
+    })
+    
+    # Plot the anomaly detection
+    fig = go.Figure()
+    
+    # Add the main signal
+    fig.add_trace(go.Scatter(
+        x=anomaly_df['time'], 
+        y=anomaly_df['value'],
+        name='Temperature',
+        line=dict(color=colorful_palette[0], width=2)
+    ))
+    
+    # Add the bounds
+    fig.add_trace(go.Scatter(
+        x=anomaly_df['time'],
+        y=anomaly_df['upper'],
+        fill=None,
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        showlegend=False
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=anomaly_df['time'],
+        y=anomaly_df['lower'],
+        fill='tonexty',
+        mode='lines',
+        line_color='rgba(0,0,0,0)',
+        fillcolor='rgba(67, 206, 162, 0.2)',
+        name='Normal Range'
+    ))
+    
+    # Add anomalies as points
+    anomalies = anomaly_df[anomaly_df['anomaly']]
+    fig.add_trace(go.Scatter(
+        x=anomalies['time'],
+        y=anomalies['value'],
+        mode='markers',
+        marker=dict(color=colorful_palette[1], size=10, symbol='circle'),
+        name='Anomalies'
+    ))
+    
+    fig.update_layout(
+        height=400,
+        margin=dict(l=20, r=20, t=20, b=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hovermode="x unified"
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+# ----- SECTION 5: SMART SOLUTIONS -----
+elif current_section == 5:  # Smart Solutions
+    st.subheader("AI-Powered Solution Recommendations")
+    
+    # Solution index from session state
+    sol_idx = st.session_state["solution_idx"]
+    solutions = tx["solutions"]
+    solution = solutions[sol_idx]
+    
+    # Main solution card
+    st.markdown(f"""
+    <div class="peak-card">
+        <h2>{solution["icon"]} {solution["title"]}</h2>
+        <p>{solution["desc"]}</p>
+        <div style="margin-top:1em;display:flex;flex-wrap:wrap;">
+            <div style="margin-right:2em;margin-bottom:1em;">
+                <b>Priority:</b> {solution["priority"]}
+            </div>
+            <div style="margin-right:2em;margin-bottom:1em;">
+                <b>Effectiveness:</b> {solution["effectiveness"]}
+            </div>
+            <div style="margin-right:2em;margin-bottom:1em;">
+                <b>Time to Implement:</b> {solution["time"]}
+            </div>
+            <div style="margin-right:2em;margin-bottom:1em;">
+                <b>Cost:</b> {solution["cost"]}
+            </div>
+            <div style="margin-right:2em;margin-bottom:1em;">
+                <b>Projected Savings:</b> {solution["savings"]}
+            </div>
+        </div>
+    </div>
     """, unsafe_allow_html=True)
+    
+    # Implementation steps
+    st.subheader("Implementation Steps")
+    for i, step in enumerate(solution["steps"]):
+        st.markdown(f"""
+        <div class="timeline-step">
+            <h4>Step {i+1}</h4>
+            <p>{step}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Next solution button
+    if st.button(tx["solution_btn"], key="nextbtn"):
+        st.session_state["solution_idx"] = (st.session_state["solution_idx"] + 1) % len(solutions)
+        analytics.track_interaction("solution_next", {"new_idx": st.session_state["solution_idx"]})
+        st.experimental_rerun()
+
+# ----- SECTION 7: PLANT HEATMAP -----
+elif current_section == 7:  # Plant Heatmap
+    st.subheader("Temperature Distribution Heatmap")
+    
+    # Create a sample heatmap dataset
+    heatmap_size = 24
+    x = np.linspace(0, 10, heatmap_size)
+    y = np.linspace(0, 10, heatmap_size)
+    X, Y = np.meshgrid(x, y)
+    
+    # Create a gaussian peak for the heatmap
+    def gaussian(x, y, x0, y0, sigma):
+        return np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
+    
+    # Combine multiple gaussians
+    z = (gaussian(X, Y, 3, 3, 1) + 
+         gaussian(X, Y, 7, 7, 1.5) * 0.8 + 
+         gaussian(X, Y, 5, 8, 0.7) * 1.2 +
+         gaussian(X, Y, 8, 3, 1.2) * 0.5)
+    
+    # Create the heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=z,
+        colorscale=[
+            [0, colorful_palette[0]],
+            [0.5, colorful_palette[1]],
+            [1, colorful_palette[2]]
+        ],
+        showscale=True,
+        hoverongaps=False
+    ))
+    
+    fig.update_layout(
+        title="Plant Temperature Distribution",
+        height=600,
+        margin=dict(l=20, r=20, t=60, b=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Heatmap controls
+    st.subheader("Visualization Controls")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.selectbox("Parameter", ["Temperature", "Pressure", "Methane", "Vibration", "Noise"])
+    
+    with col2:
+        st.selectbox("Color Scale", ["Thermal", "Viridis", "Plasma", "Blues", "Reds"])
+        
+    with col3:
+        st.selectbox("Resolution", ["High", "Medium", "Low"])
+    
+    # Add plant locations
+    st.subheader("Key Plant Locations")
+    locations = {
+        "Compressor Room": "(3.0, 3.0)",
+        "Storage Area": "(7.0, 7.0)", 
+        "Control Room": "(5.0, 8.0)",
+        "Loading Bay": "(8.0, 3.0)"
+    }
+    
+    for location, coords in locations.items():
+        st.markdown(f"- **{location}**: {coords}")
+
+# ----- SECTION 9: AI COPILOT CHAT -----
+elif current_section == 9:  # AI Copilot Chat
+    st.subheader("AI Assistant")
+    
+    # Initialize chat history
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
+    
+    # Chat container
+    chat_container = st.container()
+    
+    with chat_container:
+        # Display chat history
+        for i, message in enumerate(st.session_state["chat_history"]):
+            if message["role"] == "user":
+                st.markdown(f"""
+                <div class="chat-message user">
+                    <div class="message">{message["content"]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="chat-message ai">
+                    <div class="message">{message["content"]}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Quick prompts
+    st.markdown("### Quick Questions")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(tx["ai_explain_btn"]):
+            prompt = "Explain the current temperature trends"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+        
+        if st.button(tx["ai_rootcause_btn"]):
+            prompt = "What could be causing the methane spike?"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+        
+        if st.button(tx["ai_whatif_btn"]):
+            prompt = "What if we increase production by 15%?"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+    
+    with col2:
+        if st.button(tx["ai_kpi_btn"]):
+            prompt = "Analyze our current KPIs"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+        
+        if st.button(tx["ai_energy_btn"]):
+            prompt = "How can we optimize energy usage?"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+        
+        if st.button(tx["ai_feedback_btn"]):
+            prompt = "Summarize operator feedback"
+            st.session_state["chat_history"].append({"role": "user", "content": prompt})
+            response = ask_llm_advanced(prompt, lang)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+            st.experimental_rerun()
+    
+    # User input
+    user_input = st.text_input("Ask anything about the plant:", key="user_query")
+    if user_input:
+        analytics.track_interaction("chat_query", {"query": user_input})
+        st.session_state["chat_history"].append({"role": "user", "content": user_input})
+        response = ask_llm_advanced(user_input, lang)
+        st.session_state["chat_history"].append({"role": "assistant", "content": response})
+        st.experimental_rerun()
+
+# ----- SECTION 15: SYSTEM HEALTH -----
+elif current_section == 15:  # System Health
+    st.subheader(tx["health_check"])
+    
+    # System metrics
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # App metrics
+        st.subheader(tx["perf_check"])
+        
+        app_metrics = perf_tracker.get_app_metrics()
+        
+        # Format uptime nicely
+        uptime = app_metrics["uptime_seconds"]
+        hours, remainder = divmod(uptime, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        uptime_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+        
+        st.markdown(f"""
+        <div class="system-stat-card">
+            <div><b>Uptime:</b> {uptime_str}</div>
+            <div><b>Function Calls:</b> {app_metrics["function_calls"]}</div>
+            <div><b>Slowest Function:</b> {app_metrics["slowest_function"] or "None"}</div>
+            <div><b>Total Execution Time:</b> {app_metrics["total_execution_time"]:.2f}s</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Function metrics
+        func_metrics = perf_tracker.get_function_metrics()
+        if func_metrics:
+            st.markdown("#### Function Performance")
+            
+            # Convert to DataFrame for display
+            func_df = pd.DataFrame([
+                {
+                    "Function": func_name,
+                    "Calls": metrics["calls"],
+                    "Avg Time (ms)": metrics["avg_time"] * 1000,
+                    "Max Time (ms)": metrics["max_time"] * 1000
+                }
+                for func_name, metrics in func_metrics.items()
+            ])
+            
+            # Sort by average time (descending)
+            func_df = func_df.sort_values("Avg Time (ms)", ascending=False)
+            
+            # Display the table
+            st.dataframe(func_df, use_container_width=True)
+    
+    with col2:
+        # Exception monitoring
+        st.subheader("Error Tracking")
+        
+        summary = exception_monitor.get_summary()
+        st.markdown(summary)
+        
+        # Most common exceptions
+        most_common = exception_monitor.get_most_common()
+        if most_common:
+            st.markdown("#### Most Common Exceptions")
+            
+            for exc_type, count in most_common:
+                st.markdown(f"- **{exc_type}**: {count} occurrences")
+        
+        # Clear exceptions button
+        if st.button("Clear Error Log"):
+            exception_monitor.clear()
+            st.success("Error log cleared")
+            st.experimental_rerun()
+    
+    # Analytics data
+    st.subheader("Analytics")
+    
+    analytics_summary = analytics.get_analytics_summary()
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Session Information")
+        
+        # Format session duration
+        session_duration = analytics_summary["session_duration_seconds"]
+        hours, remainder = divmod(session_duration, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+        
+        st.markdown(f"""
+        <div class="system-stat-card">
+            <div><b>Session ID:</b> {analytics_summary["session_id"]}</div>
+            <div><b>Duration:</b> {duration_str}</div>
+            <div><b>Total Interactions:</b> {analytics_summary["total_interactions"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("#### Feature Usage")
+        
+        # Most used features
+        most_used = analytics_summary["most_used_features"]
+        if most_used:
+            for feature, count in most_used:
+                st.markdown(f"- **{feature}**: {count} uses")
+        else:
+            st.info("No feature usage recorded yet")
+    
+    # Page views
+    st.subheader("Page Views")
+    
+    page_views = analytics_summary["page_views"]
+    if page_views:
+        # Convert to DataFrame for visualization
+        page_df = pd.DataFrame([
+            {"Page": page, "Views": views}
+            for page, views in page_views.items()
+        ])
+        
+        # Sort by views (descending)
+        page_df = page_df.sort_values("Views", ascending=False)
+        
+        # Create bar chart
+        fig = px.bar(page_df, x="Page", y="Views",
+                   color="Views", color_continuous_scale=colorful_palette)
+        
+        fig.update_layout(
+            height=400,
+            margin=dict(l=20, r=20, t=20, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No page views recorded yet")
+
+# ----- SECTION 16: ABOUT -----
+elif current_section == 16:  # About
+    st.markdown(f'<h2 class="gradient-header">{tx["about_header"]}</h2>', unsafe_allow_html=True)
+    
+    # Story card
+    st.markdown('<div class="about-bgcard">', unsafe_allow_html=True)
+    st.markdown(f'<div class="about-story">{tx["about_story"]}</div>', unsafe_allow_html=True)
+    
+    # Colorful concepts
+    for color, text in tx["about_colorful"]:
+        st.markdown(f'<span class="about-color" style="border-color:{color}">{text}</span>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Features section
+    st.subheader("Key Features")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        for feature in tx["features"][:3]:
+            st.markdown(f'<p class="about-feature">✓ {feature}</p>', unsafe_allow_html=True)
+    
+    with col2:
+        for feature in tx["features"][3:]:
+            st.markdown(f'<p class="about-feature">✓ {feature}</p>', unsafe_allow_html=True)
+    
+    # How to extend
+    st.subheader("How To Extend")
+    for item in tx["howto_extend"]:
+        st.markdown(f"- {item}")
+    
+    # Contact info
+    st.subheader(tx["contact"])
+    for name, email, phone in tx["developers"]:
+        st.markdown(f"**{name}**  \n{email} | {phone}")
+    
+    # Demo note
+    st.warning(tx["demo_note"])
+
+    # System information
+    st.markdown("---")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(tx["app_version"], APP_VERSION)
+    with col2:
+        st.metric(tx["last_updated"], LAST_UPDATED)
+    with col3:
+        st.metric(tx["developer"], DEVELOPER)
+
+# Add other sections as needed (this covers the key sections)
+else:
+    st.info("This section is under development. Please check back later!")
+
+# Footer with credits
+st.markdown("---")
+st.markdown(f"<p style='text-align:center;color:gray;font-size:0.8em;'>© 2025 Smart Neural Digital Twin • User: {CURRENT_USER} • {CURRENT_TIME}</p>", unsafe_allow_html=True)
