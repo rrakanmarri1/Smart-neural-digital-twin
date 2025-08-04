@@ -72,7 +72,7 @@ logo_svg = """
 
 # App version and last updated info
 APP_VERSION = "2.5.1"
-LAST_UPDATED = "2025-08-04 08:16:39"
+LAST_UPDATED = "2025-08-04 08:56:06"
 DEVELOPER = "rrakanmarri1"
 
 # ----- CONFIGURATION MANAGEMENT -----
@@ -650,7 +650,7 @@ You have access to real-time plant data and advanced analytics. Your core capabi
 - If 'root_cause' is provided, use it to explain system failures or propose mitigations.
 
 If asked about specific values, refer to the latest in-memory data if available. Reply in clear, concise, and helpful language.
-Current Date and Time: 2025-08-04 08:16:39 UTC
+Current Date and Time: 2025-08-04 08:56:06 UTC
 """
     system_ar = """أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
 لديك إمكانية الوصول إلى بيانات المصنع الحية والتحليلات المتقدمة. قدراتك الأساسية:
@@ -662,7 +662,7 @@ Current Date and Time: 2025-08-04 08:16:39 UTC
 - إذا تم توفير 'root_cause'، فاشرح به أسباب الأعطال أو طرق المعالجة.
 
 إذا سُئلت عن قيم معينة، استند للبيانات الأحدث المتوفرة بالذاكرة. أجب بوضوح واحترافية.
-التاريخ والوقت الحالي: 2025-08-04 08:16:39 UTC
+التاريخ والوقت الحالي: 2025-08-04 08:56:06 UTC
 """
     system = system_en if lang == "en" else system_ar
 
@@ -1290,6 +1290,23 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => this.classList.remove('click-pulse'), 300);
         });
     });
+
+# Fix for the CSS JavaScript section - close the tags properly
+st.markdown(f"""
+<style>
+...existing CSS...
+</style>
+
+<script>
+// Add click animations to all buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            this.classList.add('click-pulse');
+            setTimeout(() => this.classList.remove('click-pulse'), 300);
+        });
+    });
 });
 </script>
 """, unsafe_allow_html=True)
@@ -1301,4 +1318,27 @@ if CONFIG["ui"]["animation_enabled"]:
     document.addEventListener('keydown', function(e) {
         // Alt + D: Toggle dark mode
         if (e.altKey && e.key === 'd') {
-            const theme
+            const themeBtn = document.querySelector('button[key="themebtn"]');
+            if (themeBtn) themeBtn.click();
+        }
+        
+        // Alt + number keys: Navigate sections
+        if (e.altKey && !isNaN(parseInt(e.key)) && parseInt(e.key) > 0) {
+            const sections = document.querySelectorAll('div[role="radio"]');
+            const index = parseInt(e.key) - 1;
+            if (index < sections.length) {
+                sections[index].click();
+            }
+        }
+        
+        // Alt + S: Search
+        if (e.altKey && e.key === 's') {
+            const searchBox = document.querySelector('input[type="text"]');
+            if (searchBox) {
+                searchBox.focus();
+                e.preventDefault();
+            }
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
