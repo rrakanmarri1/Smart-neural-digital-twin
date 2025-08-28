@@ -3,508 +3,60 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import os
-import platform
-import time
-import json
-import uuid
-import functools
+import openai
+from twilio.rest import Client
 from datetime import datetime, timedelta
 import threading
 import paho.mqtt.client as mqtt
-from typing import Dict, List, Optional, Tuple, Union, Any, Callable
+import os
+import random
+import json
 
-# Configure page title, favicon, layout
-st.set_page_config(
-    page_title="Smart Neural Digital Twin",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Try OpenAI import, handle missing gracefully
-try:
-    import openai
-    from openai import OpenAI
-    openai_available = True
-except ImportError:
-    openai_available = False
-
-# Try Twilio import
-try:
-    from twilio.rest import Client
-    twilio_available = True
-except ImportError:
-    twilio_available = False
-
-# Try additional packages
-try:
-    import psutil
-    psutil_available = True
-except ImportError:
-    psutil_available = False
-
-try:
-    import graphviz
-    graphviz_available = True
-except ImportError:
-    graphviz_available = False
-
-# ----- LOGO SVG -----
+# -------------------- LOGO SVG --------------------
 logo_svg = """
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <circle cx="32" cy="32" r="32" fill="url(#grad1)"/>
-  <defs>
-    <linearGradient id="grad1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#43cea2"/>
-      <stop offset="1" stop-color="#185a9d"/>
-    </linearGradient>
-  </defs>
-  <g>
-    <ellipse cx="32" cy="32" rx="22" ry="10" fill="#fff" fill-opacity="0.18"/>
-    <ellipse cx="32" cy="32" rx="12" ry="22" fill="#fff" fill-opacity="0.10"/>
-    <path d="M20 32a12 12 0 1 0 24 0 12 12 0 1 0 -24 0" fill="#fff" fill-opacity="0.7"/>
-    <path d="M32 16v32M16 32h32" stroke="#185a9d" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="32" cy="32" r="6" fill="#43cea2" stroke="#185a9d" stroke-width="2"/>
-  </g>
+<circle cx="32" cy="32" r="32" fill="url(#grad1)"/>
+<defs>
+<linearGradient id="grad1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+<stop stop-color="#43cea2"/>
+<stop offset="1" stop-color="#185a9d"/>
+</linearGradient>
+</defs>
+<g>
+<ellipse cx="32" cy="32" rx="22" ry="10" fill="#fff" fill-opacity="0.18"/>
+<ellipse cx="32" cy="32" rx="12" ry="22" fill="#fff" fill-opacity="0.10"/>
+<path d="M20 32a12 12 0 1 0 24 0 12 12 0 1 0 -24 0" fill="#fff" fill-opacity="0.7"/>
+<path d="M32 16v32M16 32h32" stroke="#185a9d" stroke-width="2" stroke-linecap="round"/>
+<circle cx="32" cy="32" r="6" fill="#43cea2" stroke="#185a9d" stroke-width="2"/>
+</g>
 </svg>
 """
 
-# App version and last updated info
-APP_VERSION = "2.5.1"
-LAST_UPDATED = "2025-08-04 09:11:16"  # Updated to current time
-DEVELOPER = "rrakanmarri1"
+# -------------------- MQTT Config --------------------
+MQTT_BROKER = "broker.hivemq.com"
+MQTT_PORT = 1883
+MQTT_TOPIC = "digitaltwin/test/temperature"
 
-# ----- CONFIGURATION MANAGEMENT -----
-def load_config() -> dict:
-    """Load configuration from file with environment-specific overrides"""
-    # Default configuration
-    default_config = {
-        "mqtt": {
-            "broker": "test.mosquitto.org",
-            "port": 1883,
-            "topic": "digitaltwin/test/temperature",
-            "fallback_enabled": True
-        },
-        "api": {
-            "openai_model": "gpt-3.5-turbo",
-            "max_tokens": 500,
-            "temperature": 0.3
-        },
-        "ui": {
-            "default_theme": "dark",
-            "default_language": "en",
-            "animation_enabled": True,
-            "enable_voice_interface": False
-        },
-        "simulation": {
-            "data_points": 96,
-            "update_frequency": 5,
-            "anomalies_enabled": True
-        },
-        "features": {
-            "3d_visualization": True,
-            "ai_chat": True,
-            "heatmap": True,
-            "dashboard": True,
-            "enable_analytics": True,
-            "error_tracking": True
-        },
-        "performance": {
-            "cache_timeout": 300,  # seconds
-            "lazy_loading": True,
-            "prefetch_data": True
-        }
-    }
-    
-    # Try to load from config file
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    config = default_config
-    
-    try:
-        if os.path.exists(config_path):
-            with open(config_path, "r") as f:
-                file_config = json.load(f)
-                
-                # Merge configurations (nested update)
-                def merge_dicts(d1, d2):
-                    for k, v in d2.items():
-                        if k in d1 and isinstance(d1[k], dict) and isinstance(v, dict):
-                            merge_dicts(d1[k], v)
-                        else:
-                            d1[k] = v
-                
-                merge_dicts(config, file_config)
-    except Exception as e:
-        st.warning(f"Failed to load config: {e}")
-    
-    # Environment variable overrides
-    env_prefix = "DIGITAL_TWIN_"
-    for key in os.environ:
-        if key.startswith(env_prefix):
-            parts = key[len(env_prefix):].lower().split('_')
-            
-            # Navigate to the correct nested dict
-            current = config
-            for part in parts[:-1]:
-                if part not in current:
-                    current[part] = {}
-                current = current[part]
-            
-            # Set the value (convert types if needed)
-            value = os.environ[key]
-            try:
-                # Try to convert to appropriate type
-                if value.lower() in ('true', 'false'):
-                    value = value.lower() == 'true'
-                elif value.isdigit():
-                    value = int(value)
-                elif value.replace('.', '', 1).isdigit() and value.count('.') < 2:
-                    value = float(value)
-            except:
-                pass
-            
-            current[parts[-1]] = value
-    
-    return config
+# -------------------- Secure config via environment --------------------
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+TWILIO_SID = os.environ.get("TWILIO_SID")
+TWILIO_AUTH = os.environ.get("TWILIO_AUTH")
+TWILIO_FROM = os.environ.get("TWILIO_FROM")
+TWILIO_TO = os.environ.get("TWILIO_TO")
 
-# Load configuration
-CONFIG = load_config()
+# -------------------- App state Initialization --------------------
+for key, default in [
+    ("lang", "en"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "dark"),
+    ("mqtt_temp", None), ("mqtt_last", None), ("mqtt_started", False), ("sms_sent", False),
+    ("feedback_list", []), ("generated_solutions", []), ("solution_generated", False)
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
-# MQTT Config
-MQTT_BROKER = CONFIG["mqtt"]["broker"]
-MQTT_PORT = CONFIG["mqtt"]["port"]
-MQTT_TOPIC = CONFIG["mqtt"]["topic"]
-
-# Secure config via environment
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-TWILIO_SID = os.environ.get("TWILIO_SID", "")
-TWILIO_AUTH = os.environ.get("TWILIO_AUTH", "")
-TWILIO_FROM = os.environ.get("TWILIO_FROM", "")
-TWILIO_TO = os.environ.get("TWILIO_TO", "")
-
-# ----- PERFORMANCE MONITORING & ERROR TRACKING -----
-class PerformanceTracker:
-    """Track performance metrics for the application"""
-    
-    def __init__(self):
-        self.metrics = {}
-        self.start_time = time.time()
-    
-    def track_function(self, func):
-        """Decorator to track function performance"""
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            start_time = time.time()
-            result = func(*args, **kwargs)
-            execution_time = time.time() - start_time
-            
-            func_name = func.__name__
-            if func_name not in self.metrics:
-                self.metrics[func_name] = {
-                    "calls": 0,
-                    "total_time": 0,
-                    "min_time": float('inf'),
-                    "max_time": 0,
-                    "last_call": datetime.now().isoformat()
-                }
-            
-            metrics = self.metrics[func_name]
-            metrics["calls"] += 1
-            metrics["total_time"] += execution_time
-            metrics["min_time"] = min(metrics["min_time"], execution_time)
-            metrics["max_time"] = max(metrics["max_time"], execution_time)
-            metrics["last_call"] = datetime.now().isoformat()
-            
-            return result
-        
-        return wrapper
-    
-    def get_app_metrics(self):
-        """Get overall application metrics"""
-        return {
-            "uptime_seconds": time.time() - self.start_time,
-            "function_calls": sum(m["calls"] for m in self.metrics.values()),
-            "slowest_function": max(self.metrics.items(), key=lambda x: x[1]["max_time"])[0] if self.metrics else None,
-            "total_execution_time": sum(m["total_time"] for m in self.metrics.values())
-        }
-    
-    def get_function_metrics(self):
-        """Get metrics for all tracked functions"""
-        result = {}
-        for func_name, metrics in self.metrics.items():
-            avg_time = metrics["total_time"] / metrics["calls"] if metrics["calls"] > 0 else 0
-            result[func_name] = {
-                "calls": metrics["calls"],
-                "avg_time": avg_time,
-                "min_time": metrics["min_time"] if metrics["min_time"] != float('inf') else 0,
-                "max_time": metrics["max_time"],
-                "last_call": metrics["last_call"]
-            }
-        return result
-
-# Initialize performance tracker
-perf_tracker = PerformanceTracker()
-
-class ExceptionMonitor:
-    """Monitor and track exceptions across the application"""
-    
-    def __init__(self):
-        self.exceptions = []
-        self.max_exceptions = 100  # Limit storage to prevent memory issues
-    
-    def capture(self, exception, context=None):
-        """Capture an exception with optional context"""
-        if len(self.exceptions) >= self.max_exceptions:
-            self.exceptions.pop(0)  # Remove oldest exception
-        
-        self.exceptions.append({
-            "exception": str(exception),
-            "type": type(exception).__name__,
-            "timestamp": datetime.now().isoformat(),
-            "context": context or {}
-        })
-    
-    def get_summary(self):
-        """Get a summary of recent exceptions"""
-        if not self.exceptions:
-            return "No exceptions captured"
-        
-        # Group exceptions by type
-        grouped = {}
-        for exc in self.exceptions:
-            exc_type = exc["type"]
-            if exc_type not in grouped:
-                grouped[exc_type] = {"count": 0, "examples": []}
-            
-            grouped[exc_type]["count"] += 1
-            if len(grouped[exc_type]["examples"]) < 3:  # Store up to 3 examples
-                grouped[exc_type]["examples"].append(exc)
-        
-        # Format the summary
-        summary = []
-        for exc_type, data in grouped.items():
-            summary.append(f"**{exc_type}**: {data['count']} occurrences")
-            for example in data["examples"]:
-                summary.append(f"  - {example['exception']} ({example['timestamp']})")
-        
-        return "\n".join(summary)
-    
-    def get_most_common(self, limit=5):
-        """Get the most common exception types"""
-        if not self.exceptions:
-            return []
-        
-        # Count exceptions by type
-        counts = {}
-        for exc in self.exceptions:
-            exc_type = exc["type"]
-            counts[exc_type] = counts.get(exc_type, 0) + 1
-        
-        # Sort by count (descending)
-        sorted_types = sorted(counts.items(), key=lambda x: x[1], reverse=True)
-        return sorted_types[:limit]
-    
-    def clear(self):
-        """Clear all captured exceptions"""
-        self.exceptions = []
-
-# Initialize exception monitor
-exception_monitor = ExceptionMonitor()
-
-# ----- ANALYTICS TRACKING -----
-class AnalyticsTracker:
-    """Track user interactions and feature usage"""
-    
-    def __init__(self):
-        self.session_id = str(uuid.uuid4())
-        self.interactions = []
-        self.feature_usage = {}
-        self.page_views = {}
-        self.session_start = datetime.now()
-    
-    def track_interaction(self, event_type, details=None):
-        """Track a user interaction"""
-        if not CONFIG["features"]["enable_analytics"]:
-            return
-            
-        self.interactions.append({
-            "type": event_type,
-            "timestamp": datetime.now().isoformat(),
-            "details": details or {}
-        })
-    
-    def track_feature_usage(self, feature_name):
-        """Track usage of a specific feature"""
-        if not CONFIG["features"]["enable_analytics"]:
-            return
-            
-        if feature_name in self.feature_usage:
-            self.feature_usage[feature_name] += 1
-        else:
-            self.feature_usage[feature_name] = 1
-    
-    def track_page_view(self, page_name):
-        """Track a page view"""
-        if not CONFIG["features"]["enable_analytics"]:
-            return
-            
-        if page_name in self.page_views:
-            self.page_views[page_name] += 1
-        else:
-            self.page_views[page_name] = 1
-    
-    def get_analytics_summary(self):
-        """Get a summary of analytics data"""
-        session_duration = (datetime.now() - self.session_start).total_seconds()
-        
-        return {
-            "session_id": self.session_id,
-            "session_duration_seconds": session_duration,
-            "total_interactions": len(self.interactions),
-            "most_used_features": sorted(self.feature_usage.items(), key=lambda x: x[1], reverse=True),
-            "page_views": self.page_views
-        }
-
-# Initialize analytics tracker
-analytics = AnalyticsTracker()
-
-# ----- CACHING MECHANISM -----
-def timed_cache(timeout_seconds=300):
-    """A decorator that caches the result of a function for a specified time period"""
-    def decorator(func):
-        # Store cache as a dictionary: {args: (timestamp, result)}
-        cache = {}
-        
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            # Create a hashable key from the function arguments
-            key = str(args) + str(sorted(kwargs.items()))
-            
-            # Check if we have a cached result that's still valid
-            if key in cache:
-                timestamp, result = cache[key]
-                if time.time() - timestamp <= timeout_seconds:
-                    return result
-            
-            # No valid cached result, call the function
-            result = func(*args, **kwargs)
-            cache[key] = (time.time(), result)
-            return result
-        
-        # Add a method to clear the cache
-        wrapper.clear_cache = lambda: cache.clear()
-        
-        return wrapper
-    
-    return decorator
-
-# ----- UTILITY FUNCTIONS -----
-def safe_execute(func, *args, context=None, **kwargs):
-    """Execute a function safely, capturing any exceptions"""
-    try:
-        return func(*args, **kwargs)
-    except Exception as e:
-        exception_monitor.capture(e, context)
-        raise  # Re-raise the exception after capturing
-
-# Default demo data for API failures
-MOCK_RESPONSES = {
-    "en": {
-        "temperature": "Based on the latest data, the current temperature is around 57.3°C. This is within normal operating parameters for this system. The trend shows a slight increase over the past hour, but nothing concerning.",
-        "why_high_temp": "The elevated temperature is likely due to three factors: 1) Increased production load over the past shift, 2) Seasonal ambient temperature rise, and 3) The compressor maintenance schedule being delayed by 2 days.",
-        "energy": "Energy analysis shows compressors are consuming 51% of total usage. You could reduce consumption by 12% by implementing a staggered startup sequence and running at 85% capacity during off-peak hours.",
-        "kpi": "Plant KPIs are generally positive. Efficiency is at 96% (target: 98%), water usage is optimized, but the incident rate is higher than target. The methane levels show concerning fluctuations that should be investigated.",
-        "feedback": "Operator feedback indicates recurring concerns about compressor #2 vibration and intermittent sensor readings on the eastern pipeline segment. Multiple operators have reported notification delays."
-    },
-    "ar": {
-        "temperature": "بناءً على أحدث البيانات، تبلغ درجة الحرارة الحالية حوالي 57.3 درجة مئوية. وهذا ضمن معايير التشغيل العادية لهذا النظام. يُظهر الاتجاه زيادة طفيفة خلال الساعة الماضية، لكن لا شيء مقلق.",
-        "why_high_temp": "يرجع ارتفاع درجة الحرارة على الأرجح إلى ثلاثة عوامل: 1) زيادة حمل الإنتاج خلال الوردية الماضية، 2) ارتفاع درجة الحرارة الموسمية المحيطة، و 3) تأخير جدول صيانة الضاغط لمدة يومين.",
-        "energy": "يظهر تحليل الطاقة أن الضواغط تستهلك 51٪ من إجمالي الاستخدام. يمكنك تقليل الاستهلاك بنسبة 12٪ من خلال تطبيق تسلسل بدء تشغيل متدرج والتشغيل بسعة 85٪ خلال ساعات خارج الذروة.",
-        "kpi": "مؤشرات أداء المصنع إيجابية بشكل عام. الكفاءة عند 96٪ (الهدف: 98٪)، استخدام المياه محسن، لكن معدل الحوادث أعلى من الهدف. تظهر مستويات الميثان تقلبات مثيرة للقلق يجب التحقيق فيها.",
-        "feedback": "تشير ملاحظات المشغل إلى مخاوف متكررة بشأن اهتزاز الضاغط رقم 2 وقراءات المستشعر المتقطعة في قطاع خط الأنابيب الشرقي. أبلغ العديد من المشغلين عن تأخيرات في الإشعارات."
-    }
-}
-
-# Generate consistent simulation data for demo
-@perf_tracker.track_function
-def generate_simulation_data():
-    """Generate realistic plant simulation data"""
-    np.random.seed(42)  # For reproducible results
-    now = datetime.now()
-    hours_24 = timedelta(hours=24)
-    
-    # Create time range
-    times = pd.date_range(now - hours_24, now, periods=CONFIG["simulation"]["data_points"])
-    
-    # Base patterns with some randomness
-    temp_base = 55 + 5 * np.sin(np.linspace(0, 4*np.pi, CONFIG["simulation"]["data_points"]))
-    pressure_base = 7 + np.sin(np.linspace(0, 2*np.pi, CONFIG["simulation"]["data_points"])) * 0.8
-    methane_base = 1.2 + 0.6 * np.sin(np.linspace(0, 3*np.pi, CONFIG["simulation"]["data_points"]))
-    
-    # Add realistic noise
-    temp = temp_base + np.random.normal(0, 0.7, CONFIG["simulation"]["data_points"])
-    pressure = pressure_base + np.random.normal(0, 0.2, CONFIG["simulation"]["data_points"])
-    methane = np.clip(methane_base + np.random.normal(0, 0.15, CONFIG["simulation"]["data_points"]), 0, 5)
-    
-    if CONFIG["simulation"]["anomalies_enabled"]:
-        # Add anomaly events
-        # 1. Temperature spike
-        temp[65:75] += np.linspace(0, 8, 10)  # Gradual rise
-        temp[75:85] += np.linspace(8, 0, 10)  # Gradual fall
-        
-        # 2. Pressure drop
-        pressure[40:45] -= 2
-        
-        # 3. Methane leak
-        methane[70:85] += 1.5
-    
-    return pd.DataFrame({
-        "time": times,
-        "Temperature": temp,
-        "Pressure": pressure,
-        "Methane": methane
-    })
-
-# Function to initialize session state with sensible defaults
-def initialize_app_state():
-    defaults = {
-        "lang": CONFIG["ui"]["default_language"],
-        "scenario_step": 0,
-        "solution_idx": 0,
-        "theme": CONFIG["ui"]["default_theme"],
-        "mqtt_temp": None,
-        "mqtt_last": None,
-        "mqtt_started": False,
-        "sms_sent": False,
-        "feedback_list": [],
-        "chat_history": [],
-        "simulation_data": generate_simulation_data(),
-        "page_view_count": {},
-        "performance_mode": "high",
-        "disable_animations": False,
-        "use_fallback_3d": False,
-        "reduce_data_points": False,
-        "onboarding_complete": False,
-        "user_preferences": {},
-        "ai_learning": {
-            "user_queries": [],
-            "common_topics": {},
-            "feedback_ratings": {}
-        }
-    }
-    
-    # Only set if not already in session state
-    for key, default in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = default
-
-# Initialize app state
-initialize_app_state()
-
-# MQTT background thread
+# -------------------- MQTT background thread --------------------
 def on_connect(client, userdata, flags, rc):
     client.subscribe(MQTT_TOPIC)
+
 def on_message(client, userdata, msg):
     try:
         val = float(msg.payload.decode())
@@ -513,7 +65,6 @@ def on_message(client, userdata, msg):
     except Exception:
         pass
 
-@perf_tracker.track_function
 def mqtt_thread():
     client = mqtt.Client()
     client.on_connect = on_connect
@@ -521,9 +72,7 @@ def mqtt_thread():
     try:
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_forever()
-    except Exception as e:
-        if CONFIG["features"]["error_tracking"]:
-            exception_monitor.capture(e, {"component": "mqtt_thread"})
+    except Exception:
         pass
 
 if not st.session_state["mqtt_started"]:
@@ -531,191 +80,54 @@ if not st.session_state["mqtt_started"]:
     t.start()
     st.session_state["mqtt_started"] = True
 
-# Simulated MQTT temperature for demo
-@perf_tracker.track_function
-def simulate_mqtt_temp():
-    if st.session_state["mqtt_temp"] is None and CONFIG["mqtt"]["fallback_enabled"]:
-        st.session_state["mqtt_temp"] = np.random.normal(55, 5)
-        st.session_state["mqtt_last"] = datetime.now()
-        analytics.track_interaction("simulated_mqtt", {"value": st.session_state["mqtt_temp"]})
+# -------------------- OpenAI setup --------------------
+openai.api_key = OPENAI_API_KEY
 
-# OpenAI setup with fallback
-class APIFactory:
-    """Factory for creating API clients with proper error handling"""
-    
-    @staticmethod
-    def create_openai_client(api_key=None):
-        """Create an OpenAI client with fallback handling"""
-        if not openai_available:
-            return None
-        
-        try:
-            api_key = api_key or OPENAI_API_KEY
-            if not api_key:
-                return None
-            
-            client = OpenAI(api_key=api_key)
-            return client
-        except Exception as e:
-            if CONFIG["features"]["error_tracking"]:
-                exception_monitor.capture(e, {"component": "openai_client_init"})
-            return None
-    
-    @staticmethod
-    def create_twilio_client(account_sid=None, auth_token=None):
-        """Create a Twilio client with fallback handling"""
-        if not twilio_available:
-            return None
-        
-        try:
-            account_sid = account_sid or TWILIO_SID
-            auth_token = auth_token or TWILIO_AUTH
-            
-            if not (account_sid and auth_token):
-                return None
-            
-            client = Client(account_sid, auth_token)
-            return client
-        except Exception as e:
-            if CONFIG["features"]["error_tracking"]:
-                exception_monitor.capture(e, {"component": "twilio_client_init"})
-            return None
-
-# Initialize API clients
-openai_client = APIFactory.create_openai_client()
-twilio_client = APIFactory.create_twilio_client()
-
-@timed_cache(timeout_seconds=CONFIG["performance"]["cache_timeout"])
-@perf_tracker.track_function
-def ask_llm_advanced(prompt: str, lang: str, context: Optional[str] = None, root_cause: Optional[str] = None) -> str:
-    """
-    Enhanced AI Copilot with fallbacks and extensive error handling
-    
-    Args:
-        prompt: The user's query
-        lang: Language code (en or ar)
-        context: Optional context to include
-        root_cause: Optional root cause information
-        
-    Returns:
-        AI response as string
-    """
-    analytics.track_feature_usage("ai_assistant")
-    
-    # Add user query to learning system
-    if "ai_learning" in st.session_state:
-        if "user_queries" not in st.session_state["ai_learning"]:
-            st.session_state["ai_learning"]["user_queries"] = []
-            
-        st.session_state["ai_learning"]["user_queries"].append({
-            "query": prompt,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        # Keep list manageable
-        if len(st.session_state["ai_learning"]["user_queries"]) > 50:
-            st.session_state["ai_learning"]["user_queries"] = st.session_state["ai_learning"]["user_queries"][-50:]
-    
-    # If OpenAI isn't available or fails, use mock responses
-    if not openai_available or not OPENAI_API_KEY or openai_client is None:
-        # Return mock responses based on keywords
-        mock = MOCK_RESPONSES[lang]
-        if "temperature" in prompt.lower():
-            return mock["temperature"]
-        elif any(w in prompt.lower() for w in ["why", "cause", "root", "سبب", "جذر", "لماذا"]):
-            return mock["why_high_temp"]
-        elif any(w in prompt.lower() for w in ["energy", "power", "طاقة"]):
-            return mock["energy"]
-        elif any(w in prompt.lower() for w in ["kpi", "performance", "أداء", "مؤشرات"]):
-            return mock["kpi"]
-        elif any(w in prompt.lower() for w in ["feedback", "comment", "ملاحظات"]):
-            return mock["feedback"]
-        else:
-            return mock["temperature"]  # Default response
-
-    # Add user preferences if they exist
-    if "user_preferences" in st.session_state and st.session_state["user_preferences"]:
-        if context:
-            context = f"{context}\n\nUser preferences: {json.dumps(st.session_state['user_preferences'])}"
-        else:
-            context = f"User preferences: {json.dumps(st.session_state['user_preferences'])}"
-
+def ask_llm(prompt, lang):
     system_en = """You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'.
-You have access to real-time plant data and advanced analytics. Your core capabilities include:
-- Answering operational, troubleshooting, and data analysis questions.
-- Performing root cause analysis: if a user asks "why" or "root cause", analyze past incidents and suggest a probable root.
-- Giving actionable recommendations based on the plant's digital twin data, scenario playback, and forecast.
-- Summarizing plant KPIs, risk factors, and energy optimization opportunities.
-- If 'context' is provided, summarize and use it.
-- If 'root_cause' is provided, use it to explain system failures or propose mitigations.
-
-If asked about specific values, refer to the latest in-memory data if available. Reply in clear, concise, and helpful language.
-Current Date and Time: 2025-08-04 09:11:16 UTC
+This platform monitors various plant parameters in real-time, including temperature, pressure, and methane levels.
+It provides advanced dashboards, predictive analytics (forecasting methane and temperature for the next 7 days),
+Scenario playback, alerts and fault logs, smart solutions for issues like methane leaks or pump failures,
+KPIs, plant heatmaps, root cause analysis, and Incident timelines.
+When answering questions, prioritize information related to the 'Smart Neural Digital Twin' project and its data.
+If asked about current sensor readings (like temperature, pressure, methane), or recent alerts, or daily metrics for vibration or levels, or future predictions for the next few hours/days, provide answers based on the context of the project's capabilities.
+For example, if asked 'What is the current temperature?', you can state that the platform monitors live temperature via MQTT.
+If asked about predictions, mention the 7-day forecast capability.
+If the question is general and not directly related to the project, answer it to the best of your general knowledge.
 """
+
     system_ar = """أنت مساعد ذكاء صناعي خبير لمنصة التوأم الرقمي الصناعي المسماة 'التوأم الرقمي العصبي الذكي'.
-لديك إمكانية الوصول إلى بيانات المصنع الحية والتحليلات المتقدمة. قدراتك الأساسية:
-- الإجابة عن أسئلة التشغيل والتحليل وحل المشكلات.
-- تحليل السبب الجذري: إذا سأل المستخدم "لماذا" أو "السبب الجذري"، قم بتحليل الحوادث واقترح السبب الممكن.
-- إعطاء توصيات عملية بناءً على بيانات التوأم الرقمي وتشغيل السيناريو والتوقعات.
-- تلخيص مؤشرات الأداء، عوامل المخاطر، وفرص تحسين الطاقة.
-- إذا تم توفير 'context'، لخصه واستخدمه.
-- إذا تم توفير 'root_cause'، فاشرح به أسباب الأعطال أو طرق المعالجة.
-
-إذا سُئلت عن قيم معينة، استند للبيانات الأحدث المتوفرة بالذاكرة. أجب بوضوح واحترافية.
-التاريخ والوقت الحالي: 2025-08-04 09:11:16 UTC
+تراقب هذه المنصة معلمات المصنع المختلفة في الوقت الفعلي، بما في ذلك درجة الحرارة والضغط ومستويات الميثان.
+توفر لوحات تحكم متقدمة، وتحليلات تنبؤية (تتنبأ بالميثان ودرجة الحرارة للأيام السبعة القادمة)،
+وإعادة تشغيل السيناريوهات، وسجلات التنبيهات والأعطال، وحلول ذكية لمشكلات مثل تسرب الميثان أو أعطال المضخات،
+ومؤشرات الأداء الرئيسية (KPIs)، وخرائط حرارة المصنع، وتحليل السبب الجذري، والجداول الزمنية للحوادث.
+عند الإجابة على الأسئلة، أعط الأولوية للمعلومات المتعلقة بمشروع 'التوأم الرقمي العصبي الذكي' وبياناته.
+إذا سُئلت عن قراءات المستشعرات الحالية (مثل درجة الحرارة، الضغط، الميثان)، أو التنبيهات الأخيرة، أو المقاييس اليومية للاهتزاز أو المستويات، أو التوقعات المستقبلية للساعات/الأيام القادمة، قدم إجابات بناءً على سياق قدرات المشروع.
+على سبيل المثال، إذا سُئلت 'كم درجة الحرارة الحالية؟'، يمكنك الإشارة إلى أن المنصة تراقب درجة الحرارة الحية عبر MQTT.
+إذا سُئلت عن التوقعات، اذكر قدرة التنبؤ لمدة 7 أيام.
+إذا كان السؤال عامًا ولا يتعلق مباشرة بالمشروع، أجب عليه بناءً على معرفتك العامة.
 """
+
     system = system_en if lang == "en" else system_ar
-
-    messages = [{"role": "system", "content": system}]
-    if context:
-        messages.append({"role": "system", "content": f"context: {context}"})
-    if root_cause:
-        messages.append({"role": "system", "content": f"root_cause: {root_cause}"})
-    messages.append({"role": "user", "content": prompt})
-
+    
     try:
-        # Use the OpenAI client to create a chat completion
-        resp = openai_client.chat.completions.create(
-            model=CONFIG["api"]["openai_model"],
-            messages=messages,
-            temperature=CONFIG["api"]["temperature"],
-            max_tokens=CONFIG["api"]["max_tokens"],
+        resp = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.4,
+            max_tokens=400,
         )
         return resp.choices[0].message.content
     except Exception as e:
-        # Track the error
-        if CONFIG["features"]["error_tracking"]:
-            exception_monitor.capture(e, {"component": "openai_api", "prompt": prompt})
-        
-        # Fallback to mock responses on error
-        st.warning(f"Using AI backup responses due to API limitations")
-        
-        # Use mock responses as fallback
-        mock = MOCK_RESPONSES[lang]
-        if "temperature" in prompt.lower():
-            return mock["temperature"]
-        elif any(w in prompt.lower() for w in ["why", "cause", "root", "سبب", "جذر", "لماذا"]):
-            return mock["why_high_temp"]
-        elif any(w in prompt.lower() for w in ["energy", "power", "طاقة"]):
-            return mock["energy"]
-        else:
-            return mock["temperature"]  # Default response
+        return "LLM Error: " + str(e)
 
-# Twilio SMS
-@perf_tracker.track_function
-def send_sms(to: str, message: str) -> Tuple[bool, str]:
-    """Send SMS using Twilio with error handling"""
-    analytics.track_feature_usage("sms_alert")
-    
-    if not twilio_available:
-        return False, "Twilio not installed."
+# -------------------- Twilio SMS --------------------
+def send_sms(to, message):
     try:
-        if not all([TWILIO_SID, TWILIO_AUTH, TWILIO_FROM, to]):
-            return False, "Twilio credentials or phone numbers not set."
-        client = twilio_client or APIFactory.create_twilio_client()
-        if not client:
-            return False, "Failed to initialize Twilio client."
-            
+        client = Client(TWILIO_SID, TWILIO_AUTH)
         message = client.messages.create(
             body=message,
             from_=TWILIO_FROM,
@@ -723,28 +135,90 @@ def send_sms(to: str, message: str) -> Tuple[bool, str]:
         )
         return True, "Sent."
     except Exception as e:
-        if CONFIG["features"]["error_tracking"]:
-            exception_monitor.capture(e, {"component": "twilio_sms"})
         return False, str(e)
 
+# -------------------- Helper functions --------------------
 def to_arabic_numerals(num):
-    """Convert Western numerals to Arabic numerals"""
     return str(num).translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
 
-def highlight_metric(val, threshold, color="#fa709a"):
-    """Create CSS style for highlighting metrics above threshold"""
-    style = ""
-    if val >= threshold:
-        style = f"background:{color}22;border-radius:12px;padding:0.1em 0.4em;"
-    return style
+def rtl_wrap(txt):
+    if st.session_state["lang"] == "ar":
+        return f'<div style="direction:rtl;text-align:right">{txt}</div>'
+    else:
+        return f'<div style="direction:ltr;text-align:left">{txt}</div>'
 
-# Colorful palette for visualizations
-colorful_palette = [
-    "#43cea2", "#fa709a", "#ffb347", "#8fd3f4", "#185a9d",
-    "#ffe259", "#ffa751", "#fdc830", "#eecda3", "#e0eafc", "#cfdef3", "#fe8c00", "#f83600"
-]
+def show_logo():
+    st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
 
-# Translations (All sections, all labels, all solutions, all features, all about, complete)
+# -------------------- Smart Solution Generator --------------------
+def generate_smart_solution(lang):
+    """Generate a smart solution based on current conditions"""
+    
+    # Sample solution templates
+    solution_templates_en = [
+        {
+            "title": "Predictive Maintenance Alert",
+            "description": "Initiate predictive maintenance for compressor unit C-203 based on vibration analysis showing early signs of bearing wear.",
+            "priority": "High",
+            "time_required": "2 hours",
+            "impact": "Prevents unplanned downtime of 8+ hours and potential damage to adjacent equipment",
+            "cost": "$1,200",
+            "savings": "$15,000"
+        },
+        {
+            "title": "Temperature Regulation Protocol",
+            "description": "Adjust cooling system parameters to maintain optimal temperature range and prevent thermal stress on reactor vessels.",
+            "priority": "Medium",
+            "time_required": "45 minutes",
+            "impact": "Improves product quality consistency and reduces energy consumption by 8%",
+            "cost": "$350",
+            "savings": "$8,500/year"
+        },
+        {
+            "title": "Methane Leak Prevention Protocol",
+            "description": "Implement enhanced monitoring and automated shutoff valves in high-risk areas to prevent methane leaks before they occur.",
+            "priority": "Critical",
+            "time_required": "4 hours",
+            "impact": "Eliminates risk of safety incidents and potential regulatory fines",
+            "cost": "$3,500",
+            "savings": "$50,000+"
+        }
+    ]
+    
+    solution_templates_ar = [
+        {
+            "title": "تنبيه الصيانة التنبؤية",
+            "description": "بدء الصيانة التنبؤية لوحدة الضاغط C-203 بناءً على تحليل الاهتزازات الذي يظهر علامات مبكرة على تآكل المحمل.",
+            "priority": "عالية",
+            "time_required": "ساعتان",
+            "impact": "يمنع التوقف غير المخطط له لأكثر من 8 ساعات والضرر المحتمل للمعدات المجاورة",
+            "cost": "$1,200",
+            "savings": "$15,000"
+        },
+        {
+            "title": "بروتوكول تنظيم درجة الحرارة",
+            "description": "ضبط معلمات نظام التبريد للحفاظ على نطاق درجة الحرارة الأمثل ومنع الإجهاد الحراري على أوعية المفاعل.",
+            "priority": "متوسطة",
+            "time_required": "45 دقيقة",
+            "impact": "يحسن اتساق جودة المنتج ويقلل استهلاك الطاقة بنسبة 8٪",
+            "cost": "$350",
+            "savings": "$8,500/سنة"
+        },
+        {
+            "title": "بروتوكول منع تسرب الميثان",
+            "description": "تنفيذ مراقبة معززة وصمامات إغلاق تلقائية في المناطق عالية الخطورة لمنع تسرب الميثان قبل حدوثه.",
+            "priority": "حرجة",
+            "time_required": "4 ساعات",
+            "impact": "يقضي على خطر الحوادث безопасности والغرامات التنظيمية المحتملة",
+            "cost": "$3,500",
+            "savings": "$50,000+"
+        }
+    ]
+    
+    templates = solution_templates_ar if lang == "ar" else solution_templates_en
+    return random.choice(templates)
+
+# -------------------- Translations --------------------
 texts = {
     "en": {
         "app_title": "Smart Neural Digital Twin",
@@ -752,22 +226,25 @@ texts = {
         "side_sections": [
             "Digital Twin", "Advanced Dashboard", "Predictive Analytics", "Scenario Playback",
             "Alerts & Fault Log", "Smart Solutions", "KPI Wall", "Plant Heatmap", "Root Cause Explorer", "AI Copilot Chat",
-            "Live Plant 3D", "Incident Timeline", "Energy Optimization", "Future Insights", "Operator Feedback", "System Health", "About"
+            "Live Plant 3D", "Incident Timeline", "Energy Optimization", "Future Insights", "Operator Feedback", "About",
+            "Smart Recommendations"
         ],
         "lang_en": "English",
         "lang_ar": "Arabic",
         "solution_btn": "Next Solution",
         "logo_alt": "Smart Neural Digital Twin Logo",
         "about_header": "Our Story",
-        "about_story": "Our journey began with a simple question: <b>How can we detect gas leaks before they become disasters?</b> <span style=\"color:#fa709a;font-weight:bold\">We tried every solution in the market</span>, but nothing was seamless enough to provide realtime insights for busy operators. So we built the <span style=\"color:#43cea2;font-weight:bold\">Smart Neural Digital Twin</span> - connecting IoT sensors with AI to give plant operators immediate awareness and predictive solutions.",
+        "about_story": """Our journey began with a simple question: How can we detect gas leaks before they become disasters?
+We tried every solution, even innovated with drones, and it worked. But we stopped and asked: Why wait for the problem at all?
+Our dream was to build a smart device that predicts danger before it happens. It wasn't impossible, just difficult. But we made the difficult easy with the smart neural digital twin that connects AI and plant data.
+Today, our platform is the first line of defense, standing apart from any traditional system because it predicts problems hours before they happen. Even days!
+This is the future of industrial safety... and this is our project.""",
         "about_colorful": [
             ("#43cea2", "AI at the Core"),
             ("#fa709a", "Real-time Sensing"),
             ("#ffb347", "Predictive Analytics"),
             ("#8fd3f4", "Instant Actions"),
             ("#185a9d", "Peace of Mind"),
-            ("#ffe259", "Smart Monitoring"),
-            ("#ffa751", "Safety First"),
         ],
         "features": [
             "Interactive plant schematic & overlays",
@@ -775,7 +252,7 @@ texts = {
             "AI-driven fault detection & smart solutions",
             "Root-cause explorer & scenario playback",
             "Live 3D plant visualization",
-            "Bilingual support & vibrant design"
+            "Bilingual support & peak design"
         ],
         "howto_extend": [
             "Connect to real plant historian data",
@@ -791,66 +268,65 @@ texts = {
         "demo_note": "Demo use only: Not for live plant operation",
         "live3d_header": "Live Plant 3D",
         "live3d_intro": "Explore the interactive 3D model below. Use your mouse to zoom, rotate, and explore the plant!",
-        "live3d_404": "The 3D model failed to load. View the static 3D plant image below.",
+        "live3d_404": "The 3D model failed to load. View the static 3D plant Image below.",
         "static_3d_caption": "Sample Plant 3D Visual",
-        "ai_explain_btn": "Explain with AI",
-        "ai_rootcause_btn": "Root Cause Analysis",
-        "ai_whatif_btn": "What-if Scenario",
-        "ai_kpi_btn": "Analyze KPIs",
-        "ai_energy_btn": "Energy Optimization Advice",
-        "ai_feedback_btn": "Summarize Feedback",
-        "health_check": "System Health Check",
-        "perf_check": "Performance Metrics",
-        "app_version": "App Version",
-        "last_updated": "Last Updated",
-        "developer": "Lead Developer",
         "solutions": [
             {
                 "title": "Automated Methane Leak Response",
                 "desc": "Integrate advanced sensors with automated shutdown logic to instantly contain future methane leaks.",
-                "steps": ["Deploy new IoT sensors", "Implement AI detection", "Link to emergency shutdown", "Train operators"],
+                "steps": ["Deploy new IoT sensors", "implement AI detection", "Link to emergency shutdown", "Train operators"],
                 "priority": "High", "effectiveness": "High", "time": "3 days", "cost": "$4,000", "savings": "$25,000/year",
-                "icon": "🛡️"
+                "icon": "️"
             },
             {
                 "title": "Pump Predictive Maintenance",
                 "desc": "Monitor vibration and temperature to predict pump failures before they occur.",
                 "steps": ["Install vibration sensors", "Run ML models", "Alert on anomaly", "Schedule just-in-time maintenance"],
                 "priority": "Medium", "effectiveness": "High", "time": "1 week", "cost": "$5,000", "savings": "$18,000/year",
-                "icon": "🔧"
+                "icon": ""
             },
             {
                 "title": "Energy Use Optimization",
                 "desc": "AI analyzes compressor schedule to cut energy waste by 11%.",
                 "steps": ["Analyze compressor cycles", "Optimize schedule", "Implement load shifting", "Track savings"],
                 "priority": "High", "effectiveness": "Medium", "time": "2 weeks", "cost": "$6,000", "savings": "$32,000/year",
-                "icon": "⚡"
+                "icon": ""
             },
-        ]
+        ],
+        "smart_recommendations": "Smart Recommendations",
+        "generate_solution": "GENERATE SOLUTION",
+        "solution_title": "Solution Title",
+        "solution_description": "Description",
+        "solution_priority": "Priority",
+        "solution_time": "Time Required",
+        "solution_impact": "Impact",
+        "solution_cost": "Cost",
+        "solution_savings": "Estimated Savings"
     },
     "ar": {
         "app_title": "التوأم الرقمي العصبي الذكي",
         "app_sub": "منصة المصنع الذكي الرقمي",
         "side_sections": [
             "التوأم الرقمي", "لوحة القيادة المتقدمة", "التحليلات التنبؤية", "تشغيل السيناريو",
-            "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري",
-            "محادثة الذكاء الصناعي", "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغلين",
-            "صحة النظام", "حول"
+            "التنبيهات وسجل الأعطال", "الحلول الذكية", "جدار المؤشرات", "خريطة حرارة المصنع", "مستكشف السبب الجذري", "محادثة الذكاء الصناعي",
+            "مصنع ثلاثي الأبعاد", "جدول الحوادث", "تحسين الطاقة", "رؤى مستقبلية", "ملاحظات المشغل", "حول",
+            "التوصيات الذكية"
         ],
         "lang_en": "الإنجليزية",
         "lang_ar": "العربية",
         "solution_btn": "الحل التالي",
         "logo_alt": "شعار التوأم الرقمي العصبي الذكي",
         "about_header": "قصتنا",
-        "about_story": "بدأنا رحلتنا من سؤال بسيط: <b>كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟</b> <span style=\"color:#fa709a;font-weight:bold\">جربنا كل الحلول المتاحة</span> لكن لم نجد ما يقدم رؤى فورية للمشغلين. فطورنا <span style=\"color:#43cea2;font-weight:bold\">التوأم الرقمي العصبي الذكي</span> - ربط حساسات إنترنت الأشياء بالذكاء الاصطناعي لتوفير وعي فوري وحلول تنبؤية.",
+        "about_story": """بدأنا رحلتنا من سؤال بسيط: كيف نكشف تسرب الغاز قبل أن يتحول إلى كارثة؟ جربنا كل الحلول، وابتكرنا حتى باستخدام الطائرات بدون طيار ونجحنا. لكن وقفنا وسألنا: لماذا ننتظر المشكلة أصلاً؟
+حلمنا كان بناء جهاز يتوقع الخطر قبل حدوثه. لم يكن مستحيلاً، لكنه كان صعبًا. جعلنا الصعب سهلاً مع التوأم الرقمي العصبي الذكي الذي يربط الذكاء الاصطناعي ببيانات المصنع.
+اليوم، منصتنا هي خط الدفاع الأول، وتختلف عن أي نظام تقليدي لأنها تتوقع المشكلة بساعات قبل وقوعها، وأحيانًا بأيام!
+هذا هو مستقبل الأمان الصناعي... وهذا هو مشروعنا.""",
         "about_colorful": [
             ("#43cea2", "الذكاء الاصطناعي في القلب"),
             ("#fa709a", "استشعار لحظي"),
             ("#ffb347", "تحليلات تنبؤية"),
             ("#8fd3f4", "إجراءات فورية"),
             ("#185a9d", "راحة البال"),
-            ("#ffe259", "مراقبة ذكية"),
-            ("#ffa751", "السلامة أولاً"),
         ],
         "features": [
             "مخطط مصنع تفاعلي وتراكب مباشر",
@@ -858,7 +334,7 @@ texts = {
             "كشف أعطال ذكي وحلول فورية",
             "مستكشف السبب الجذري وتشغيل السيناريوهات",
             "رؤية ثلاثية الأبعاد للمصنع",
-            "دعم لغتين وتصميم حيوي"
+            "دعم لغتين وتصميم عصري"
         ],
         "howto_extend": [
             "ربط مع بيانات المصنع الحقيقية",
@@ -876,74 +352,77 @@ texts = {
         "live3d_intro": "تفاعل مع النموذج الثلاثي الأبعاد أدناه. استخدم الماوس للتحريك والتكبير.",
         "live3d_404": "تعذر تحميل النموذج، شاهد صورة المصنع الثلاثي الأبعاد بالأسفل.",
         "static_3d_caption": "مشهد ثلاثي الأبعاد لمصنع صناعي",
-        "ai_explain_btn": "شرح الذكاء الصناعي",
-        "ai_rootcause_btn": "تحليل السبب الجذري",
-        "ai_whatif_btn": "سيناريو افتراضي",
-        "ai_kpi_btn": "تحليل مؤشرات الأداء",
-        "ai_energy_btn": "توصيات توفير الطاقة",
-        "ai_feedback_btn": "تلخيص الملاحظات",
-        "health_check": "فحص صحة النظام",
-        "perf_check": "مقاييس الأداء",
-        "app_version": "إصدار التطبيق",
-        "last_updated": "آخر تحديث",
-        "developer": "المطور الرئيسي",
         "solutions": [
             {
                 "title": "استجابة آلية لتسرب الميثان",
                 "desc": "دمج حساسات متطورة مع منطق إيقاف تلقائي لاحتواء التسربات فوراً.",
                 "steps": ["تركيب حساسات إنترنت الأشياء", "تفعيل كشف الذكاء الاصطناعي", "ربط بالإيقاف الطارئ", "تدريب المشغلين"],
                 "priority": "عالية", "effectiveness": "عالية", "time": "٣ أيام", "cost": "$٤٬٠٠٠", "savings": "$٢٥٬٠٠٠/سنة",
-                "icon": "🛡️"
+                "icon": "️"
             },
             {
                 "title": "صيانة استباقية للمضخات",
                 "desc": "مراقبة الاهتزازات والحرارة للتنبؤ بالأعطال قبل وقوعها.",
                 "steps": ["تركيب حساسات الاهتزاز", "تشغيل نماذج التعلم الآلي", "تنبيه عند وجود شذوذ", "جدولة صيانة فورية"],
                 "priority": "متوسطة", "effectiveness": "عالية", "time": "أسبوع", "cost": "$٥٬٠٠٠", "savings": "$١٨٬٠٠٠/سنة",
-                "icon": "🔧"
+                "icon": ""
             },
             {
                 "title": "تحسين استهلاك الطاقة",
                 "desc": "تحلل الذكاء الاصطناعي جدول الضواغط لخفض الهدر بنسبة ١١٪.",
                 "steps": ["تحليل دورات الضواغط", "تحسين الجدولة", "تطبيق نقل الأحمال", "متابعة التوفير"],
                 "priority": "عالية", "effectiveness": "متوسطة", "time": "أسبوعان", "cost": "$٦٬٠٠٠", "savings": "$٣٢٬٠٠٠/سنة",
-                "icon": "⚡"
+                "icon": ""
             },
-        ]
+        ],
+        "smart_recommendations": "التوصيات الذكية",
+        "generate_solution": "توليد حل",
+        "solution_title": "عنوان الحل",
+        "solution_description": "الوصف",
+        "solution_priority": "الأولوية",
+        "solution_time": "الوقت المطلوب",
+        "solution_impact": "التأثير",
+        "solution_cost": "التكلفة",
+        "solution_savings": "التوفير المتوقع"
     }
 }
 
-# ----- THEME & CSS -----
-if st.sidebar.button("🌗 Theme", key="themebtn"):
+# -------------------- THEME & CSS --------------------
+if st.sidebar.button("Theme", key="themebtn"):
     st.session_state["theme"] = "light" if st.session_state["theme"] == "dark" else "dark"
-    analytics.track_interaction("theme_toggle", {"new_theme": st.session_state["theme"]})
 
-# Enhanced CSS with microinteractions and fixed rendering issues
-st.markdown(f"""
+if st.session_state["theme"] == "dark":
+    st.markdown("""
+    <style>
+    html, body, [class*="css"] { background: #232526 !important; color:#fff !important;}
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+    html, body, [class*="css"] { background: #f3f8fc !important; color:#232526 !important;}
+    </style>
+    """, unsafe_allow_html=True)
+
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@700&family=Montserrat:wght@700&display=swap');
-html, body, [class*="css"] {{
-    background: {'#181a2a' if st.session_state["theme"] == "dark" else '#f6f6f7'} !important;
-    color: {'#f9fcff' if st.session_state["theme"] == "dark" else '#232526'} !important;
-    font-family: 'Montserrat', 'Cairo', sans-serif !important;
-}}
-.peak-card {{
-    background: linear-gradient(135deg, #e0eafc 0%, #ffe259 100%);
+
+.peak-card {
+    background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
     border-radius: 18px;
-    box-shadow: 0 8px 32px 0 rgba(31,38,135,.18);
+    box-shadow: 0 8px 32px 0 rgba(31,38,135,.15);
     margin-bottom: 1.5em;
     padding: 1.5em 2em;
-    animation: peakfade 0.8s;
-    border-left: 8px solid #43cea2;
-    transition: box-shadow 0.21s, transform 0.18s;
-}}
-.peak-card:hover {{
-    box-shadow: 0 12px 38px 0 #fa709a55;
-    transform: scale(1.018);
-    border-left: 8px solid #fa709a;
-}}
-.kpi-card {{
-    background: linear-gradient(135deg, #43cea2 0%, #fa709a 82%, #ffe259 100%);
+    transition: box-shadow 0.2s;
+}
+
+.peak-card:hover {
+    box-shadow: 0 12px 38px 0 rgba(31,38,135,.28);
+}
+
+.kpi-card {
+    background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
     border-radius: 13px;
     color: #fff !important;
     font-size: 1.25em;
@@ -952,86 +431,97 @@ html, body, [class*="css"] {{
     padding: 1.3em 1.3em;
     text-align: center;
     margin-bottom: 1em;
-    transition: box-shadow 0.18s, transform 0.16s;
-    animation: peakfade 0.7s;
-}}
-.kpi-card:hover {{
-    box-shadow: 0 8px 36px 0 #ffe25977;
-    transform: scale(1.025);
-}}
-.sidebar-title {{
+}
+
+.rtl {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Cairo', sans-serif !important;
+}
+
+.ltr {
+    direction: ltr;
+    text-align: left;
+    font-family: 'Montserrat', sans-serif !important;
+}
+
+.sidebar-title {
     font-size: 2em !important;
     font-weight: 900 !important;
     color: #43cea2 !important;
     letter-spacing: 0.5px;
     margin-bottom: 0.2em !important;
-    text-shadow: 0 3px 10px #185a9d22;
-}}
-.sidebar-subtitle {{
+}
+
+.sidebar-subtitle {
     font-size: 1.15em !important;
-    color: #fa709a !important;
+    color: #cfdef3 !important;
     margin-bottom: 1em;
     margin-top: -.7em !important;
-    text-shadow: 0 1px 6px #ffb34744;
-}}
-.gradient-header {{
+}
+
+.gradient-header, .gradient-ar {
     font-weight: 900;
     font-size: 2.1em;
-    background: linear-gradient(90deg,#43cea2,#fa709a 60%,#ffe259 100%);
+    background: linear-gradient(90deg,#43cea2,#185a9d 80%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 0.3em;
-    letter-spacing: .5px;
-    text-shadow: 0 1px 6px #185a9d1c;
-}}
-.timeline-step {{
+}
+
+.timeline-step {
     border-left: 4px solid #43cea2;
     margin-left: 0.8em;
     padding-left: 1.2em;
     margin-bottom: 1em;
     position: relative;
-    animation: peakfade 0.7s;
-}}
-.timeline-step:before {{
+}
+
+.timeline-step:before {
     content: '';
     position: absolute;
     left: -14px;
     top: 0.18em;
     width: 18px;
     height: 18px;
-    background: #fa709a;
+    background: #43cea2;
     border-radius: 100%;
     border: 2px solid #fff;
-    box-shadow: 0 0 0 3px #ffe25933;
-}}
-.timeline-icon {{
+}
+
+.timeline-icon {
     font-size: 1.5em;
     margin-right: 0.5em;
     vertical-align: middle;
-}}
-.about-bgcard {{
-    background: linear-gradient(140deg,#43cea210,#fa709a10 60%,#ffe25910 100%);
+}
+
+.about-bgcard {
+    background: linear-gradient(120deg,#185a9d10,#43cea210 98%);
     border-radius: 22px;
     padding: 2.2em 2.1em 1.8em 2.1em;
     margin-top: 1.6em;
     margin-bottom: 2.2em;
-    box-shadow: 0 7px 32px 0 #43cea233;
+    box-shadow: 0 7px 32px 0 rgba(31,38,135,.07);
     position: relative;
-    animation: peakfade 0.9s;
-}}
-.about-story {{
+}
+
+.about-story {
     font-size: 1.18em;
     font-weight: 600;
     margin-bottom: 2em;
-    color: {'#fff' if st.session_state["theme"] == "dark" else '#222'};
-    line-height: 1.65em;
-}}
-.about-feature {{
+    background: linear-gradient(90deg,#e0eafc,#8fd3f4 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0.2em 0.1em;
+}
+
+.about-feature {
     font-weight: 700;
     font-size: 1.16em;
     margin: .45em 0 .14em 0;
-}}
-.about-color {{
+}
+
+.about-color {
     font-weight: 900;
     font-size: 1.20em;
     margin-bottom: .45em;
@@ -1039,1046 +529,487 @@ html, body, [class*="css"] {{
     padding: .18em .9em;
     border-radius: 12px;
     margin-right: .9em;
-    margin-bottom: .5em;
-    color: #232526;
-    background: #fff;
-    box-shadow: 0 2px 8px #185a9d22;
-    border: 2px solid #43cea2;
-}}
-.about-color:nth-child(2) {{border-color: #fa709a;}}
-.about-color:nth-child(3) {{border-color: #ffb347;}}
-.about-color:nth-child(4) {{border-color: #8fd3f4;}}
-.about-color:nth-child(5) {{border-color: #185a9d;}}
-.about-color:nth-child(6) {{border-color: #ffe259;}}
-.about-color:nth-child(7) {{border-color: #ffa751;}}
-.feedback-bubble {{
-    background: #43cea222;
-    border-radius: 12px;
-    padding: 0.8em 1.1em;
-    margin-bottom: 0.7em;
-    box-shadow: 0 2px 10px #43cea207;
-}}
-@keyframes peakfade {{
-    0% {{ opacity: 0; transform: translateY(40px);}}
-    100% {{ opacity: 1; transform: translateY(0);}}
-}}
-/* Microinteractions */
-.hover-float:hover {{ transform: translateY(-3px); transition: transform 0.3s ease; }}
-.click-pulse {{ animation: pulse 0.3s ease-in-out; }}
+}
 
-@keyframes pulse {{
-    0% {{ transform: scale(1); }}
-    50% {{ transform: scale(1.05); }}
-    100% {{ transform: scale(1); }}
-}}
+.about-contact {
+    font-size: 1.13em;
+    margin-top: 1.9em;
+    margin-bottom: .6em;
+}
 
-/* Apply to elements */
-.peak-card, .kpi-card {{ transition: transform 0.3s ease; }}
-.stButton > button {{ transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; }}
-.stButton > button:active {{ transform: scale(0.95) !important; }}
+.solution-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    padding: 1.5em;
+    margin-bottom: 1.5em;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    border-left: 5px solid #43cea2;
+}
 
-/* Mobile responsive adjustments */
-@media (max-width: 768px) {{
-    .kpi-card, .peak-card {{
-        width: 100% !important;
-        margin-right: 0 !important;
-    }}
-    
-    .sidebar-title {{
-        font-size: 1.5em !important;
-    }}
-    
-    .gradient-header {{
-        font-size: 1.8em !important;
-    }}
-}}
-
-/* Proper error messages */
-.error-container {{
-    background: rgba(250,112,154,0.1);
-    border-left: 4px solid #fa709a;
-    padding: 15px;
-    border-radius: 5px;
-    margin: 10px 0;
-    color: #fa709a;
-}}
-
-/* Enhance readability */
-.stMarkdown, .stText {{
-    font-family: 'Montserrat', 'Cairo', sans-serif !important;
-    font-size: 1.05rem !important;
-    line-height: 1.6 !important;
-}}
-
-/* Better buttons */
-.stButton > button {{
-    background: linear-gradient(90deg,#43cea2,#185a9d) !important;
-    color: white !important;
-    border-radius: 8px !important;
-    padding: 0.5em 1em !important;
-    border: none !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.15) !important;
-    transition: all 0.2s ease !important;
-}}
-
-.stButton > button:hover {{
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-}}
-
-/* Loader animations */
-.stSpinner {{
-    border: 4px solid #43cea2 !important;
-    border-left-color: transparent !important;
-    animation: spin 1s linear infinite !important;
-}}
-
-@keyframes spin {{
-    0% {{ transform: rotate(0deg); }}
-    100% {{ transform: rotate(360deg); }}
-}}
-
-/* Badge styling */
-.badge {{
-    display: inline-block;
-    padding: 0.25em 0.6em;
-    font-size: 0.85em;
+.solution-title {
+    font-size: 1.4em;
     font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: 10rem;
+    color: #185a9d;
+    margin-bottom: 0.5em;
+}
+
+.solution-detail {
+    margin-bottom: 0.8em;
+    font-size: 1.05em;
+}
+
+.solution-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.generate-btn {
+    background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
     color: white;
-    background-color: #43cea2;
-    margin-right: 0.5em;
-}}
+    border: none;
+    border-radius: 8px;
+    padding: 0.8em 1.5em;
+    font-weight: 600;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(67, 206, 162, 0.3);
+}
 
-.badge-primary {{
-    background-color: #43cea2;
-}}
+.generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(67, 206, 162, 0.4);
+}
 
-.badge-warning {{
-    background-color: #ffb347;
-}}
-
-.badge-danger {{
-    background-color: #fa709a;
-}}
-
-.badge-info {{
-    background-color: #8fd3f4;
-}}
-
-/* Enhanced tooltips */
-.tooltip {{
-    position: relative;
-    display: inline-block;
-    border-bottom: 1px dotted #ccc;
-    cursor: help;
-}}
-
-.tooltip .tooltip-text {{
-    visibility: hidden;
-    width: 200px;
-    background-color: #555;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px;
-    position: absolute;
-    z-index: 1;
-    bottom: 125%;
-    left: 50%;
-    margin-left: -100px;
-    opacity: 0;
-    transition: opacity 0.3s;
-}}
-
-.tooltip:hover .tooltip-text {{
-    visibility: visible;
-    opacity: 1;
-}}
-
-/* Status indicators */
-.status-indicator {{
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 5px;
-}}
-
-.status-online {{
-    background-color: #43cea2;
-}}
-
-.status-warning {{
-    background-color: #ffb347;
-}}
-
-.status-offline {{
-    background-color: #fa709a;
-}}
-
-/* System stats cards */
-.system-stat-card {{
-    background: linear-gradient(135deg, rgba(24, 90, 157, 0.1), rgba(67, 206, 162, 0.1));
-    border-radius: 10px;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-left: 4px solid #43cea2;
-}}
-
-/* Table enhancements */
-.stDataFrame table {{
-    border-collapse: separate !important;
-    border-spacing: 0 !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
-}}
-
-.stDataFrame th {{
-    background: linear-gradient(90deg, #43cea2, #185a9d) !important;
-    color: white !important;
-    font-weight: 600 !important;
-}}
-
-.stDataFrame tr:nth-child(even) {{
-    background-color: rgba(67, 206, 162, 0.05) !important;
-}}
-
-.stDataFrame tr:hover {{
-    background-color: rgba(67, 206, 162, 0.1) !important;
-}}
-
-/* Chat message styling */
-.chat-message {{
-    display: flex;
-    margin-bottom: 10px;
-}}
-
-.chat-message.user {{
-    justify-content: flex-end;
-}}
-
-.chat-message .message {{
-    max-width: 80%;
-    padding: 10px 15px;
-    border-radius: 20px;
-}}
-
-.chat-message.user .message {{
-    background-color: #43cea2;
-    color: white;
-    border-bottom-right-radius: 5px;
-}}
-
-.chat-message.ai .message {{
-    background-color: #f0f0f0;
-    color: #333;
-    border-bottom-left-radius: 5px;
-}}
 </style>
+""", unsafe_allow_html=True)
 
-<script>
-// Add click animations to all buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const buttons = document.querySelectorAll('button');
-    buttons.forEach(button => {
-        button.addEventListener('click', function() {
-            this.classList.add('click-pulse');
-            setTimeout(() => this.classList.remove('click-pulse'), 300);
-        });
-    });
-});
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Alt + D: Toggle dark mode
-    if (e.altKey && e.key === 'd') {
-        const themeButton = document.querySelector('[data-testid="baseButton-themebtn"]');
-        if (themeButton) themeButton.click();
-    }
-    
-    // Alt + L: Toggle language
-    if (e.altKey && e.key === 'l') {
-        const langButton = document.querySelector('[data-testid="baseButton-langbtn"]');
-        if (langButton) langButton.click();
-    }
-    
-    // Alt + S: Next solution
-    if (e.altKey && e.key === 's') {
-        const solutionButton = document.querySelector('[data-testid="baseButton-nextbtn"]');
-        if (solutionButton) solutionButton.click();
-    }
-    
-    // Alt + H: Open help
-if (e.altKey && e.key === 'h') {
-    // Find a help or about section button and click it
-    const aboutSection = document.querySelector('[data-testid="stSidebarNav"] button:last-child');
-    if (aboutSection) aboutSection.click();
-}
-
-// Alt + A: Show analytics
-if (e.altKey && e.key === 'a') {
-    const analyticsSections = document.querySelectorAll('[data-testid="stSidebarNav"] button');
-    // Look for analytics related section
-    for (const section of analyticsSections) {
-        if (section.textContent.toLowerCase().includes('analytics')) {
-            section.click();
-            break;
-        }
-    }
-}
-
-// Alt + C: Focus on chat
-if (e.altKey && e.key === 'c') {
-    const chatInput = document.querySelector('textarea');
-    if (chatInput) {
-        chatInput.focus();
-    }
-}
-});
-</script>
-
-        # ----- MAIN UI IMPLEMENTATION -----
-
-# Update current date and time
-CURRENT_TIME = "2025-08-04 09:31:09"
-CURRENT_USER = "rrakanmarri1"
-
-# Language selector
-lang = st.session_state["lang"]
-tx = texts[lang]  # Get the correct language dictionary
-
-# Sidebar
+# -------------------- Sidebar --------------------
 with st.sidebar:
-    st.markdown(f'<p class="sidebar-title">{tx["app_title"]}</p>', unsafe_allow_html=True)
-    st.markdown(f'<p class="sidebar-subtitle">{tx["app_sub"]}</p>', unsafe_allow_html=True)
-    
-    st.markdown(f"""<div style="text-align:center">{logo_svg}</div>""", unsafe_allow_html=True)
-    
-    # Language toggle
-    if st.button("🌐 " + (tx["lang_ar"] if lang == "en" else tx["lang_en"]), key="langbtn"):
-        st.session_state["lang"] = "ar" if lang == "en" else "en"
-        analytics.track_interaction("language_toggle", {"new_lang": st.session_state["lang"]})
-        st.experimental_rerun()
-    
-    st.markdown("---")
-    
-    # Navigation
-    st.subheader("Navigation")
-    for i, section in enumerate(tx["side_sections"]):
-        if st.button(section, key=f"nav_{i}", use_container_width=True):
-            analytics.track_page_view(section)
-            st.session_state["current_section"] = i
-            st.session_state["page_view_count"][section] = st.session_state["page_view_count"].get(section, 0) + 1
-    
-    # Initialize current section if not set
-    if "current_section" not in st.session_state:
-        st.session_state["current_section"] = 0
-            
-    st.markdown("---")
-    
-    # Live sensor data
-    st.subheader("Live Sensor")
-    simulate_mqtt_temp()  # Try to get MQTT data
-    if st.session_state["mqtt_temp"] is not None:
-        st.metric("Temperature", f"{st.session_state['mqtt_temp']:.2f}°C")
-        st.caption(f"Last update: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}")
-    else:
-        st.info("Waiting for sensor data...")
-    
-    # System info
-    st.markdown("---")
-    with st.expander("System Info"):
-        st.caption(f"{tx['app_version']}: {APP_VERSION}")
-        st.caption(f"{tx['last_updated']}: {LAST_UPDATED}")
-        st.caption(f"{tx['developer']}: {DEVELOPER}")
-        st.caption(f"Current User: {CURRENT_USER}")
-        st.caption(f"Current Time: {CURRENT_TIME}")
-
-# Get simulation data
-df = st.session_state["simulation_data"]
-
-# Main content based on selected section
-current_section = st.session_state["current_section"]
-section_name = tx["side_sections"][current_section]
-
-st.markdown(f'<h1 class="gradient-header">{section_name}</h1>', unsafe_allow_html=True)
-
-# ----- SECTION 0: DIGITAL TWIN -----
-if current_section == 0:  # Digital Twin
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Live Plant Overview")
-        
-        # Plot temperature, pressure, and methane
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df['time'], y=df['Temperature'], name="Temperature (°C)", 
-                                line=dict(color=colorful_palette[0], width=3)))
-        fig.add_trace(go.Scatter(x=df['time'], y=df['Pressure'], name="Pressure (bar)",
-                                line=dict(color=colorful_palette[1], width=3)))
-        fig.add_trace(go.Scatter(x=df['time'], y=df['Methane'], name="Methane (ppm)",
-                                line=dict(color=colorful_palette[2], width=3)))
-        
-        fig.update_layout(
-            height=400,
-            margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Plant diagram (simplified using st.image)
-        st.subheader("Interactive Plant Schematic")
-        st.image("https://i.imgur.com/ypWbTNB.png", caption="Plant Digital Twin Schematic")
-        
-    with col2:
-        st.subheader("Live Parameters")
-        
-        # Show KPIs
-        st.markdown('<div class="kpi-card">Temperature<br/>57.3 °C</div>', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-card">Pressure<br/>6.8 bar</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-card" style="{highlight_metric(2.7, 2.0)}">Methane<br/>2.7 ppm</div>', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-card">Flow Rate<br/>42.1 m³/h</div>', unsafe_allow_html=True)
-        
-        # Quick actions
-        st.subheader("Quick Actions")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.button("📊 Export Data")
-            st.button("🔔 Set Alert")
-        with col_b:
-            st.button("📱 Send SMS")
-            st.button("📋 Report")
-
-# ----- SECTION 1: ADVANCED DASHBOARD -----
-elif current_section == 1:  # Advanced Dashboard
-    # Layout with tabs
-    tab1, tab2, tab3 = st.tabs(["System Overview", "Performance Metrics", "Energy"])
-    
-    with tab1:  # System Overview
-        # Multiple charts in columns
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Temperature Distribution")
-            temps = df['Temperature'].tolist()
-            fig = px.histogram(temps, nbins=20, 
-                               color_discrete_sequence=[colorful_palette[0]])
-            fig.update_layout(
-                margin=dict(l=20, r=20, t=20, b=20),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-        with col2:
-            st.subheader("Pressure vs Temperature")
-            fig = px.scatter(df, x='Pressure', y='Temperature', 
-                             color_discrete_sequence=[colorful_palette[1]])
-            fig.update_layout(
-                margin=dict(l=20, r=20, t=20, b=20),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-        # System health indicators
-        st.subheader("System Health")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("CPU Load", "32%", "-5%")
-        with col2:
-            st.metric("Memory", "1.7 GB", "0.2 GB")
-        with col3:
-            st.metric("Disk Space", "47%", "-2%")
-        with col4:
-            st.metric("Network", "3.2 MB/s", "0.5 MB/s")
-    
-    with tab2:  # Performance Metrics
-        st.subheader("Performance Over Time")
-        
-        # Line chart for multiple metrics
-        metrics_df = pd.DataFrame({
-            'Time': df['time'],
-            'Efficiency': 95 + np.random.normal(0, 1, len(df)),
-            'Throughput': 78 + np.sin(np.linspace(0, 4*np.pi, len(df))) * 5 + np.random.normal(0, 1, len(df)),
-            'Utilization': 82 + np.cos(np.linspace(0, 2*np.pi, len(df))) * 7 + np.random.normal(0, 1, len(df))
-        })
-        
-        # Plot the metrics
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Efficiency'], name="Efficiency (%)",
-                                line=dict(color=colorful_palette[0], width=2)))
-        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Throughput'], name="Throughput (%)",
-                                line=dict(color=colorful_palette[1], width=2)))
-        fig.add_trace(go.Scatter(x=metrics_df['Time'], y=metrics_df['Utilization'], name="Utilization (%)",
-                                line=dict(color=colorful_palette[2], width=2)))
-        
-        fig.update_layout(
-            height=400,
-            margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            hovermode="x unified"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # KPIs in a grid
-        st.subheader("Key Performance Indicators")
-        kpi_cols = st.columns(3)
-        with kpi_cols[0]:
-            st.metric("OEE", "92.7%", "1.2%")
-        with kpi_cols[1]:
-            st.metric("MTBF", "187 hours", "15 hours")
-        with kpi_cols[2]:
-            st.metric("MTTR", "4.2 hours", "-0.8 hours")
-    
-    with tab3:  # Energy
-        st.subheader("Energy Consumption")
-        
-        # Energy by component pie chart
-        energy_data = {
-            'Component': ['Compressors', 'Pumps', 'Heating', 'Cooling', 'Lighting', 'Other'],
-            'Energy (kWh)': [428, 195, 147, 121, 89, 76]
-        }
-        energy_df = pd.DataFrame(energy_data)
-        
-        fig = px.pie(energy_df, values='Energy (kWh)', names='Component', 
-                    color_discrete_sequence=colorful_palette)
-        fig.update_layout(
-            margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-        )
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Energy optimization tips
-        st.subheader("Energy Optimization")
-        st.markdown('<div class="peak-card">Stagger compressor startup to avoid peak loads</div>', unsafe_allow_html=True)
-        st.markdown('<div class="peak-card">Reduce cooling temperature by 2°C during night shift</div>', unsafe_allow_html=True)
-        st.markdown('<div class="peak-card">Check insulation on eastern pipe section</div>', unsafe_allow_html=True)
-
-# ----- SECTION 2: PREDICTIVE ANALYTICS -----
-elif current_section == 2:  # Predictive Analytics
-    st.subheader("Failure Prediction")
-    
-    # Probability gauge chart
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        # Gauge chart for failure probability
-        failure_prob = 27  # Example probability
-        
-        gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=failure_prob,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': "Failure Probability (%)"},
-            gauge={
-                'axis': {'range': [0, 100]},
-                'bar': {'color': colorful_palette[0]},
-                'steps': [
-                    {'range': [0, 20], 'color': "lightgreen"},
-                    {'range': [20, 50], 'color': "orange"},
-                    {'range': [50, 100], 'color': "red"}
-                ]
-            }
-        ))
-        gauge.update_layout(
-            height=300,
-            margin=dict(l=20, r=20, t=30, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-        )
-        st.plotly_chart(gauge, use_container_width=True)
-        
-        # Add some KPIs
-        st.metric("Time to Failure", "14.3 days", "2.1 days")
-        st.metric("Confidence", "93%", "5%")
-    
-    with col2:
-        # Maintenance schedule
-        st.subheader("Predictive Maintenance Schedule")
-        
-        maintenance_data = {
-            'Equipment': ['Compressor A', 'Pump System', 'Heat Exchanger', 'Flow Controller'],
-            'Probability': [27, 15, 8, 42],
-            'Days': [14.3, 29.5, 65.2, 8.7],
-            'Action': ['Inspect', 'Monitor', 'Monitor', 'Replace']
-        }
-        maint_df = pd.DataFrame(maintenance_data)
-        
-        # Create a horizontal bar chart
-        fig = px.bar(maint_df, y='Equipment', x='Probability', orientation='h',
-                   color='Probability', color_continuous_scale=colorful_palette)
-        fig.update_layout(
-            height=300,
-            margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            xaxis_title="Failure Probability (%)"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Anomaly detection
-    st.subheader("Anomaly Detection")
-    
-    # Create example anomaly data
-    anomaly_df = pd.DataFrame({
-        'time': df['time'],
-        'value': df['Temperature'],
-        'upper': df['Temperature'] + 3,
-        'lower': df['Temperature'] - 3,
-        'anomaly': np.abs(df['Temperature'] - df['Temperature'].rolling(10).mean()) > 3
-    })
-    
-    # Plot the anomaly detection
-    fig = go.Figure()
-    
-    # Add the main signal
-    fig.add_trace(go.Scatter(
-        x=anomaly_df['time'], 
-        y=anomaly_df['value'],
-        name='Temperature',
-        line=dict(color=colorful_palette[0], width=2)
-    ))
-    
-    # Add the bounds
-    fig.add_trace(go.Scatter(
-        x=anomaly_df['time'],
-        y=anomaly_df['upper'],
-        fill=None,
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        showlegend=False
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=anomaly_df['time'],
-        y=anomaly_df['lower'],
-        fill='tonexty',
-        mode='lines',
-        line_color='rgba(0,0,0,0)',
-        fillcolor='rgba(67, 206, 162, 0.2)',
-        name='Normal Range'
-    ))
-    
-    # Add anomalies as points
-    anomalies = anomaly_df[anomaly_df['anomaly']]
-    fig.add_trace(go.Scatter(
-        x=anomalies['time'],
-        y=anomalies['value'],
-        mode='markers',
-        marker=dict(color=colorful_palette[1], size=10, symbol='circle'),
-        name='Anomalies'
-    ))
-    
-    fig.update_layout(
-        height=400,
-        margin=dict(l=20, r=20, t=20, b=20),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        hovermode="x unified"
+    st.markdown(
+        f"""<div class="sidebar-title">{texts[st.session_state["lang"]]["app_title"]}</div>
+        <div class="sidebar-subtitle">{texts[st.session_state["lang"]]["app_sub"]}</div>""", 
+        unsafe_allow_html=True
     )
     
+    lang_sel = st.radio(
+        "", 
+        (texts["en"]["lang_en"], texts["en"]["lang_ar"]) if st.session_state["lang"] == "en" else (texts["ar"]["lang_en"], texts["ar"]["lang_ar"]),
+        horizontal=True, index=0 if st.session_state["lang"] == "en" else 1
+    )
+    st.session_state["lang"] = "en" if lang_sel == texts["en"]["lang_en"] else "ar"
+    
+    section_list = texts[st.session_state["lang"]]["side_sections"]
+    section = st.radio(" ", section_list, index=0)
+
+lang = st.session_state["lang"]
+t = texts[lang]
+rtl = True if lang == "ar" else False
+
+# -------------------- Demo data --------------------
+np.random.seed(1)
+demo_df = pd.DataFrame({
+    "time": pd.date_range(datetime.now() - timedelta(hours=24), periods=48, freq="30min"),
+    "Temperature": np.random.normal(55, 6, 48),
+    "Pressure": np.random.normal(7, 1.2, 48),
+    "Methane": np.clip(np.random.normal(1.4, 0.7, 48), 0, 6)
+})
+
+# ========== MAIN SECTIONS ==========
+if section == t["side_sections"][0]:  # Digital Twin (Live MQTT)
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][0]}</div>', unsafe_allow_html=True)
+    
+    try:
+        st.image("realtime_streaming.png", caption=rtl_wrap("MQTT Real-Time Streaming Example" if lang=="en" else "مثال مشاركة البيانات الحية"))
+    except Exception:
+        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg", caption=rtl_wrap("Demo Image"))
+
+    st.markdown(rtl_wrap("Live Temperature (MQTT, topic: digitaltwin/test/temperature)" if lang=="en" else "قراءة درجة الحرارة الحية (MQTT)"))
+    
+    temp = st.session_state["mqtt_temp"]
+    if temp is not None:
+        display_temp = to_arabic_numerals(round(temp,2)) if lang == "ar" else round(temp,2)
+        st.metric(t["features"][0], f"{display_temp} °C", delta=None)
+        
+        # Trigger alert if temp > 60°C and send SMS
+        if temp > 60 and not st.session_state["sms_sent"]:
+            ok, msg = send_sms(TWILIO_TO, 
+                f"ALERT: Plant temperature exceeded safe level! Temp={temp:.1f}°C" if lang=="en" else f"تنبيه: درجة حرارة المصنع تجاوزت الحد المسموح! درجة الحرارة={to_arabic_numerals(round(temp,1))}°م")
+            st.session_state["sms_sent"] = True
+            st.warning("️ SMS Alert sent to supervisor!" if lang=="en" else "️ تم إرسال تنبيه SMS للمشرف!")
+    else:
+        st.info("Waiting for MQTT..." if lang=="en" else "في انتظار بيانات MQTT...")
+    
+    st.caption(f"{'Last update' if lang=='en' else 'آخر تحديث'}: {st.session_state['mqtt_last'] if st.session_state['mqtt_last'] else 'N/A'}")
+
+elif section == t["side_sections"][1]:  # Advanced Dashboard
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][1]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("KPIs and live trends for the plant." if lang=="en" else "المؤشرات والاتجاهات الحية للمصنع."))
+    
+    fig = px.line(demo_df, x="time", y=["Temperature", "Pressure", "Methane"], labels={"value":"Reading", "variable":"Tag"})
+    fig.update_layout(legend_title_text="Tag", height=350)
     st.plotly_chart(fig, use_container_width=True)
 
-# ----- SECTION 5: SMART SOLUTIONS -----
-elif current_section == 5:  # Smart Solutions
-    st.subheader("AI-Powered Solution Recommendations")
+elif section == t["side_sections"][2]:  # Predictive Analytics
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][2]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Forecast of methane and temperature for next 7 days." if lang=="en" else "توقع الميثان ودرجة الحرارة للأيام السبعة القادمة."))
     
-    # Solution index from session state
-    sol_idx = st.session_state["solution_idx"]
-    solutions = tx["solutions"]
-    solution = solutions[sol_idx]
+    days = pd.date_range(datetime.now(), periods=7)
+    forecast = pd.DataFrame({
+        "Day": days,
+        "Methane": np.linspace(1.2, 4.5, 7) + np.random.normal(0, 0.2, 7),
+        "Temp": np.linspace(55, 63, 7) + np.random.normal(0, 1, 7)
+    })
+    st.line_chart(forecast.set_index("Day"))
+
+elif section == t["side_sections"][3]:  # Scenario Playback
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][3]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Replay plant incident scenarios hour by hour." if lang=="en" else "تشغيل سيناريوهات الحوادث ساعة بساعة."))
     
-    # Main solution card
+    step = st.slider(t["side_sections"][3], 0, 23, 0)
+    st.markdown(rtl_wrap(f"Scenario at hour {step}" if lang=="en" else f"السيناريو عند الساعة {to_arabic_numerals(step)}"))
+    
+    chart_data = np.cumsum(np.random.randn(24)) + 50
+    st.line_chart(chart_data[:step+1])
+
+elif section == t["side_sections"][4]:  # Alerts & Fault Log
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][4]}</div>', unsafe_allow_html=True)
+    
+    alert_log = pd.DataFrame([
+        {"Time":"2025-07-01 05:00","Type":"☹ High Temp" if lang=="en" else "☹ حرارة عالية","Status":"☹ Open" if lang=="en" else "☹ مفتوح"},
+        {"Time":"2025-07-01 03:32","Type":"☹ Methane Spike" if lang=="en" else "☹ ارتفاع الميثان","Status":"☹ Closed" if lang=="en" else "☹ مغلق"},
+        {"Time":"2025-06-30 22:10","Type":"☹ Low Flow" if lang=="en" else "☹ تدفق منخفض","Status":"☹ Closed" if lang=="en" else "☹ مغلق"},
+    ])
+    st.table(alert_log)
+
+elif section == t["side_sections"][5]:  # Smart Solutions
+    show_logo()
+    idx = st.session_state["solution_idx"]
+    solutions = t["solutions"]
+    sol = solutions[idx]
+    steps_html = "".join([f"<li>{s}</li>" for s in sol["steps"]])
+    
     st.markdown(f"""
     <div class="peak-card">
-        <h2>{solution["icon"]} {solution["title"]}</h2>
-        <p>{solution["desc"]}</p>
-        <div style="margin-top:1em;display:flex;flex-wrap:wrap;">
-            <div style="margin-right:2em;margin-bottom:1em;">
-                <b>Priority:</b> {solution["priority"]}
-            </div>
-            <div style="margin-right:2em;margin-bottom:1em;">
-                <b>Effectiveness:</b> {solution["effectiveness"]}
-            </div>
-            <div style="margin-right:2em;margin-bottom:1em;">
-                <b>Time to Implement:</b> {solution["time"]}
-            </div>
-            <div style="margin-right:2em;margin-bottom:1em;">
-                <b>Cost:</b> {solution["cost"]}
-            </div>
-            <div style="margin-right:2em;margin-bottom:1em;">
-                <b>Projected Savings:</b> {solution["savings"]}
-            </div>
+        <div style="font-size:2em;">{sol["icon"]}</div>
+        <b style="font-size:1.3em">{sol["title"]}</b>
+        <div style="margin:0.8em 0 0.5em 0;">{sol["desc"]}</div>
+        <ul style="margin-bottom:0.7em;">{steps_html}</ul>
+        <div style="display:flex;gap:0.9em;flex-wrap:wrap;">
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Priority' if lang=='en' else 'الأولوية')}: {sol['priority']}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Effectiveness' if lang=='en' else 'الفعالية')}: {sol['effectiveness']}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Time' if lang=='en' else 'المدة')}: {sol['time']}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Cost' if lang=='en' else 'التكلفة')}: {sol['cost']}</span>
+            <span style="background:#185a9d12;padding:0.3em 1em;border-radius:6px;">{('Savings' if lang=='en' else 'التوفير')}: {sol['savings']}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Implementation steps
-    st.subheader("Implementation Steps")
-    for i, step in enumerate(solution["steps"]):
+    if st.button(t["solution_btn"], key=f"solution-next-{idx}"):
+        st.session_state["solution_idx"] = (idx + 1) % len(solutions)
+
+elif section == t["side_sections"][6]:  # KPI Wall
+    show_logo()
+    kpis = [
+        ("Overall Efficiency", "✅", "#8fd3f4"),
+        ("Energy Used (MWh)", "", "#fe8c00"),
+        ("Water Saved (m³)", "", "#43cea2"),
+        ("Incidents This Year", "", "#fa709a")
+    ] if lang == "en" else [
+        ("الكفاءة العامة", "✅", "#8fd3f4"),
+        ("الطاقة المستخدمة (ميغاواط)", "", "#fe8c00"),
+        ("الماء الموفر (م³)", "", "#43cea2"),
+        ("الحوادث هذا العام", "", "#fa709a")
+    ]
+    
+    vals = [96, 272, 62, 1]
+    goals = [98, 250, 70, 0]
+    
+    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
+    for i, (name, icon, color) in enumerate(kpis):
+        display_val = to_arabic_numerals(vals[i]) if lang == "ar" else str(vals[i])
+        display_goal = to_arabic_numerals(goals[i]) if lang == "ar" else str(goals[i])
         st.markdown(f"""
-        <div class="timeline-step">
-            <h4>Step {i+1}</h4>
-            <p>{step}</p>
+        <div class="kpi-card" style="background:{color}c0;">
+            <span style="font-size:2.1em;">{icon}</span><br>
+            <b>{name}</b><br>
+            <span style="font-size:2.3em;font-weight:900">{display_val}</span>
+            <div style="font-size:.95em;color:#222;">{('Goal' if lang=='en' else 'الهدف')}: {display_goal}</div>
         </div>
         """, unsafe_allow_html=True)
-    
-    # Next solution button
-    if st.button(tx["solution_btn"], key="nextbtn"):
-        st.session_state["solution_idx"] = (st.session_state["solution_idx"] + 1) % len(solutions)
-        analytics.track_interaction("solution_next", {"new_idx": st.session_state["solution_idx"]})
-        st.experimental_rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ----- SECTION 7: PLANT HEATMAP -----
-elif current_section == 7:  # Plant Heatmap
-    st.subheader("Temperature Distribution Heatmap")
+elif section == t["side_sections"][7]:  # Plant Heatmap
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][7]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("High temperature and pressure zones are highlighted below." if lang=="en" else "المناطق الحرجة للحرارة والضغط موضحة أدناه."))
     
-    # Create a sample heatmap dataset
-    heatmap_size = 24
-    x = np.linspace(0, 10, heatmap_size)
-    y = np.linspace(0, 10, heatmap_size)
-    X, Y = np.meshgrid(x, y)
+    z = np.random.uniform(25, 70, (8, 10))
+    fig = go.Figure(data=go.Heatmap(z=z, colorscale='YlOrRd', 
+                    colorbar=dict(title=('Temp °C' if lang=='en' else 'حرارة'))))
+    fig.update_layout(height=320, margin=dict(l=12, r=12, t=20, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+elif section == t["side_sections"][8]:  # Root Cause Explorer
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][8]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Trace issues to their origin. Sample propagation path shown below." if lang=="en" else "تتبع المشكلات إلى أصلها. سلسلة السبب والنتيجة أدناه."))
     
-    # Create a gaussian peak for the heatmap
-    def gaussian(x, y, x0, y0, sigma):
-        return np.exp(-((x - x0)**2 + (y - y0)**2) / (2 * sigma**2))
+    st.markdown(f"""
+    <div style="margin-top:1em;display:flex;justify-content:center;">
+        <svg width="340" height="180" viewBox="0 0 340 180">
+            <rect x="20" y="70" width="80" height="38" rx="12" fill="#43cea2" opacity="0.89"/>
+            <rect x="140" y="30" width="90" height="38" rx="12" fill="#ffb347" opacity="0.91"/>
+            <rect x="140" y="110" width="90" height="38" rx="12" fill="#fa709a" opacity="0.91"/>
+            <rect x="260" y="70" width="60" height="38" rx="12" fill="#8fd3f4" opacity="0.91"/>
+            <text x="60" y="93" font-size="1.2em" fill="#fff" font-family="Cairo,Montserrat" text-anchor="middle">{'Root: Methane leak' if lang=='en' else 'الجذر: تسرب ميثان'}</text>
+            <text x="185" y="53" font-size="1.1em" fill="#fff" font-family="Cairo,Montserrat" text-anchor="middle">{'Compressor 2 Fault' if lang=='en' else 'عطل الضاغط ٢'}</text>
+            <text x="185" y="133" font-size="1.1em" fill="#fff" font-family="Cairo,Montserrat" text-anchor="middle">{'Pump Overload' if lang=='en' else 'تحميل زائد على المضخة'}</text>
+            <text x="290" y="93" font-size="1.1em" fill="#185a9d" font-family="Cairo,Montserrat" text-anchor="middle">{'Incident: Shutdown' if lang=='en' else 'حادث: إيقاف'}</text>
+            <line x1="100" y1="89" x2="140" y2="49" stroke="#43cea2" stroke-width="3" marker-end="url(#arrow)"/>
+            <line x1="100" y1="89" x2="140" y2="129" stroke="#43cea2" stroke-width="3" marker-end="url(#arrow)"/>
+            <line x1="230" y1="49" x2="260" y2="89" stroke="#ffb347" stroke-width="3" marker-end="url(#arrow)"/>
+            <line x1="230" y1="129" x2="260" y2="89" stroke="#fa709a" stroke-width="3" marker-end="url(#arrow)"/>
+            <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                    <path d="M0,0 L0,6 L9,3 z" fill="#185a9d" />
+                </marker>
+            </defs>
+        </svg>
+    </div>
+    """, unsafe_allow_html=True)
+
+elif section == t["side_sections"][9]:  # AI Copilot Chat (LLM)
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][9]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Ask the AI about plant issues, troubleshooting, or improvements." if lang=="en" else "اسأل الذكاء الصناعي عن الأعطال أو التحسينات أو المشاكل."))
     
-    # Combine multiple gaussians
-    z = (gaussian(X, Y, 3, 3, 1) + 
-         gaussian(X, Y, 7, 7, 1.5) * 0.8 + 
-         gaussian(X, Y, 5, 8, 0.7) * 1.2 +
-         gaussian(X, Y, 8, 3, 1.2) * 0.5)
+    user_prompt = st.text_input(("Ask AI a question..." if lang=="en" else "اكتب سؤالاً للذكاء الصناعي..."), key="ai_input")
+    if user_prompt:
+        with st.spinner("Thinking..." if lang=="en" else "يفكر..."):
+            answer = ask_llm(user_prompt, lang)
+            st.markdown(f"**AI:** {answer}")
+
+elif section == t["side_sections"][10]:  # Live Plant 3D
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["live3d_header"]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap(t["live3d_intro"]), unsafe_allow_html=True)
     
-    # Create the heatmap
-    fig = go.Figure(data=go.Heatmap(
-        z=z,
-        colorscale=[
-            [0, colorful_palette[0]],
-            [0.5, colorful_palette[1]],
-            [1, colorful_palette[2]]
-        ],
-        showscale=True,
-        hoverongaps=False
-    ))
+    try:
+        st.components.v1.iframe(
+            "https://sketchfab.com/models/6ebc4e240be94b8caa1e1e6b0f2e3e7b/embed", height=480, scrolling=True
+        )
+        st.markdown(
+            rtl_wrap(
+                '<sup>3D model courtesy of <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>' if lang=="en"
+                else '<sup>النموذج ثلاثي الأبعاد مقدم من <a href="https://sketchfab.com" target="_blank">Sketchfab</a></sup>'
+            ),
+            unsafe_allow_html=True
+        )
+    except Exception:
+        st.markdown(f'<div class="peak-card" style="background:#fa709a22">{t["live3d_404"]}</div>', unsafe_allow_html=True)
+        st.image(
+            "https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg",
+            caption=rtl_wrap(t["static_3d_caption"])
+        )
+
+elif section == t["side_sections"][11]:  # Incident Timeline
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][11]}</div>', unsafe_allow_html=True)
     
-    fig.update_layout(
-        title="Plant Temperature Distribution",
-        height=600,
-        margin=dict(l=20, r=20, t=60, b=20),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
+    timeline_steps = [
+        ("2025-06-30 11:23", "", "Methane leak detected at Compressor 2. Emergency shutdown triggered."),
+        ("2025-06-30 10:58", "️", "Flow rate anomaly at Pump 1. Operator notified."),
+        ("2025-06-30 10:50", "ℹ️", "Temperature rising at Reactor. Trend within safe limits.")
+    ] if lang == "en" else [
+        ("2025-06-30 11:23", "", "اكتشاف تسرب ميثان عند الضاغط ٢. إيقاف طارئ تلقائي."),
+        ("2025-06-30 10:58", "️", "شذوذ تدفق عند مضخة ١. تم إخطار المشغل."),
+        ("2025-06-30 10:50", "ℹ️", "ارتفاع الحرارة بالمفاعل. الاتجاه ضمن الحدود الآمنة.")
+    ]
     
+    for t, icon, desc in timeline_steps:
+        st.markdown(
+            f"""
+            <div class="timeline-step"><span class="timeline-icon">{icon}</span>
+            <b>{t}</b><br>
+            <span style="font-size:1.07em">{desc}</span></div>
+            """,
+            unsafe_allow_html=True
+        )
+
+elif section == t["side_sections"][12]:  # Energy Optimization
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][12]}</div>', unsafe_allow_html=True)
+    st.markdown(rtl_wrap("Monitor and optimize plant energy use. AI recommendations below." if lang=="en" else "راقب وحسن استهلاك الطاقة. توصيات الذكاء الاصطناعي بالأسفل."))
+    
+    energy_sect = ["Compressor", "Pump", "Lighting", "Other"] if lang=="en" else ["ضاغط", "مضخة", "إضاءة", "أخرى"]
+    vals = [51, 28, 9, 12]
+    fig = px.bar(x=energy_sect, y=vals, color=energy_sect, color_discrete_sequence=px.colors.sequential.Plasma)
+    fig.update_layout(height=230, margin=dict(l=10, r=10, t=10, b=10), showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
     
-    # Heatmap controls
-    st.subheader("Visualization Controls")
-    col1, col2, col3 = st.columns(3)
+    energy_recos = [
+        ("Reduce compressor load during peak hours", ""),
+        ("Schedule maintenance for low demand windows", "️")
+    ] if lang == "en" else [
+        ("تخفيض تشغيل الضواغط أوقات الذروة", ""),
+        ("جدولة الصيانة أوقات الطلب المنخفض", "️")
+    ]
     
-    with col1:
-        st.selectbox("Parameter", ["Temperature", "Pressure", "Methane", "Vibration", "Noise"])
-    
-    with col2:
-        st.selectbox("Color Scale", ["Thermal", "Viridis", "Plasma", "Blues", "Reds"])
-        
-    with col3:
-        st.selectbox("Resolution", ["High", "Medium", "Low"])
-    
-    # Add plant locations
-    st.subheader("Key Plant Locations")
-    locations = {
-        "Compressor Room": "(3.0, 3.0)",
-        "Storage Area": "(7.0, 7.0)", 
-        "Control Room": "(5.0, 8.0)",
-        "Loading Bay": "(8.0, 3.0)"
-    }
-    
-    for location, coords in locations.items():
-        st.markdown(f"- **{location}**: {coords}")
-
-# ----- SECTION 9: AI COPILOT CHAT -----
-elif current_section == 9:  # AI Copilot Chat
-    st.subheader("AI Assistant")
-    
-    # Initialize chat history
-    if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []
-    
-    # Chat container
-    chat_container = st.container()
-    
-    with chat_container:
-        # Display chat history
-        for i, message in enumerate(st.session_state["chat_history"]):
-            if message["role"] == "user":
-                st.markdown(f"""
-                <div class="chat-message user">
-                    <div class="message">{message["content"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="chat-message ai">
-                    <div class="message">{message["content"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    # Quick prompts
-    st.markdown("### Quick Questions")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button(tx["ai_explain_btn"]):
-            prompt = "Explain the current temperature trends"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-        
-        if st.button(tx["ai_rootcause_btn"]):
-            prompt = "What could be causing the methane spike?"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-        
-        if st.button(tx["ai_whatif_btn"]):
-            prompt = "What if we increase production by 15%?"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-    
-    with col2:
-        if st.button(tx["ai_kpi_btn"]):
-            prompt = "Analyze our current KPIs"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-        
-        if st.button(tx["ai_energy_btn"]):
-            prompt = "How can we optimize energy usage?"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-        
-        if st.button(tx["ai_feedback_btn"]):
-            prompt = "Summarize operator feedback"
-            st.session_state["chat_history"].append({"role": "user", "content": prompt})
-            response = ask_llm_advanced(prompt, lang)
-            st.session_state["chat_history"].append({"role": "assistant", "content": response})
-            st.experimental_rerun()
-    
-    # User input
-    user_input = st.text_input("Ask anything about the plant:", key="user_query")
-    if user_input:
-        analytics.track_interaction("chat_query", {"query": user_input})
-        st.session_state["chat_history"].append({"role": "user", "content": user_input})
-        response = ask_llm_advanced(user_input, lang)
-        st.session_state["chat_history"].append({"role": "assistant", "content": response})
-        st.experimental_rerun()
-
-# ----- SECTION 15: SYSTEM HEALTH -----
-elif current_section == 15:  # System Health
-    st.subheader(tx["health_check"])
-    
-    # System metrics
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # App metrics
-        st.subheader(tx["perf_check"])
-        
-        app_metrics = perf_tracker.get_app_metrics()
-        
-        # Format uptime nicely
-        uptime = app_metrics["uptime_seconds"]
-        hours, remainder = divmod(uptime, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        uptime_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
-        
+    for txt, icon in energy_recos:
         st.markdown(f"""
-        <div class="system-stat-card">
-            <div><b>Uptime:</b> {uptime_str}</div>
-            <div><b>Function Calls:</b> {app_metrics["function_calls"]}</div>
-            <div><b>Slowest Function:</b> {app_metrics["slowest_function"] or "None"}</div>
-            <div><b>Total Execution Time:</b> {app_metrics["total_execution_time"]:.2f}s</div>
+        <div class="peak-card" style="background:#e0eafc;margin-bottom:0.6em;">
+            <span class="timeline-icon">{icon}</span> {txt}
         </div>
         """, unsafe_allow_html=True)
-        
-        # Function metrics
-        func_metrics = perf_tracker.get_function_metrics()
-        if func_metrics:
-            st.markdown("#### Function Performance")
-            
-            # Convert to DataFrame for display
-            func_df = pd.DataFrame([
-                {
-                    "Function": func_name,
-                    "Calls": metrics["calls"],
-                    "Avg Time (ms)": metrics["avg_time"] * 1000,
-                    "Max Time (ms)": metrics["max_time"] * 1000
-                }
-                for func_name, metrics in func_metrics.items()
-            ])
-            
-            # Sort by average time (descending)
-            func_df = func_df.sort_values("Avg Time (ms)", ascending=False)
-            
-            # Display the table
-            st.dataframe(func_df, use_container_width=True)
+
+elif section == t["side_sections"][13]:  # Future Insights
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][13]}</div>', unsafe_allow_html=True)
+    st.markdown("<div style='display:flex;gap:1.3em;flex-wrap:wrap;'>", unsafe_allow_html=True)
     
-    with col2:
-        # Exception monitoring
-        st.subheader("Error Tracking")
-        
-        summary = exception_monitor.get_summary()
-        st.markdown(summary)
-        
-        # Most common exceptions
-        most_common = exception_monitor.get_most_common()
-        if most_common:
-            st.markdown("#### Most Common Exceptions")
-            
-            for exc_type, count in most_common:
-                st.markdown(f"- **{exc_type}**: {count} occurrences")
-        
-        # Clear exceptions button
-        if st.button("Clear Error Log"):
-            exception_monitor.clear()
-            st.success("Error log cleared")
-            st.experimental_rerun()
+    future_cards = [
+        ("Predictive Risk Alert", "AI models forecast a risk spike for methane at Compressor 2 next week.", ""),
+        ("Efficiency Opportunity", "Upgrade control logic to boost plant efficiency by 3%.", "")
+    ] if lang == "en" else [
+        ("تنبيه مخاطر تنبؤي", "يتوقع الذكاء الاصطناعي ارتفاع الميثان عند الضاغط ٢ الأسبوع القادم.", ""),
+        ("فرصة كفاءة", "تحديث منطق التحكم لرفع الكفاءة ٣٪.", "")
+    ]
     
-    # Analytics data
-    st.subheader("Analytics")
-    
-    analytics_summary = analytics.get_analytics_summary()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### Session Information")
-        
-        # Format session duration
-        session_duration = analytics_summary["session_duration_seconds"]
-        hours, remainder = divmod(session_duration, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
-        
+    for title, desc, icon in future_cards:
         st.markdown(f"""
-        <div class="system-stat-card">
-            <div><b>Session ID:</b> {analytics_summary["session_id"]}</div>
-            <div><b>Duration:</b> {duration_str}</div>
-            <div><b>Total Interactions:</b> {analytics_summary["total_interactions"]}</div>
+        <div class="peak-card" style="min-width:220px;max-width:330px;">
+            <span style="font-size:2.1em;">{icon}</span><br>
+            <b>{title}</b><br>
+            <span style="font-size:1.09em">{desc}</span>
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
-        st.markdown("#### Feature Usage")
-        
-        # Most used features
-        most_used = analytics_summary["most_used_features"]
-        if most_used:
-            for feature, count in most_used:
-                st.markdown(f"- **{feature}**: {count} uses")
-        else:
-            st.info("No feature usage recorded yet")
-    
-    # Page views
-    st.subheader("Page Views")
-    
-    page_views = analytics_summary["page_views"]
-    if page_views:
-        # Convert to DataFrame for visualization
-        page_df = pd.DataFrame([
-            {"Page": page, "Views": views}
-            for page, views in page_views.items()
-        ])
-        
-        # Sort by views (descending)
-        page_df = page_df.sort_values("Views", ascending=False)
-        
-        # Create bar chart
-        fig = px.bar(page_df, x="Page", y="Views",
-                   color="Views", color_continuous_scale=colorful_palette)
-        
-        fig.update_layout(
-            height=400,
-            margin=dict(l=20, r=20, t=20, b=20),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No page views recorded yet")
+    x = [datetime.now() + timedelta(days=i) for i in range(7)]
+    y = [1.2,1.5,2.0,2.8,3.6,3.9,4.8]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y, mode="lines+markers", line=dict(color="#fa709a", width=3), name="Methane Risk"))
+    fig.update_layout(height=200, margin=dict(l=10, r=10, t=10, b=10), title=("Methane Risk Forecast" if lang=="en" else "توقع مخاطر الميثان"))
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ----- SECTION 16: ABOUT -----
-elif current_section == 16:  # About
-    st.markdown(f'<h2 class="gradient-header">{tx["about_header"]}</h2>', unsafe_allow_html=True)
+elif section == t["side_sections"][14]:  # Operator Feedback
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["side_sections"][14]}</div>', unsafe_allow_html=True)
     
-    # Story card
-    st.markdown('<div class="about-bgcard">', unsafe_allow_html=True)
-    st.markdown(f'<div class="about-story">{tx["about_story"]}</div>', unsafe_allow_html=True)
+    if "feedback_list" not in st.session_state:
+        st.session_state["feedback_list"] = []
     
-    # Colorful concepts
-    for color, text in tx["about_colorful"]:
-        st.markdown(f'<span class="about-color" style="border-color:{color}">{text}</span>', unsafe_allow_html=True)
+    feedback = st.text_area(rtl_wrap("Add operator feedback or incident note:" if lang=="en" else "أضف ملاحظة أو ملاحظة حادث للمشغل:"), key="feedbackbox")
+    if st.button("Submit Feedback" if lang=="en" else "إرسال الملاحظة"):
+        if feedback.strip():
+            st.session_state["feedback_list"].append((datetime.now().strftime("%Y-%m-%d %H:%M"), feedback.strip()))
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Features section
-    st.subheader("Key Features")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        for feature in tx["features"][:3]:
-            st.markdown(f'<p class="about-feature">✓ {feature}</p>', unsafe_allow_html=True)
-    
-    with col2:
-        for feature in tx["features"][3:]:
-            st.markdown(f'<p class="about-feature">✓ {feature}</p>', unsafe_allow_html=True)
-    
-    # How to extend
-    st.subheader("How To Extend")
-    for item in tx["howto_extend"]:
-        st.markdown(f"- {item}")
-    
-    # Contact info
-    st.subheader(tx["contact"])
-    for name, email, phone in tx["developers"]:
-        st.markdown(f"**{name}**  \n{email} | {phone}")
-    
-    # Demo note
-    st.warning(tx["demo_note"])
+    for t, fb in reversed(st.session_state["feedback_list"]):
+        st.info(rtl_wrap(f"**[{t}]** {fb}"))
 
-    # System information
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric(tx["app_version"], APP_VERSION)
-    with col2:
-        st.metric(tx["last_updated"], LAST_UPDATED)
-    with col3:
-        st.metric(tx["developer"], DEVELOPER)
+elif section == t["side_sections"][15]:  # About
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["about_header"]}</div>', unsafe_allow_html=True)
+    st.markdown(f"<div class='about-bgcard'>", unsafe_allow_html=True)
+    
+    st.markdown(
+        "".join([f"<span class='about-color' style='background:{color}30;color:{color};'>{value}</span> " for color, value in t["about_colorful"]]),
+        unsafe_allow_html=True
+    )
+    
+    st.markdown(f"<div class='about-story'>{rtl_wrap(t['about_story'])}</div>", unsafe_allow_html=True)
+    st.markdown(rtl_wrap("<div class='about-feature'>Features</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>الميزات</div>"), unsafe_allow_html=True)
+    st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in t["features"]])+"</ul>", unsafe_allow_html=True)
+    
+    st.markdown(rtl_wrap("<div class='about-feature'>How to extend</div>") if lang=="en" else rtl_wrap("<div class='about-feature'>كيفية التوسيع</div>"), unsafe_allow_html=True)
+    st.markdown("<ul>"+"".join([f"<li>{f}</li>" for f in t["howto_extend"]])+"</ul>", unsafe_allow_html=True)
+    
+    st.markdown(rtl_wrap("<div class='about-contact'><b>Contact</b></div>") if lang=="en" else rtl_wrap("<div class='about-contact'><b>تواصل معنا</b></div>"), unsafe_allow_html=True)
+    for name, mail, phone in t["developers"]:
+        st.markdown(f"{t['contact']}: {name}<br>Email: <a href='mailto:{mail}'>{mail}</a><br>Phone: {phone}<br>", unsafe_allow_html=True)
+    
+    st.markdown(rtl_wrap(f"<i>{t['demo_note']}</i>"), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Add other sections as needed (this covers the key sections)
-else:
-    st.info("This section is under development. Please check back later!")
-
-# Footer with credits
-st.markdown("---")
-st.markdown(f"<p style='text-align:center;color:gray;font-size:0.8em;'>© 2025 Smart Neural Digital Twin • User: {CURRENT_USER} • {CURRENT_TIME}</p>", unsafe_allow_html=True)
+# -------------------- NEW SECTION: Smart Recommendations --------------------
+elif section == t["side_sections"][16]:  # Smart Recommendations
+    show_logo()
+    st.markdown(f'<div class="{"gradient-ar" if rtl else "gradient-header"}">{t["smart_recommendations"]}</div>', unsafe_allow_html=True)
+    
+    # Generate solution button
+    if st.button(t["generate_solution"], key="generate_solution_btn", use_container_width=True):
+        with st.spinner("Generating smart solution..." if lang=="en" else "جاري توليد حل ذكي..."):
+            time.sleep(1.5)  # Simulate processing time
+            solution = generate_smart_solution(lang)
+            st.session_state["generated_solutions"].append(solution)
+            st.session_state["solution_generated"] = True
+            st.success("Solution generated successfully!" if lang=="en" else "تم توليد الحل بنجاح!")
+    
+    # Display generated solutions
+    if st.session_state["solution_generated"] and st.session_state["generated_solutions"]:
+        latest_solution = st.session_state["generated_solutions"][-1]
+        
+        st.markdown(f"""
+        <div class="solution-card">
+            <div class="solution-title">{latest_solution["title"]}</div>
+            
+            <div class="solution-detail">
+                <span class="solution-label">{t["solution_description"]}:</span> {latest_solution["description"]}
+            </div>
+            
+            <div style="display: flex; flex-wrap: wrap; gap: 1em;">
+                <div class="solution-detail" style="flex: 1; min-width: 200px;">
+                    <span class="solution-label">{t["solution_priority"]}:</span> {latest_solution["priority"]}
+                </div>
+                
+                <div class="solution-detail" style="flex: 1; min-width: 200px;">
+                    <span class="solution-label">{t["solution_time"]}:</span> {latest_solution["time_required"]}
+                </div>
+                
+                <div class="solution-detail" style="flex: 1; min-width: 200px;">
+                    <span class="solution-label">{t["solution_impact"]}:</span> {latest_solution["impact"]}
+                </div>
+                
+                <div class="solution-detail" style="flex: 1; min-width: 200px;">
+                    <span class="solution-label">{t["solution_cost"]}:</span> {latest_solution["cost"]}
+                </div>
+                
+                <div class="solution-detail" style="flex: 1; min-width: 200px;">
+                    <span class="solution-label">{t["solution_savings"]}:</span> {latest_solution["savings"]}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Action buttons
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Implement Solution" if lang=="en" else "تنفيذ الحل", key="implement_btn"):
+                st.success("Solution implementation started!" if lang=="en" else "بدأ تنفيذ الحل!")
+        with col2:
+            if st.button("Schedule for Later" if lang=="en" else "جدولة لوقت لاحق", key="schedule_btn"):
+                st.info("Solution scheduled for tomorrow." if lang=="en" else "تم جدولة الحل للغد.")
+        with col3:
+            if st.button("Generate Alternative" if lang=="en" else "توليد بديل", key="alternative_btn"):
+                st.session_state["solution_generated"] = False
+                st.rerun()
+    
+    # Show previous solutions if any
+    if len(st.session_state["generated_solutions"]) > 1:
+        with st.expander("Previous Solutions" if lang=="en" else "الحلول السابقة"):
+            for i, solution in enumerate(st.session_state["generated_solutions"][:-1]):
+                st.markdown(f"""
+                <div class="solution-card" style="opacity: 0.7;">
+                    <div class="solution-title">{solution["title"]}</div>
+                    <div class="solution-detail">
+                        <span class="solution-label">{t["solution_priority"]}:</span> {solution["priority"]} | 
+                        <span class="solution-label">{t["solution_time"]}:</span> {solution["time_required"]}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
