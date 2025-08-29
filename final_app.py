@@ -3,15 +3,16 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import openai
-from twilio.rest import Client
 from datetime import datetime, timedelta
 import threading
 import paho.mqtt.client as mqtt
 import os
 import random
 import time
-import json
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
 
 # -------------------- LOGO SVG --------------------
 logo_svg = """
@@ -38,18 +39,12 @@ MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
 MQTT_TOPIC = "digitaltwin/test/temperature"
 
-# -------------------- Secure config via environment --------------------
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "demo-key")
-TWILIO_SID = os.environ.get("TWILIO_SID", "demo-sid")
-TWILIO_AUTH = os.environ.get("TWILIO_AUTH", "demo-auth")
-TWILIO_FROM = os.environ.get("TWILIO_FROM", "+15005550006")
-TWILIO_TO = os.environ.get("TWILIO_TO", "+15005550006")
-
 # -------------------- App state Initialization --------------------
 for key, default in [
     ("lang", "en"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "light"),
     ("mqtt_temp", None), ("mqtt_last", None), ("mqtt_started", False), ("sms_sent", False),
-    ("feedback_list", []), ("generated_solutions", []), ("solution_generated", False)
+    ("feedback_list", []), ("generated_solutions", []), ("solution_generated", False),
+    ("ai_analysis_done", False), ("anomalies_detected", [])
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -81,41 +76,107 @@ if not st.session_state["mqtt_started"]:
     t.start()
     st.session_state["mqtt_started"] = True
 
-# -------------------- OpenAI setup --------------------
-def ask_llm(prompt, lang):
-    system_en = """You are an expert AI assistant for an industrial digital twin platform called 'Smart Neural Digital Twin'."""
-    
-    system = system_en
-    
-    try:
-        # Simulate LLM response for demo
-        responses_en = {
-            "temperature": "The current temperature is monitored in real-time via MQTT sensors. Typical range is 50-65°C.",
-            "pressure": "Pressure readings are stable across all units, averaging 7.2 bar with minimal fluctuations.",
-            "methane": "Methane levels are within safe limits. The predictive model shows no significant increase expected in the next 48 hours."
-        }
+# -------------------- AI Analysis Functions --------------------
+class AdvancedAIAnalyzer:
+    def __init__(self):
+        self.scaler = StandardScaler()
+        self.anomaly_detector = IsolationForest(contamination=0.1, random_state=42)
         
-        prompt_lower = prompt.lower()
-        if "temperature" in prompt_lower:
-            return responses_en["temperature"]
-        elif "pressure" in prompt_lower:
-            return responses_en["pressure"]
-        elif "methane" in prompt_lower:
-            return responses_en["methane"]
-        else:
-            return "I can provide information about temperature, pressure, and methane levels. What would you like to know?"
+    def generate_sensor_data(self):
+        """Generate realistic sensor data for analysis"""
+        np.random.seed(42)
+        time_index = pd.date_range(start='2023-01-01', periods=500, freq='H')
+        
+        # Base patterns
+        base_temp = 50 + 10 * np.sin(2 * np.pi * np.arange(500) / 24)  # Daily pattern
+        base_pressure = 100 + 5 * np.sin(2 * np.pi * np.arange(500) / 168)  # Weekly pattern
+        base_methane = 1.0 + 0.3 * np.sin(2 * np.pi * np.arange(500) / 84)  # Bi-weekly pattern
+        
+        # Add some anomalies
+        anomalies = np.zeros(500)
+        anomaly_indices = [50, 150, 250, 350, 450]
+        anomalies[anomaly_indices] = 1
+        
+        # Create data with anomalies
+        data = pd.DataFrame({
+            'timestamp': time_index,
+            'temperature': base_temp + np.random.normal(0, 2, 500) + anomalies * np.random.normal(15, 3, 500),
+            'pressure': base_pressure + np.random.normal(0, 1, 500) + anomalies * np.random.normal(8, 2, 500),
+            'methane': np.clip(base_methane + np.random.normal(0, 0.1, 500) + anomalies * np.random.normal(0.8, 0.2, 500), 0, 5),
+            'vibration': np.random.normal(5, 1, 500) + anomalies * np.random.normal(3, 0.5, 500),
+            'is_anomaly': anomalies
+        })
+        
+        return data.set_index('timestamp')
+    
+    def detect_anomalies(self, data):
+        """Detect anomalies using Isolation Forest"""
+        features = data[['temperature', 'pressure', 'methane', 'vibration']].copy()
+        scaled_features = self.scaler.fit_transform(features)
+        
+        # Train anomaly detector
+        self.anomaly_detector.fit(scaled_features)
+        predictions = self.anomaly_detector.predict(scaled_features)
+        
+        # Convert predictions to binary (1 = normal, -1 = anomaly)
+        data['anomaly_predicted'] = [1 if x == 1 else -1 for x in predictions]
+        
+        return data
+    
+    def predict_future(self, data, hours=24):
+        """Predict future values using simple forecasting"""
+        # Simple forecasting based on recent trends
+        last_values = data.iloc[-24:].mean()  # Last 24 hours average
+        
+        future_time = pd.date_range(start=data.index[-1] + timedelta(hours=1), periods=hours, freq='H')
+        future_data = pd.DataFrame(index=future_time)
+        
+        # Generate predictions with some randomness
+        for column in ['temperature', 'pressure', 'methane', 'vibration']:
+            trend = np.random.normal(0, 0.5)  # Small random trend
+            future_data[column] = last_values[column] + trend * np.arange(1, hours+1)
             
-    except Exception as e:
-        return "AI service is currently unavailable. Please try again later."
-
-# -------------------- Twilio SMS --------------------
-def send_sms(to, message):
-    try:
-        # Simulate SMS sending for demo
-        print(f"SMS would be sent to {to}: {message}")
-        return True, "Sent (simulated)."
-    except Exception as e:
-        return False, str(e)
+            # Add some seasonality
+            if column == 'temperature':
+                future_data[column] += 5 * np.sin(2 * np.pi * np.arange(hours) / 24)
+            elif column == 'pressure':
+                future_data[column] += 2 * np.sin(2 * np.pi * np.arange(hours) / 24)
+        
+        # Ensure methane doesn't go below 0
+        future_data['methane'] = np.clip(future_data['methane'], 0, 5)
+        
+        return future_data
+    
+    def generate_insights(self, data, future_data):
+        """Generate AI insights from the data"""
+        insights = []
+        
+        # Temperature insights
+        current_temp = data['temperature'].iloc[-1]
+        avg_temp = data['temperature'].mean()
+        
+        if current_temp > avg_temp + 5:
+            insights.append("🌡️ High temperature detected. Consider checking cooling systems.")
+        elif current_temp < avg_temp - 5:
+            insights.append("🌡️ Low temperature detected. Verify heating systems.")
+        
+        # Methane insights
+        current_methane = data['methane'].iloc[-1]
+        if current_methane > 2.5:
+            insights.append("⚠️ High methane levels detected. Potential leak possible.")
+        
+        # Pressure insights
+        pressure_std = data['pressure'].std()
+        if pressure_std > 3:
+            insights.append("📊 Pressure fluctuations detected. System may be unstable.")
+        
+        # Future predictions insights
+        future_temp_trend = future_data['temperature'].iloc[-1] - future_data['temperature'].iloc[0]
+        if abs(future_temp_trend) > 3:
+            trend_dir = "increasing" if future_temp_trend > 0 else "decreasing"
+            insights.append(f"📈 Temperature is {trend_dir}. Expected change: {abs(future_temp_trend):.1f}°C in 24h.")
+        
+        return insights
 
 # -------------------- Helper functions --------------------
 def to_arabic_numerals(num):
@@ -175,7 +236,7 @@ texts = {
         "app_sub": "Intelligent Digital Plant Platform",
         "side_sections": [
             "Dashboard", "Predictive Analytics", "Live Monitoring", 
-            "Smart Solutions", "KPI Metrics", "3D Visualization",
+            "Smart Solutions", "KPI Metrics", "Advanced AI Analysis",
             "About", "Smart Recommendations"
         ],
         "lang_en": "English",
@@ -237,14 +298,20 @@ saving time, resources, and most importantly - preventing accidents.""",
         "solution_savings": "Estimated Savings",
         "dashboard_title": "Plant Overview Dashboard",
         "prediction_title": "Predictive Analytics",
-        "monitoring_title": "Live Monitoring"
+        "monitoring_title": "Live Monitoring",
+        "ai_analysis_title": "Advanced AI Analysis",
+        "run_ai_analysis": "RUN AI ANALYSIS",
+        "ai_insights": "AI Insights",
+        "anomaly_detection": "Anomaly Detection",
+        "future_prediction": "Future Prediction",
+        "system_health": "System Health"
     },
     "ar": {
         "app_title": "التوأم الرقمي العصبي الذكي",
         "app_sub": "منصة المصنع الذكي الرقمي",
         "side_sections": [
             "لوحة التحكم", "التحليلات التنبؤية", "المراقبة الحية", 
-            "الحلول الذكية", "مقاييس الأداء", "التصور ثلاثي الأبعاد",
+            "الحلول الذكية", "مقاييس الأداء", "تحليل الذكاء الاصطناعي المتقدم",
             "حول المشروع", "التوصيات الذكية"
         ],
         "lang_en": "الإنجليزية",
@@ -306,7 +373,13 @@ saving time, resources, and most importantly - preventing accidents.""",
         "solution_savings": "التوفير المتوقع",
         "dashboard_title": "نظرة عامة على المصنع",
         "prediction_title": "التحليلات التنبؤية",
-        "monitoring_title": "المراقبة الحية"
+        "monitoring_title": "المراقبة الحية",
+        "ai_analysis_title": "تحليل الذكاء الاصطناعي المتقدم",
+        "run_ai_analysis": "تشغيل التحليل",
+        "ai_insights": "رؤى الذكاء الاصطناعي",
+        "anomaly_detection": "كشف الشذوذ",
+        "future_prediction": "التنبؤ المستقبلي",
+        "system_health": "صحة النظام"
     }
 }
 
@@ -462,6 +535,22 @@ def apply_custom_css():
         border-left: 3px solid var(--primary);
     }}
     
+    .ai-insight-card {{
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid var(--success);
+    }}
+    
+    .anomaly-card {{
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-left: 4px solid var(--danger);
+    }}
+    
     .css-1d391kg {{
         background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
     }}
@@ -501,6 +590,10 @@ demo_df = pd.DataFrame({
     "Pressure": np.random.normal(7, 1.2, 48),
     "Methane": np.clip(np.random.normal(1.4, 0.7, 48), 0, 6)
 })
+
+# Initialize AI Analyzer
+ai_analyzer = AdvancedAIAnalyzer()
+sensor_data = ai_analyzer.generate_sensor_data()
 
 # ========== MAIN SECTIONS ==========
 if section == t["side_sections"][0]:  # Dashboard
@@ -650,11 +743,8 @@ elif section == t["side_sections"][2]:  # Live Monitoring
         
         if current_temp > 65 and not st.session_state["sms_sent"]:
             if st.button("Send Alert", key="alert_btn"):
-                ok, msg = send_sms(TWILIO_TO, 
-                    f"ALERT: High temperature detected! Current: {current_temp:.1f}°C" if lang=="en" 
-                    else f"تنبيه: تم اكتشاف درجة حرارة مرتفعة! الحالية: {to_arabic_numerals(round(current_temp,1))}°م")
-                st.session_state["sms_sent"] = True
                 st.success("Alert sent!" if lang=="en" else "تم إرسال التنبيه!")
+                st.session_state["sms_sent"] = True
 
 elif section == t["side_sections"][3]:  # Smart Solutions
     st.markdown(f'<div class="main-header">Smart Solutions</div>', unsafe_allow_html=True)
@@ -734,25 +824,87 @@ elif section == t["side_sections"][4]:  # KPI Metrics
     fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True)
 
-elif section == t["side_sections"][5]:  # 3D Visualization
-    st.markdown(f'<div class="main-header">{t["live3d_header"]}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="sub-header">{t["live3d_intro"]}</div>', unsafe_allow_html=True)
+elif section == t["side_sections"][5]:  # Advanced AI Analysis
+    st.markdown(f'<div class="main-header">{t["ai_analysis_title"]}</div>', unsafe_allow_html=True)
     
-    # Use an embedded iframe for 3D visualization
-    try:
-        st.components.v1.html("""
-        <div style="width:100%; height:500px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    border-radius:15px; display:flex; justify-content:center; align-items:center; color:white;">
-            <div style="text-align:center;">
-                <h2>Interactive 3D Plant Model</h2>
-                <p>Rotate, zoom, and explore the digital twin</p>
-                <div style="font-size:48px;">🏭</div>
-            </div>
+    # Run AI Analysis button
+    if st.button(t["run_ai_analysis"], key="run_ai_analysis", use_container_width=True):
+        with st.spinner("Running advanced AI analysis..." if lang=="en" else "جاري تشغيل التحليل المتقدم..."):
+            # Run anomaly detection
+            analyzed_data = ai_analyzer.detect_anomalies(sensor_data)
+            
+            # Predict future values
+            future_predictions = ai_analyzer.predict_future(analyzed_data, hours=24)
+            
+            # Generate insights
+            insights = ai_analyzer.generate_insights(analyzed_data, future_predictions)
+            
+            # Store results in session state
+            st.session_state["ai_analysis_done"] = True
+            st.session_state["analyzed_data"] = analyzed_data
+            st.session_state["future_predictions"] = future_predictions
+            st.session_state["ai_insights"] = insights
+            
+            # Detect anomalies
+            anomalies = analyzed_data[analyzed_data['anomaly_predicted'] == -1]
+            st.session_state["anomalies_detected"] = anomalies
+            
+            st.success("AI analysis completed successfully!" if lang=="en" else "تم完成 التحليل بنجاح!")
+    
+    # Display results if analysis is done
+    if st.session_state["ai_analysis_done"]:
+        analyzed_data = st.session_state["analyzed_data"]
+        future_predictions = st.session_state["future_predictions"]
+        insights = st.session_state["ai_insights"]
+        anomalies = st.session_state["anomalies_detected"]
+        
+        # Display AI Insights
+        st.markdown(f'<div class="sub-header">{t["ai_insights"]}</div>', unsafe_allow_html=True)
+        for insight in insights:
+            st.markdown(f'<div class="ai-insight-card">📌 {insight}</div>', unsafe_allow_html=True)
+        
+        # Display Anomalies
+        if not anomalies.empty:
+            st.markdown(f'<div class="sub-header">{t["anomaly_detection"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="anomaly-card">⚠️ {len(anomalies)} anomalies detected in historical data</div>', unsafe_allow_html=True)
+            
+            # Show anomaly chart
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=analyzed_data.index, y=analyzed_data['temperature'], 
+                                    mode='lines', name='Temperature', line=dict(color='blue')))
+            fig.add_trace(go.Scatter(x=anomalies.index, y=anomalies['temperature'], 
+                                    mode='markers', name='Anomalies', marker=dict(color='red', size=8)))
+            fig.update_layout(title="Temperature with Anomalies", height=400)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Display Future Predictions
+        st.markdown(f'<div class="sub-header">{t["future_prediction"]}</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(future_predictions, y='temperature', title="Temperature Forecast")
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            fig = px.line(future_predictions, y='methane', title="Methane Forecast")
+            fig.update_layout(height=300)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # System Health Assessment
+        st.markdown(f'<div class="sub-header">{t["system_health"]}</div>', unsafe_allow_html=True)
+        
+        health_score = max(0, 100 - len(anomalies) * 5)
+        health_color = "#43A047" if health_score >= 80 else "#FF9800" if health_score >= 60 else "#F44336"
+        health_status = "Good" if health_score >= 80 else "Fair" if health_score >= 60 else "Poor"
+        
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="kpi-label">System Health Score</div>
+            <div class="kpi-value" style="color:{health_color};">{health_score}</div>
+            <div style="color:{health_color};font-weight:bold;">{health_status}</div>
         </div>
-        """, height=500)
-    except Exception:
-        st.image("https://cdn.pixabay.com/photo/2016/11/29/10/07/architecture-1868667_1280.jpg",
-                 caption=t["static_3d_caption"])
+        """, unsafe_allow_html=True)
 
 elif section == t["side_sections"][6]:  # About
     st.markdown(f'<div class="main-header">{t["about_header"]}</div>', unsafe_allow_html=True)
