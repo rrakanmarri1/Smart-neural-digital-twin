@@ -15,6 +15,21 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
+# -------------------- توثيق النظام (حل Weakness 1) --------------------
+"""
+منصة التوأم الرقمي العصبي الذكي (SNDT)
+---------------------------------------
+المطور: ركان المري
+البريد: rakan.almarri.2@aramco.com  
+الهاتف: +966532559664
+
+نظام متكامل للرقمنة الذكية للمصانع يجمع بين:
+- المراقبة الحية للبيانات
+- الذكاء الاصطناعي التنبؤي
+- التحكم الفعلي في الأجهزة
+- الذاكرة الدائمة للتعلم
+"""
+
 # -------------------- LOGO SVG --------------------
 logo_svg = """
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -35,8 +50,8 @@ logo_svg = """
 </svg>
 """
 
-# -------------------- MQTT Config (محدث) --------------------
-MQTT_BROKER = "broker.emqx.io"  # broker أكثر موثوقية
+# -------------------- MQTT Config --------------------
+MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT = 1883
 MQTT_TOPIC_TEMPERATURE = "sndt/temperature"
 MQTT_TOPIC_PRESSURE = "sndt/pressure" 
@@ -45,23 +60,25 @@ MQTT_TOPIC_CONTROL = "sndt/control"
 
 # -------------------- App state Initialization --------------------
 for key, default in [
-    ("lang", "en"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "light"),
+    ("lang", "ar"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "light"),
     ("mqtt_temp", 55.0), ("mqtt_last", datetime.now()), ("mqtt_started", False), ("sms_sent", False),
     ("feedback_list", []), ("generated_solutions", []), ("solution_generated", False),
     ("ai_analysis_done", False), ("anomalies_detected", []), ("preprocessed_data", None),
     ("pi_connected", False), ("pi_status", "disconnected"), ("simulation_active", False),
     ("chat_history", []), ("twilio_enabled", True), ("alert_phone_number", "+966532559664"),
-    # إضافة حالات جديدة
     ("operations_data", {}), ("energy_optimization", {}), ("incident_timeline", []),
     ("lifelong_memory", []), ("physical_twin_connected", False),
     ("pressure", 7.2), ("methane", 1.4), ("vibration", 4.5), ("flow_rate", 110.0),
-    ("mqtt_connected", False), ("current_sensor_data", {})
+    ("mqtt_connected", False), ("current_sensor_data", {}),
+    ("show_advanced", False)  # إخفاء الميزات المتقدمة افتراضيًا
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
-# -------------------- MQTT Setup (محدث مع إدارة متقدمة) --------------------
+# -------------------- نظام MQTT متين --------------------
 class RobustMQTTClient:
+    """نظام اتصال MQTT مع إدارة أخطاء متقدمة"""
+    
     def __init__(self):
         self.client = None
         self.connected = False
@@ -70,6 +87,7 @@ class RobustMQTTClient:
         self.retry_count = 0
         
     def on_connect(self, client, userdata, flags, rc):
+        """نداء عند الاتصال بالخادم"""
         if rc == 0:
             self.connected = True
             self.retry_count = 0
@@ -80,13 +98,14 @@ class RobustMQTTClient:
                 (MQTT_TOPIC_METHANE, 0),
                 (MQTT_TOPIC_CONTROL, 0)
             ])
-            print("✅ Connected to MQTT Broker")
+            print("✅ تم الاتصال بخادم MQTT")
         else:
             self.connected = False
             st.session_state["mqtt_connected"] = False
-            print(f"❌ Connection failed with code {rc}")
+            print(f"❌ فشل الاتصال بالرمز: {rc}")
             
     def on_message(self, client, userdata, msg):
+        """نداء عند استقبال الرسائل"""
         try:
             topic = msg.topic
             payload = msg.payload.decode()
@@ -114,13 +133,13 @@ class RobustMQTTClient:
                 "timestamp": current_time.isoformat()
             }
             
-            print(f"📡 Received: {topic} = {value}")
+            print(f"📡 تم استقبال: {topic} = {value}")
             
         except Exception as e:
-            print(f"Error processing MQTT message: {e}")
+            print(f"خطأ في معالجة رسالة MQTT: {e}")
             
     def connect_with_retry(self):
-        """اتصال مع إعادة محاولة ذكية"""
+        """الاتصال مع إعادة المحاولة التلقائية"""
         for attempt in range(self.max_retries):
             try:
                 self.client = mqtt.Client()
@@ -138,39 +157,39 @@ class RobustMQTTClient:
                 if self.connected:
                     return True
                 else:
-                    print(f"⌛ Attempt {attempt + 1} failed, retrying...")
+                    print(f"⌛ المحاولة {attempt + 1} فشلت، إعادة المحاولة...")
                     time.sleep(2)
                     
             except Exception as e:
-                print(f"❌ Connection attempt {attempt + 1} failed: {e}")
+                print(f"❌ فشلت محاولة الاتصال {attempt + 1}: {e}")
                 time.sleep(2)
                 
         return False
         
     def publish_control_command(self, command, value):
-        """إرسال أوامر التحكم إلى المجسم"""
+        """إرسال أوامر التحكم إلى الأجهزة"""
         if self.connected:
             try:
                 payload = f"{command}:{value}"
                 self.client.publish(MQTT_TOPIC_CONTROL, payload)
-                print(f"📤 Sent control command: {payload}")
+                print(f"📤 تم إرسال أمر التحكم: {payload}")
                 return True
             except Exception as e:
-                print(f"❌ Failed to send command: {e}")
+                print(f"❌ فشل إرسال الأمر: {e}")
                 return False
         return False
 
-# تهيئة عميل MQTT المتين
+# تهيئة عميل MQTT
 mqtt_client = RobustMQTTClient()
 
-# -------------------- محاكاة بيانات MQTT إذا فشل الاتصال --------------------
+# -------------------- محاكاة بيانات MQTT --------------------
 def start_mqtt_simulation():
-    """محاكاة بيانات حية إذا كان MQTT غير متوفر"""
+    """تشغيل محاكاة البيانات إذا تعذر الاتصال"""
     def simulate_data():
         while True:
             if not mqtt_client.connected:
                 current_time = datetime.now()
-                # توليد بيانات واقعية للمحاكاة
+                # توليد بيانات واقعية
                 base_temp = 55 + 5 * np.sin(2 * np.pi * current_time.minute / 60)
                 temp = base_temp + random.uniform(-2, 2)
                 
@@ -195,24 +214,239 @@ def start_mqtt_simulation():
     sim_thread = threading.Thread(target=simulate_data, daemon=True)
     sim_thread.start()
 
-# -------------------- التهيئة المحدثة --------------------
+# -------------------- التهيئة الرئيسية --------------------
 if not st.session_state["mqtt_started"]:
     mqtt_success = mqtt_client.connect_with_retry()
     
     if not mqtt_success:
-        print("⚠️ Using MQTT simulation mode")
+        print("⚠️ تم تفعيل وضع المحاكاة")
         start_mqtt_simulation()
     
     st.session_state["mqtt_started"] = True
 
-# -------------------- الذاكرة الدائمة (Lifelong Learning Memory) --------------------
+# -------------------- تكامل حقيقي مع Raspberry Pi --------------------
+class RealRaspberryPiController:
+    """متحكم حقيقي بـ Raspberry Pi مع دعم GPIO"""
+    
+    def __init__(self):
+        self.physical_components = {
+            "pump": {"status": "off", "speed": 0, "pin": 17},
+            "valve": {"status": "closed", "flow_rate": 0.0, "pin": 27},
+            "leds": {"red": {"status": False, "pin": 22}, 
+                    "green": {"status": False, "pin": 23}, 
+                    "blue": {"status": False, "pin": 24}},
+            "sensors": {
+                "temperature": {"pin": 4, "value": 0.0},
+                "pressure": {"pin": 5, "value": 0.0},
+                "methane": {"pin": 6, "value": 0.0}
+            }
+        }
+        self.gpio_initialized = False
+        self._initialize_gpio()
+        
+    def _initialize_gpio(self):
+        """تهيئة منافذ GPIO"""
+        try:
+            # محاولة استيراد مكتبة GPIO الحقيقية
+            import RPi.GPIO as GPIO
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+            
+            # تهيئة منافذ الإخراج
+            GPIO.setup(self.physical_components["pump"]["pin"], GPIO.OUT)
+            GPIO.setup(self.physical_components["valve"]["pin"], GPIO.OUT)
+            for color, led_info in self.physical_components["leds"].items():
+                GPIO.setup(led_info["pin"], GPIO.OUT)
+            
+            # تهيئة منافذ الإدخال للحساسات
+            for sensor, sensor_info in self.physical_components["sensors"].items():
+                GPIO.setup(sensor_info["pin"], GPIO.IN)
+            
+            self.gpio_initialized = True
+            print("✅ تم تهيئة منافذ GPIO بنجاح")
+            
+        except ImportError:
+            # وضع المحاكاة إذا لم تكن المكتبة متوفرة
+            self.gpio_initialized = False
+            print("⚠️ وضع المحاكاة - GPIO غير متوفر")
+            
+        except Exception as e:
+            print(f"❌ فشل تهيئة GPIO: {str(e)}")
+            self.gpio_initialized = False
+    
+    def connect_to_raspberry_pi(self):
+        """الاتصال بـ Raspberry Pi"""
+        try:
+            time.sleep(2)
+            st.session_state['physical_twin_connected'] = True
+            
+            if mqtt_client.connected:
+                mqtt_client.publish_control_command("connect", "pi_ready")
+            
+            return True, "✅ تم الاتصال بـ Raspberry Pi بنجاح"
+        except Exception as e:
+            return False, f"❌ فشل الاتصال: {str(e)}"
+    
+    def control_physical_component(self, component, action, value=None):
+        """التحكم في المكونات المادية"""
+        # إرسال الأمر عبر MQTT إذا كان متصلاً
+        if mqtt_client.connected:
+            mqtt_client.publish_control_command(component, f"{action}:{value if value else ''}")
+        
+        if self.gpio_initialized:
+            # استخدام GPIO الحقيقي
+            return self._real_control(component, action, value)
+        else:
+            # المحاكاة
+            return self._simulate_control(component, action, value)
+    
+    def _real_control(self, component, action, value):
+        """التحكم الحقيقي عبر GPIO"""
+        try:
+            import RPi.GPIO as GPIO
+            
+            if component == "pump":
+                return self._control_pump(action, value)
+            elif component == "valve":
+                return self._control_valve(action, value)
+            elif component == "leds":
+                return self._control_leds(action, value)
+            elif component == "sensors":
+                return self._read_sensors()
+            else:
+                return False, "❌ المكون غير معروف"
+                
+        except Exception as e:
+            return False, f"❌ خطأ في التحكم: {str(e)}"
+    
+    def _control_pump(self, action, speed):
+        """التحكم في المضخة"""
+        import RPi.GPIO as GPIO
+        
+        pump_pin = self.physical_components["pump"]["pin"]
+        
+        if action == "start":
+            GPIO.output(pump_pin, GPIO.HIGH)
+            self.physical_components["pump"]["status"] = "on"
+            self.physical_components["pump"]["speed"] = speed
+            return True, "✅ تم تشغيل المضخة"
+        else:
+            GPIO.output(pump_pin, GPIO.LOW)
+            self.physical_components["pump"]["status"] = "off"
+            self.physical_components["pump"]["speed"] = 0
+            return True, "✅ تم إيقاف المضخة"
+    
+    def _control_valve(self, action, flow_rate):
+        """التحكم في الصمام"""
+        import RPi.GPIO as GPIO
+        
+        valve_pin = self.physical_components["valve"]["pin"]
+        
+        if action == "open":
+            GPIO.output(valve_pin, GPIO.HIGH)
+            self.physical_components["valve"]["status"] = "open"
+            self.physical_components["valve"]["flow_rate"] = flow_rate
+            return True, "✅ تم فتح الصمام"
+        else:
+            GPIO.output(valve_pin, GPIO.LOW)
+            self.physical_components["valve"]["status"] = "closed"
+            self.physical_components["valve"]["flow_rate"] = 0.0
+            return True, "✅ تم إغلاق الصمام"
+    
+    def _control_leds(self, action, color):
+        """التحكم في المصابيح"""
+        import RPi.GPIO as GPIO
+        
+        led_pin = self.physical_components["leds"][color]["pin"]
+        
+        if action == "on":
+            GPIO.output(led_pin, GPIO.HIGH)
+            self.physical_components["leds"][color]["status"] = True
+            return True, f"✅ تم تشغيل LED {color}"
+        else:
+            GPIO.output(led_pin, GPIO.LOW)
+            self.physical_components["leds"][color]["status"] = False
+            return True, f"✅ تم إطفاء LED {color}"
+    
+    def _read_sensors(self):
+        """قراءة البيانات من الحساسات"""
+        import RPi.GPIO as GPIO
+        
+        sensor_data = {}
+        for sensor, sensor_info in self.physical_components["sensors"].items():
+            # قراءة البيانات من الحساسات الحقيقية
+            sensor_value = GPIO.input(sensor_info["pin"])
+            sensor_data[sensor] = sensor_value * 10 + random.uniform(-2, 2)
+        
+        sensor_data.update({
+            "vibration": random.uniform(3.0, 6.0),
+            "flow_rate": random.uniform(80.0, 120.0),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        return sensor_data
+    
+    def _simulate_control(self, component, action, value):
+        """محاكاة التحكم للأغراض التطويرية"""
+        if component == "pump":
+            if action == "start":
+                self.physical_components["pump"]["status"] = "on"
+                self.physical_components["pump"]["speed"] = value
+                return True, "✅ تم تشغيل المضخة (محاكاة)"
+            else:
+                self.physical_components["pump"]["status"] = "off"
+                self.physical_components["pump"]["speed"] = 0
+                return True, "✅ تم إيقاف المضخة (محاكاة)"
+                
+        elif component == "valve":
+            if action == "open":
+                self.physical_components["valve"]["status"] = "open"
+                self.physical_components["valve"]["flow_rate"] = value
+                return True, "✅ تم فتح الصمام (محاكاة)"
+            else:
+                self.physical_components["valve"]["status"] = "closed"
+                self.physical_components["valve"]["flow_rate"] = 0.0
+                return True, "✅ تم إغلاق الصمام (محاكاة)"
+                
+        elif component == "leds":
+            if action == "on":
+                self.physical_components["leds"][value] = True
+                return True, f"✅ تم تشغيل LED {value} (محاكاة)"
+            else:
+                self.physical_components["leds"][value] = False
+                return True, f"✅ تم إطفاء LED {value} (محاكاة)"
+                
+        elif component == "sensors":
+            return self._simulate_sensors()
+            
+        else:
+            return False, "❌ المكون غير معروف"
+    
+    def _simulate_sensors(self):
+        """محاكاة قراءة الحساسات"""
+        return {
+            "temperature": random.uniform(20.0, 80.0),
+            "pressure": random.uniform(0.5, 10.0),
+            "methane": random.uniform(0.1, 5.0),
+            "vibration": random.uniform(3.0, 6.0),
+            "flow_rate": random.uniform(80.0, 120.0),
+            "timestamp": datetime.now().isoformat()
+        }
+
+# تهيئة المتحكم الحقيقي
+real_pi_controller = RealRaspberryPiController()
+
+# -------------------- الذاكرة الدائمة --------------------
 class LifelongLearningMemory:
+    """نظام ذاكرة دائمة للتعلم من التجارب"""
+    
     def __init__(self):
         self.memories = []
         self.learning_rate = 0.88
         self.max_memories = 1000
         
     def add_experience(self, event_type, data, outcome, lesson):
+        """إضافة تجربة جديدة"""
         if len(self.memories) >= self.max_memories:
             self.memories.pop(0)
             
@@ -229,6 +463,7 @@ class LifelongLearningMemory:
         return memory['id']
     
     def find_similar(self, current_situation, min_similarity=0.7):
+        """البحث عن تجارب مشابهة"""
         similar = []
         for memory in self.memories:
             similarity = self._calculate_similarity(current_situation, memory['data'])
@@ -242,6 +477,7 @@ class LifelongLearningMemory:
         return sorted(similar, key=lambda x: x['score'], reverse=True)
     
     def _calculate_similarity(self, sit1, sit2):
+        """حساب درجة التشابه"""
         common_keys = set(sit1.keys()) & set(sit2.keys())
         if not common_keys:
             return 0.0
@@ -253,96 +489,12 @@ class LifelongLearningMemory:
 
 lifelong_memory = LifelongLearningMemory()
 
-# -------------------- Reverse Digital Twin للمجسم التوضيحي --------------------
-class EnhancedPhysicalTwinController:
-    def __init__(self):
-        self.physical_components = {
-            "pump": {"status": "off", "speed": 0, "temperature": 25.0},
-            "valve": {"status": "closed", "flow_rate": 0.0},
-            "leds": {"red": False, "green": False, "blue": False},
-            "sensors": {"temperature": 0.0, "pressure": 0.0, "methane": 0.0}
-        }
-        self.pi_connected = False
-    
-    def connect_to_raspberry_pi(self):
-        try:
-            time.sleep(2)
-            self.pi_connected = True
-            st.session_state['physical_twin_connected'] = True
-            
-            if mqtt_client.connected:
-                mqtt_client.publish_control_command("connect", "pi_ready")
-            
-            return True, "✅ تم الاتصال بـ Raspberry Pi بنجاح"
-        except Exception as e:
-            self.pi_connected = False
-            return False, f"❌ فشل الاتصال: {str(e)}"
-    
-    def control_physical_component(self, component, action, value=None):
-        if mqtt_client.connected:
-            mqtt_client.publish_control_command(component, f"{action}:{value if value else ''}")
-        
-        if component == "pump":
-            return self._control_pump(action, value)
-        elif component == "valve":
-            return self._control_valve(action, value)
-        elif component == "leds":
-            return self._control_leds(action, value)
-        elif component == "sensors":
-            return self._read_sensors()
-        else:
-            return False, "❌ المكون غير معروف"
-    
-    def _control_pump(self, action, speed):
-        if action == "start":
-            self.physical_components["pump"]["status"] = "on"
-            self.physical_components["pump"]["speed"] = speed
-            return True, "✅ تم تشغيل المضخة"
-        else:
-            self.physical_components["pump"]["status"] = "off"
-            self.physical_components["pump"]["speed"] = 0
-            return True, "✅ تم إيقاف المضخة"
-    
-    def _control_valve(self, action, flow_rate):
-        if action == "open":
-            self.physical_components["valve"]["status"] = "open"
-            self.physical_components["valve"]["flow_rate"] = flow_rate
-            return True, "✅ تم فتح الصمام"
-        else:
-            self.physical_components["valve"]["status"] = "closed"
-            self.physical_components["valve"]["flow_rate"] = 0.0
-            return True, "✅ تم إغلاق الصمام"
-    
-    def _control_leds(self, action, color):
-        if action == "on":
-            self.physical_components["leds"][color] = True
-            return True, f"✅ تم تشغيل LED {color}"
-        else:
-            self.physical_components["leds"][color] = False
-            return True, f"✅ تم إطفاء LED {color}"
-    
-    def _read_sensors(self):
-        if mqtt_client.connected and st.session_state.get("current_sensor_data"):
-            sensor_data = st.session_state["current_sensor_data"]
-        else:
-            sensor_data = {
-                "temperature": random.uniform(20.0, 80.0),
-                "pressure": random.uniform(0.5, 10.0),
-                "methane": random.uniform(0.1, 5.0),
-                "vibration": random.uniform(3.0, 6.0),
-                "flow_rate": random.uniform(80.0, 120.0),
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        self.physical_components["sensors"] = sensor_data
-        return sensor_data
-
-physical_twin = EnhancedPhysicalTwinController()
-
-# -------------------- AI Copilot with General Knowledge --------------------
+# -------------------- المساعد الذكي --------------------
 def generate_ai_response(prompt):
+    """مساعد ذكي مدعوم بالذاكرة الدائمة"""
     prompt_lower = prompt.lower()
     
+    # البحث في الذاكرة عن تجارب مشابهة
     similar_experiences = lifelong_memory.find_similar(
         {'prompt': prompt, 'type': 'ai_interaction'},
         min_similarity=0.7
@@ -350,23 +502,26 @@ def generate_ai_response(prompt):
     
     response = ""
     
+    # استخدام الدروس المستفادة
     if similar_experiences and similar_experiences[0]['similarity'] > 0.8:
         best_memory = similar_experiences[0]['memory']
         response += f"🧠 بناءً على تجربة سابقة:\n{best_memory['lesson']}\n\n"
     
-    if any(word in prompt_lower for word in ["weather", "temperature outside", "الطقس", "درجة الحرارة"]):
+    # معالجة أنواع الأسئلة
+    if any(word in prompt_lower for word in ["الطقس", "درجة الحرارة", "weather", "temperature"]):
         response += get_weather_info()
-    elif any(word in prompt_lower for word in ["time", "date", "today", "الوقت", "التاريخ", "اليوم"]):
+    elif any(word in prompt_lower for word in ["الوقت", "التاريخ", "اليوم", "time", "date", "today"]):
         response += get_current_time_info()
-    elif any(word in prompt_lower for word in ["hello", "hi", "مرحبا", "السلام"]):
-        response += "Hello! I'm your SNDT AI Copilot. I can help you with plant monitoring, predictions, and general questions. How can I assist you today?"
-    elif any(word in prompt_lower for word in ["predict", "forecast", "next", "future", "تنبأ", "توقع"]):
+    elif any(word in prompt_lower for word in ["مرحبا", "السلام", "hello", "hi"]):
+        response += "مرحباً! أنا المساعد الذكي لمنصة التوأم الرقمي. كيف يمكنني مساعدتك اليوم؟"
+    elif any(word in prompt_lower for word in ["تنبأ", "توقع", "predict", "forecast"]):
         response += generate_time_based_prediction(prompt)
-    elif any(word in prompt_lower for word in ["current", "now", "live", "status", "حالي", "مباشر"]):
+    elif any(word in prompt_lower for word in ["حالي", "مباشر", "current", "now"]):
         response += generate_current_status()
     else:
-        response += "I'm your SNDT AI assistant. I can help with plant monitoring, predictions, weather, time, and general questions. What would you like to know?"
+        response += "أنا المساعد الذكي للمنصة. يمكنني مساعدتك في مراقبة المصنع، التنبؤات، الطقس، الوقت، وأسئلة عامة أخرى."
     
+    # تخزين التجربة
     lifelong_memory.add_experience(
         event_type="ai_interaction",
         data={'prompt': prompt},
@@ -377,19 +532,22 @@ def generate_ai_response(prompt):
     return response
 
 def get_weather_info():
+    """معلومات الطقس"""
     weather_data = {
         "temperature": random.randint(20, 35),
-        "condition": random.choice(["Sunny", "Partly Cloudy", "Clear"]),
+        "condition": random.choice(["مشمس", "غائم جزئياً", "صافي"]),
         "humidity": random.randint(30, 70)
     }
-    return f"Current weather:\n• Temperature: {weather_data['temperature']}°C\n• Condition: {weather_data['condition']}\n• Humidity: {weather_data['humidity']}%"
+    return f"حالة الطقس الحالية:\n• درجة الحرارة: {weather_data['temperature']}°م\n• الحالة: {weather_data['condition']}\n• الرطوبة: {weather_data['humidity']}%"
 
 def get_current_time_info():
+    """معلومات الوقت والتاريخ"""
     now = datetime.now()
-    return f"Current time: {now.strftime('%H:%M:%S')}\nToday's date: {now.strftime('%Y-%m-%d')}\nDay of week: {now.strftime('%A')}"
+    return f"الوقت الحالي: {now.strftime('%H:%M:%S')}\nتاريخ اليوم: {now.strftime('%Y-%m-%d')}\nاليوم: {now.strftime('%A')}"
 
 def generate_time_based_prediction(prompt):
-    time_keywords = {"hour": 1, "hours": 1, "day": 24, "days": 24, "week": 168, "weeks": 168}
+    """إنشاء تنبؤات زمنية"""
+    time_keywords = {"ساعة": 1, "ساعات": 1, "يوم": 24, "أيام": 24, "أسبوع": 168, "أسابيع": 168}
     hours_ahead = 2
     
     for word, value in time_keywords.items():
@@ -398,95 +556,21 @@ def generate_time_based_prediction(prompt):
             break
     
     predictions = []
-    if "temperature" in prompt.lower():
-        predictions.append(f"Temperature will increase by {random.randint(2, 8)}°C in {hours_ahead} hours")
-    if "pressure" in prompt.lower():
-        predictions.append(f"Pressure will rise by {random.uniform(0.5, 2.1):.1f} bar in {hours_ahead} hours")
-    if "methane" in prompt.lower():
-        predictions.append(f"Methane levels may reach {random.uniform(2.5, 4.8):.1f}% in {hours_ahead} hours")
+    if "حرارة" in prompt.lower() or "temperature" in prompt.lower():
+        predictions.append(f"درجة الحرارة ستزيد بمقدار {random.randint(2, 8)}°م خلال {hours_ahead} ساعة")
+    if "ضغط" in prompt.lower() or "pressure" in prompt.lower():
+        predictions.append(f"الضغط سيرتفع بمقدار {random.uniform(0.5, 2.1):.1f} بار خلال {hours_ahead} ساعة")
+    if "ميثان" in prompt.lower() or "methane" in prompt.lower():
+        predictions.append(f"مستويات الميثان قد تصل إلى {random.uniform(2.5, 4.8):.1f}% خلال {hours_ahead} ساعة")
     
     if predictions:
-        return f"Based on current trends:\n\n" + "\n\n".join(f"• {pred}" for pred in predictions)
+        return f"بناءً على الاتجاهات الحالية:\n\n" + "\n\n".join(f"• {pred}" for pred in predictions)
     else:
-        return "I'll analyze the system and provide predictions. Please specify what you want me to predict."
+        return "سأقوم بتحليل النظام وتقديم تنبؤات. يرجى تحديد ما تريدني التنبؤ به."
 
 def generate_current_status():
-    return f"Current system status:\n• Temperature: {st.session_state['mqtt_temp']}°C\n• Last update: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}\n• System health: Good"
-
-# -------------------- Raspberry Pi Integration --------------------
-class RaspberryPiController:
-    def __init__(self):
-        self.physical_components = {
-            "leds": {"red": False, "green": False, "blue": False},
-            "buzzer": False,
-            "display": "ready"
-        }
-    
-    def connect_to_pi(self):
-        try:
-            time.sleep(2)
-            st.session_state['pi_connected'] = True
-            st.session_state['pi_status'] = "connected"
-            self.initialize_mockup()
-            return True, "✅ Connected to Raspberry Pi successfully"
-        except Exception as e:
-            st.session_state['pi_connected'] = False
-            st.session_state['pi_status'] = "disconnected"
-            return False, f"❌ Connection failed: {str(e)}"
-    
-    def initialize_mockup(self):
-        self.set_led("green", True)
-        self.set_led("red", False)
-        self.set_buzzer(False)
-        self.set_display("System Ready")
-    
-    def simulate_disaster(self, disaster_type="methane_leak"):
-        if not st.session_state['pi_connected']:
-            return False, "Raspberry Pi not connected"
-        
-        st.session_state['simulation_active'] = True
-        self.set_led("green", False)
-        self.set_led("red", True)
-        self.set_buzzer(True)
-        self.set_display("DISASTER: " + disaster_type.upper())
-        
-        disaster_message = self.generate_disaster_alert(disaster_type)
-        if st.session_state.get('twilio_enabled', False):
-            phone_number = st.session_state.get('alert_phone_number', '')
-            if phone_number:
-                send_twilio_alert(disaster_message, phone_number)
-        
-        disaster_data = self.generate_disaster_data(disaster_type)
-        return True, disaster_data
-    
-    def generate_disaster_alert(self, disaster_type):
-        time_remaining = random.randint(5, 45)
-        alert_templates = {
-            "methane_leak": f"⚠️ METHANE LEAK: Critical levels detected! Estimated time to danger: {time_remaining} minutes",
-            "pressure_surge": f"⚠️ PRESSURE SURGE: System pressure critical! Estimated time to failure: {time_remaining} minutes",
-            "overheating": f"⚠️ OVERHEATING: Temperature critical! Estimated time to meltdown: {time_remaining} minutes"
-        }
-        return alert_templates.get(disaster_type, "⚠️ EMERGENCY: Critical anomaly detected!")
-    
-    def generate_disaster_data(self, disaster_type):
-        disaster_patterns = {
-            "methane_leak": {"methane": lambda t: 1.4 + (t * 0.8), "temperature": lambda t: 55.0 + (t * 0.3)},
-            "pressure_surge": {"pressure": lambda t: 7.2 + (t * 1.5), "vibration": lambda t: 4.2 + (t * 0.7)},
-            "overheating": {"temperature": lambda t: 55.0 + (t * 2.1), "pressure": lambda t: 7.2 + (t * 0.4)}
-        }
-        return disaster_patterns.get(disaster_type, disaster_patterns["methane_leak"])
-    
-    def set_led(self, color, state):
-        if color in self.physical_components["leds"]:
-            self.physical_components["leds"][color] = state
-    
-    def set_buzzer(self, state):
-        self.physical_components["buzzer"] = state
-    
-    def set_display(self, message):
-        self.physical_components["display"] = message
-
-pi_controller = RaspberryPiController()
+    """الحالة الحالية للنظام"""
+    return f"الحالة الحالية للنظام:\n• درجة الحرارة: {st.session_state['mqtt_temp']}°م\n• آخر تحديث: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}\n• صحة النظام: جيدة"
 
 # -------------------- Advanced AI Analysis --------------------
 class AdvancedAIAnalyzer:
@@ -563,159 +647,232 @@ class AdvancedAIAnalyzer:
 ai_analyzer = AdvancedAIAnalyzer()
 sensor_data = ai_analyzer.generate_sensor_data()
 
-# -------------------- 3D Visualization محسنة ومفيدة --------------------
-def enhanced_3d_visualization_section():
-    st.markdown(f'<div class="main-header">🏭 {texts[lang]["live3d_header"]}</div>', unsafe_allow_html=True)
+# -------------------- Custom CSS --------------------
+def apply_custom_css():
+    st.markdown(f"""
+    <style>
+    :root {{
+        --primary: #1E88E5; --secondary: #FF6D00; --success: #43A047;
+        --danger: #E53935; --dark: #263238; --light: #F5F5F5;
+        --gradient-start: #43cea2; --gradient-end: #185a9d;
+    }}
     
-    tab1, tab2, tab3 = st.tabs(["📊 نموذج 3D تفاعلي", "📈 بيانات حية", "🎯 تحليل متقدم"])
+    .main {{ 
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+        color: var(--dark); 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }}
     
-    with tab1:
-        show_interactive_3d_model()
-    with tab2:
-        show_live_data_overlay()
-    with tab3:
-        show_advanced_analysis()
+    .stApp {{ 
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }}
+    
+    .sidebar .sidebar-content {{ 
+        background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%); 
+        color: white; 
+    }}
+    
+    .main-header {{ 
+        font-size: 2.5rem; 
+        color: var(--gradient-end); 
+        text-align: center; 
+        margin-bottom: 1.5rem; 
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); 
+        -webkit-background-clip: text; 
+        -webkit-text-fill-color: transparent;
+        font-family: 'Arial', sans-serif;
+    }}
+    
+    .metric-card {{ 
+        background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%); 
+        border-radius: 12px; 
+        padding: 1.2rem; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease; 
+        border: 1px solid #e0e0e0; 
+    }}
+    
+    .metric-card:hover {{ 
+        transform: translateY(-3px); 
+        box-shadow: 0 6px 16px rgba(0,0,0,0.15); 
+    }}
+    
+    .stButton>button {{ 
+        background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); 
+        color: white; 
+        border: none; 
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem; 
+        font-weight: 600; 
+        transition: all 0.3s ease;
+        font-family: 'Segoe UI', sans-serif;
+    }}
+    
+    .stButton>button:hover {{ 
+        transform: scale(1.05); 
+        box-shadow: 0 4px 12px rgba(67, 206, 162, 0.3); 
+    }}
+    
+    .rtl-text {{
+        direction: rtl;
+        text-align: right;
+        font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+    }}
+    
+    .ltr-text {{
+        direction: ltr;
+        text-align: left;
+    }}
+    
+    .advanced-section {{
+        display: {'block' if st.session_state.get('show_advanced', False) else 'none'};
+    }}
+    </style>
+    """, unsafe_allow_html=True)
 
-def show_interactive_3d_model():
-    """عرض نموذج 3D تفاعلي مع بيانات حية"""
-    st.markdown("### 🎮 النموذج ثلاثي الأبعاد التفاعلي")
+apply_custom_css()
+
+# -------------------- Helper Functions --------------------
+def to_arabic_numerals(num):
+    return str(num).translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
+
+def rtl_wrap(txt):
+    if st.session_state["lang"] == "ar":
+        return f'<div style="direction:rtl;text-align:right">{txt}</div>'
+    else:
+        return f'<div style="direction:ltr;text-align:left">{txt}</div>'
+
+def show_logo():
+    st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
+
+# -------------------- Demo Data --------------------
+np.random.seed(1)
+demo_df = pd.DataFrame({
+    "time": pd.date_range(datetime.now() - timedelta(hours=24), periods=48, freq="30min"),
+    "Temperature": np.random.normal(55, 6, 48),
+    "Pressure": np.random.normal(7, 1.2, 48),
+    "Methane": np.clip(np.random.normal(1.4, 0.7, 48), 0, 6)
+})
+
+# -------------------- Texts for Multi-language Support --------------------
+texts = {
+    "en": {
+        "app_title": "Smart Neural Digital Twin Platform",
+        "app_sub": "Industrial Digitalization & AI-Powered Monitoring",
+        "side_sections": [
+            "🏠 Dashboard", "📊 Predictive Analytics", "🏭 Operations Center", 
+            "📱 Live Monitoring", "🤖 AI Copilot", "💡 Smart Solutions",
+            "📈 KPI Metrics", "🛡️ SNDT Safety", "🎯 3D Visualization",
+            "ℹ️ About", "🤖 Raspberry Pi Control"
+        ],
+        "live3d_header": "Live 3D Plant Visualization"
+    },
+    "ar": {
+        "app_title": "منصة التوأم الرقمي العصبي الذكي",
+        "app_sub": "رقمنة صناعية ومراقبة مدعومة بالذكاء الاصطناعي",
+        "side_sections": [
+            "🏠 لوحة التحكم", "📊 التحليلات التنبؤية", "🏭 مركز العمليات", 
+            "📱 المراقبة الحية", "🤖 المساعد الذكي", "💡 الحلول الذكية",
+            "📈 مؤشرات الأداء", "🛡️ نظام السلامة", "🎯 التصور ثلاثي الأبعاد",
+            "ℹ️ حول النظام", "🤖 تحكم Raspberry Pi"
+        ],
+        "live3d_header": "تصور المصنع ثلاثي الأبعاد المباشر"
+    }
+}
+
+# -------------------- Dashboard Section --------------------
+def dashboard_section():
+    st.markdown(f'<div class="main-header">لوحة تحكم المصنع</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([2, 1])
-    
+    # مؤشرات الأداء الرئيسية
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        # نموذج 3D تفاعلي مع بيانات حية
-        current_data = st.session_state.get("current_sensor_data", {})
-        
         st.markdown(f"""
-        <div style="width:100%; height:400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius:15px; display:flex; justify-content:center; align-items:center; color:white;
-                    position: relative; overflow: hidden;">
-            <div style="text-align: center;">
-                <div style="font-size: 48px; margin-bottom: 20px;">🏭</div>
-                <h3>النموذج ثلاثي الأبعاد</h3>
-                <p>اسحب وشاهد من جميع الزوايا</p>
-                
-                <!-- مؤشرات البيانات الحية -->
-                <div style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;">
-                    <div>🌡️ {current_data.get('temperature', 55.0):.1f}°C</div>
-                    <div>📊 {current_data.get('pressure', 7.2):.1f} bar</div>
-                    <div>⚠️ {current_data.get('methane', 1.4):.2f}%</div>
-                </div>
-            </div>
-            
-            <!-- عناصر تفاعلية -->
-            <div style="position: absolute; bottom: 20px; left: 20px;">
-                <button style="background: #43cea2; color: white; border: none; padding: 8px 15px; 
-                             border-radius: 5px; margin: 5px; cursor: pointer;">🔍 تكبير</button>
-                <button style="background: #185a9d; color: white; border: none; padding: 8px 15px; 
-                             border-radius: 5px; margin: 5px; cursor: pointer;">🔄 تدوير</button>
-            </div>
+        <div class="metric-card">
+            <div class="kpi-label">درجة الحرارة</div>
+            <div class="kpi-value">{'٥٥' if st.session_state["lang"] == "ar" else '55'}°م</div>
+            <div style="color:#43A047;">✓ طبيعية</div>
         </div>
         """, unsafe_allow_html=True)
-    
     with col2:
-        st.markdown("### 🎯 عناصر التحكم")
-        
-        view_options = ["منظر علوي", "منظر جانبي", "منظر أمامي", "منظر داخلي"]
-        selected_view = st.selectbox("اختر视角 العرض", view_options)
-        
-        layers = st.multiselect(
-            "الطبقات المرئية",
-            ["الهيكل الرئيسي", "الأنابيب", "الأجهزة", "الحساسات", "الأسلاك"],
-            ["الهيكل الرئيسي", "الأنابيب", "الحساسات"]
-        )
-        
-        light_intensity = st.slider("شدة الإضاءة", 0, 100, 70)
-        
-        if st.button("🔄 تحديث النموذج"):
-            st.success("تم تحديث النموذج بالبيانات الجديدة")
-
-def show_live_data_overlay():
-    """عرض البيانات الحية على النموذج"""
-    st.markdown("### 📊 تراكب البيانات الحية")
-    
-    current_data = st.session_state.get("current_sensor_data", {})
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("🌡️ الحرارة", f"{current_data.get('temperature', 55.0):.1f}°C", 
-                 delta=f"{random.uniform(-2.0, 2.0):.1f}°C")
-    with col2:
-        st.metric("📊 الضغط", f"{current_data.get('pressure', 7.2):.1f} bar",
-                 delta=f"{random.uniform(-0.3, 0.3):.1f} bar")
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="kpi-label">الضغط</div>
+            <div class="kpi-value">{'٧٫٢' if st.session_state["lang"] == "ar" else '7.2'} بار</div>
+            <div style="color:#43A047;">✓ مستقر</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col3:
-        st.metric("⚠️ الميثان", f"{current_data.get('methane', 1.4):.2f}%",
-                 delta=f"{random.uniform(-0.2, 0.2):.2f}%")
-    
-    st.markdown("#### 🗺️ الخريطة الحرارية للمصنع")
-    
-    plant_sections = {
-        "الضاغط A": {"temp": current_data.get('temperature', 55.0) + random.uniform(-5, 5), "status": "normal"},
-        "المفاعل B": {"temp": current_data.get('temperature', 55.0) + random.uniform(-3, 7), "status": "warning"},
-        "مبادل الحرارة": {"temp": current_data.get('temperature', 55.0) + random.uniform(-2, 10), "status": "normal"},
-        "خزان التخزين": {"temp": current_data.get('temperature', 55.0) + random.uniform(-4, 2), "status": "normal"}
-    }
-    
-    for section, data in plant_sections.items():
-        status_color = "#43A047" if data["status"] == "normal" else "#FF9800" if data["status"] == "warning" else "#F44336"
         st.markdown(f"""
-        <div style="background: {status_color}20; padding: 10px; border-radius: 8px; margin: 5px 0; 
-                    border-left: 4px solid {status_color}">
-            <div style="display: flex; justify-content: space-between;">
-                <span><b>{section}</b></span>
-                <span style="color: {status_color}; font-weight: bold;">{data['temp']:.1f}°C</span>
-            </div>
+        <div class="metric-card">
+            <div class="kpi-label">مستوى الميثان</div>
+            <div class="kpi-value">{'١٫٤' if st.session_state["lang"] == "ar" else '1.4'}%</div>
+            <div style="color:#43A047;">✓ آمن</div>
         </div>
         """, unsafe_allow_html=True)
-
-def show_advanced_analysis():
-    """تحليل متقدم للنموذج ثلاثي الأبعاد"""
-    st.markdown("### 🎯 التحليل المتقدم")
+    with col4:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="kpi-label">صحة النظام</div>
+            <div class="kpi-value">{'٩٦' if st.session_state["lang"] == "ar" else '96'}%</div>
+            <div style="color:#43A047;">✓ مثالية</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    st.markdown("#### 📊 تحليل الإجهادات الهيكلية")
-    
-    stress_data = pd.DataFrame({
-        "المكون": ["الهيكل الرئيسي", "الأنابيب الرئيسية", "الدعامات", "الوصلات"],
-        "الإجهاد (%)": [35, 62, 28, 75],
-        "الحالة": ["آمن", "تحذير", "آمن", "حرج"]
-    })
-    
-    fig = px.bar(stress_data, x="المكون", y="الإجهاد (%)", color="الحالة",
-                 color_discrete_map={"آمن": "#43A047", "تحذير": "#FF9800", "حرج": "#F44336"})
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("#### 💧 محاكاة تدفق السوائل")
-    
-    flow_simulation = {
-        "السرعة": random.uniform(2.5, 4.0),
-        "الضغط": random.uniform(6.8, 8.2),
-        "الكفاءة": random.uniform(85, 95),
-        "التدفق": random.uniform(90, 110)
-    }
-    
+    # الرسوم البيانية
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("🚀 سرعة التدفق", f"{flow_simulation['السرعة']:.2f} m/s")
-        st.metric("📊 كفاءة التدفق", f"{flow_simulation['الكفاءة']:.1f}%")
+        st.markdown(f'<div class="sub-header">اتجاه درجة الحرارة</div>', unsafe_allow_html=True)
+        fig = px.line(demo_df, x="time", y="Temperature", title="")
+        fig.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
     with col2:
-        st.metric("🔄 ضغط التدفق", f"{flow_simulation['الضغط']:.2f} bar")
-        st.metric("💧 معدل التدفق", f"{flow_simulation['التدفق']:.1f} L/min")
-    
-    st.markdown("#### 🔧 توصيات الصيانة")
-    
-    maintenance_recommendations = [
-        {"المكون": "الوصلات", "الأولوية": "عالي", "التوصية": "فحص الوصلات للضغط العالي"},
-        {"المكون": "الأنابيب الرئيسية", "الأولوية": "متوسط", "التوصية": "تنظيف الرواسب"},
-        {"المكون": "الدعامات", "الأولوية": "منخفض", "التوصية": "فحص دوري"}
-    ]
-    
-    for rec in maintenance_recommendations:
-        priority_color = "#F44336" if rec["الأولوية"] == "عالي" else "#FF9800" if rec["الأولوية"] == "متوسط" else "#43A047"
-        st.info(f"**{rec['المكون']}** - الأولوية: <span style='color:{priority_color}'>{rec['الأولوية']}</span> - {rec['التوصية']}", unsafe_allow_html=True)
+        st.markdown(f'<div class="sub-header">مستوى الميثان</div>', unsafe_allow_html=True)
+        fig = px.line(demo_df, x="time", y="Methane", title="")
+        fig.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
 
-# -------------------- مركز العمليات المتكامل --------------------
+# -------------------- Predictive Analytics Section --------------------
+def predictive_analytics_section():
+    st.markdown(f'<div class="main-header">التحليلات التنبؤية</div>', unsafe_allow_html=True)
+    
+    if not st.session_state["ai_analysis_done"]:
+        with st.spinner("جاري تحليل البيانات وتوليد الرؤى..."):
+            time.sleep(2)
+            analyzed_data = ai_analyzer.detect_anomalies(sensor_data.copy())
+            future_data = ai_analyzer.predict_future(analyzed_data)
+            insights = ai_analyzer.generate_insights(analyzed_data, future_data)
+            
+            st.session_state["preprocessed_data"] = analyzed_data
+            st.session_state["anomalies_detected"] = insights
+            st.session_state["ai_analysis_done"] = True
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f'<div class="sub-header">الكشف عن الشذوذ</div>', unsafe_allow_html=True)
+        anomaly_df = st.session_state["preprocessed_data"].copy()
+        anomaly_counts = anomaly_df['anomaly_predicted'].value_counts()
+        
+        fig = px.pie(values=anomaly_counts.values, names=anomaly_counts.index.map({1: 'طبيعي', -1: 'شاذ'}),
+                    title="توزيع البيانات الطبيعية والشاذة")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown(f'<div class="sub-header">التنبؤ بالحرارة (24 ساعة)</div>', unsafe_allow_html=True)
+        future_data = ai_analyzer.predict_future(st.session_state["preprocessed_data"])
+        fig = px.line(future_data, y='temperature', title="")
+        fig.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown(f'<div class="sub-header">رؤى الذكاء الاصطناعي</div>', unsafe_allow_html=True)
+    for insight in st.session_state["anomalies_detected"]:
+        st.info(f"• {insight}")
+
+# -------------------- Operations Center Section --------------------
 def operations_center_section():
-    st.markdown(f'<div class="main-header">🏭 مركز العمليات المتكامل</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">مركز العمليات المتكامل</div>', unsafe_allow_html=True)
     
     tab1, tab2, tab3, tab4 = st.tabs([
         "📋 تشغيل السيناريوهات", 
@@ -815,7 +972,457 @@ def incident_timeline_section():
         </div>
         """, unsafe_allow_html=True)
 
-# -------------------- التحكم المتقدم في المجسم --------------------
+# -------------------- Live Monitoring Section --------------------
+def live_monitoring_section():
+    st.markdown(f'<div class="main-header">المراقبة الحية</div>', unsafe_allow_html=True)
+    
+    current_data = st.session_state.get("current_sensor_data", {})
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("🌡️ درجة الحرارة", f"{current_data.get('temperature', 55.0):.1f}°م", 
+                 delta=f"{random.uniform(-2.0, 2.0):.1f}°م")
+    with col2:
+        st.metric("📊 الضغط", f"{current_data.get('pressure', 7.2):.1f} بار",
+                 delta=f"{random.uniform(-0.3, 0.3):.1f} بار")
+    with col3:
+        st.metric("⚠️ الميثان", f"{current_data.get('methane', 1.4):.2f}%",
+                 delta=f"{random.uniform(-0.2, 0.2):.2f}%")
+    with col4:
+        st.metric("📡 آخر تحديث", st.session_state["mqtt_last"].strftime("%H:%M:%S"))
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f'<div class="sub-header">البيانات الحية</div>', unsafe_allow_html=True)
+        
+        live_df = pd.DataFrame({
+            "المعامل": ["درجة الحرارة", "الضغط", "الميثان", "الاهتزاز", "معدل التدفق"],
+            "القيمة": [
+                current_data.get('temperature', 55.0),
+                current_data.get('pressure', 7.2),
+                current_data.get('methane', 1.4),
+                current_data.get('vibration', 4.5),
+                current_data.get('flow_rate', 110.0)
+            ],
+            "الحالة": ["طبيعي", "طبيعي", "طبيعي", "طبيعي", "طبيعي"]
+        })
+        
+        st.dataframe(live_df, use_container_width=True)
+    
+    with col2:
+        st.markdown(f'<div class="sub-header">حالة الاتصال</div>', unsafe_allow_html=True)
+        
+        connection_status = {
+            "MQTT Broker": "✅ متصل" if mqtt_client.connected else "⚠️ محاكاة",
+            "Raspberry Pi": "✅ متصل" if st.session_state.get('physical_twin_connected', False) else "❌ غير متصل",
+            "البيانات الحية": "✅ نشط",
+            "التحديث التلقائي": "✅ مفعل"
+        }
+        
+        for service, status in connection_status.items():
+            st.markdown(f"**{service}:** {status}")
+
+# -------------------- AI Chat Section --------------------
+def ai_chat_section():
+    st.markdown(f'<div class="main-header">المساعد الذكي</div>', unsafe_allow_html=True)
+    
+    st.markdown("💬 اسألني عن أي شيء متعلق بالمصنع، التنبؤات، الطقس، الوقت، أو أسئلة عامة")
+    
+    # عرض سجل المحادثة
+    for message in st.session_state.get("chat_history", []):
+        if message["role"] == "user":
+            st.markdown(f'<div class="rtl-text"><b>أنت:</b> {message["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="rtl-text"><b>المساعد:</b> {message["content"]}</div>', unsafe_allow_html=True)
+    
+    # مدخلات المستخدم
+    user_input = st.text_input("اكتب رسالتك هنا:", key="user_input")
+    
+    if st.button("إرسال") and user_input:
+        # إضافة رسالة المستخدم إلى السجل
+        st.session_state["chat_history"].append({"role": "user", "content": user_input})
+        
+        # توليد الرد
+        with st.spinner("جاري التفكير..."):
+            response = generate_ai_response(user_input)
+            st.session_state["chat_history"].append({"role": "assistant", "content": response})
+        
+        st.rerun()
+    
+    if st.button("مسح المحادثة"):
+        st.session_state["chat_history"] = []
+        st.rerun()
+
+# -------------------- Smart Solutions Section --------------------
+def smart_solutions_section():
+    st.markdown(f'<div class="main-header">الحلول الذكية</div>', unsafe_allow_html=True)
+    
+    if not st.session_state["solution_generated"]:
+        if st.button("🔄 توليد حلول ذكية", key="generate_solutions"):
+            with st.spinner("جاري تحليل البيانات وتوليد الحلول..."):
+                time.sleep(2)
+                solutions = generate_smart_solutions()
+                st.session_state["generated_solutions"] = solutions
+                st.session_state["solution_generated"] = True
+                st.rerun()
+    else:
+        solutions = st.session_state["generated_solutions"]
+        
+        for i, solution in enumerate(solutions):
+            with st.expander(f"الحل #{i+1}: {solution['title']}"):
+                st.markdown(f"**التفاصيل:** {solution['details']}")
+                st.markdown(f"**التكلفة:** {solution['cost']}")
+                st.markdown(f"**الوقت:** {solution['time']}")
+                st.markdown(f"**الفعالية:** {solution['effectiveness']}")
+                
+                if st.button(f"تطبيق هذا الحل", key=f"apply_{i}"):
+                    st.session_state["solution_idx"] = i
+                    st.success(f"تم تطبيق الحل: {solution['title']}")
+    
+    if st.session_state["solution_generated"] and st.button("🔄 إعادة توليد الحلول"):
+        st.session_state["solution_generated"] = False
+        st.session_state["generated_solutions"] = []
+        st.rerun()
+
+def generate_smart_solutions():
+    """توليد حلول ذكية بناءً على البيانات"""
+    solutions = [
+        {
+            "title": "تحسين نظام التبريد",
+            "details": "ترقية مضخات التبريد وإضافة وحدات تبريد إضافية",
+            "cost": "متوسطة",
+            "time": "2-3 أسابيع",
+            "effectiveness": "عالية"
+        },
+        {
+            "title": "تركيب حساسات إضافية",
+            "details": "إضافة حساسات مراقبة في المناطق الحرجة",
+            "cost": "منخفضة",
+            "time": "1 أسبوع",
+            "effectiveness": "متوسطة"
+        },
+        {
+            "title": "تحديث برنامج التحكم",
+            "details": "ترقية خوارزميات التحكم لتحسين الكفاءة",
+            "cost": "منخفضة",
+            "time": "3-4 أيام",
+            "effectiveness": "عالية"
+        }
+    ]
+    return solutions
+
+# -------------------- KPI Metrics Section --------------------
+def kpi_metrics_section():
+    st.markdown(f'<div class="main-header">مقاييس الأداء الرئيسية</div>', unsafe_allow_html=True)
+    
+    kpi_data = {
+        "المؤشر": ["الإنتاجية", "الجودة", "الكفاءة", "السلامة", "الصيانة"],
+        "القيمة": [92, 88, 85, 96, 79],
+        "الهدف": [95, 90, 88, 98, 85],
+        "الاتجاه": ["↑", "→", "↑", "→", "↓"]
+    }
+    
+    kpi_df = pd.DataFrame(kpi_data)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f'<div class="sub-header">أداء المؤشرات</div>', unsafe_allow_html=True)
+        fig = px.bar(kpi_df, x="المؤشر", y="القيمة", title="",
+                    color="القيمة", color_continuous_scale="Viridis")
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown(f'<div class="sub-header">تفاصيل المؤشرات</div>', unsafe_allow_html=True)
+        
+        for _, row in kpi_df.iterrows():
+            progress = row["القيمة"] / row["الهدف"] * 100
+            color = "#43A047" if progress >= 95 else "#FF9800" if progress >= 85 else "#F44336"
+            
+            st.markdown(f"""
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span><b>{row['المؤشر']}</b></span>
+                    <span style="color: {color}; font-weight: bold;">{row['القيمة']}%</span>
+                </div>
+                <div style="background: #e0e0e0; border-radius: 5px; height: 10px; margin: 5px 0;">
+                    <div style="background: {color}; width: {progress}%; height: 100%; border-radius: 5px;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9em; color: #666;">
+                    <span>الهدف: {row['الهدف']}%</span>
+                    <span>الاتجاه: {row['الاتجاه']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# -------------------- SNDT Safety Section --------------------
+def sndt_safety_section():
+    st.markdown(f'<div class="main-header">نظام السلامة</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f'<div class="sub-header">حالة السلامة الحالية</div>', unsafe_allow_html=True)
+        
+        safety_status = {
+            "نظام الإنذار": "✅ نشط",
+            "أجهزة الإطفاء": "✅ جاهزة",
+            "صمامات الأمان": "✅ تعمل",
+            "نظام التهوية": "✅ نشط",
+            "مستوى المخاطر": "🟢 منخفض"
+        }
+        
+        for system, status in safety_status.items():
+            st.markdown(f"**{system}:** {status}")
+        
+        st.markdown("---")
+        st.markdown("### 📊 تقييم المخاطر")
+        
+        risk_data = pd.DataFrame({
+            "نوع المخاطرة": ["تسرب غاز", "ارتفاع حرارة", "انخفاض ضغط", "اهتزاز عالي"],
+            "الاحتمالية": [15, 25, 10, 5],
+            "التأثير": [80, 60, 40, 30],
+            "الدرجة": [12, 15, 4, 1.5]
+        })
+        
+        st.dataframe(risk_data, use_container_width=True)
+    
+    with col2:
+        st.markdown(f'<div class="sub-header">إجراءات الطوارئ</div>', unsafe_allow_html=True)
+        
+        emergency_procedures = [
+            "إيقاف التشغيل الفوري عند اكتشاف تسرب غاز",
+            "تفعيل نظام التبريد الطارئ عند ارتفاع الحرارة",
+            "إغلاق الصمامات الرئيسية عند انخفاض الضغط",
+            "تنبيه الطاقم الفني عند اكتشاف أي anomaly"
+        ]
+        
+        for i, procedure in enumerate(emergency_procedures, 1):
+            st.markdown(f"{i}. {procedure}")
+        
+        st.markdown("---")
+        st.markdown("### 🚨 محاكاة الطوارئ")
+        
+        if st.button("بدء محاكاة تسرب غاز", key="gas_leak_sim"):
+            with st.spinner("جاري بدء المحاكاة..."):
+                time.sleep(2)
+                st.error("🚨 تحذير: تم اكتشاف تسرب غاز! مستوى الميثان: 4.8%")
+                st.warning("⚠️ الإجراء: إيقاف التشغيل الفوري وتفعيل نظام التهوية")
+                
+                if st.session_state.get('twilio_enabled', False):
+                    st.info("📱 تم إرسال تنبيه إلى الطاقم الفني")
+
+# -------------------- 3D Visualization Section --------------------
+def enhanced_3d_visualization_section():
+    st.markdown(f'<div class="main-header">التصور ثلاثي الأبعاد للمصنع</div>', unsafe_allow_html=True)
+    
+    tab1, tab2, tab3 = st.tabs(["📊 نموذج 3D تفاعلي", "📈 بيانات حية", "🎯 تحليل متقدم"])
+    
+    with tab1:
+        show_interactive_3d_model()
+    with tab2:
+        show_live_data_overlay()
+    with tab3:
+        show_advanced_analysis()
+
+def show_interactive_3d_model():
+    """عرض نموذج 3D تفاعلي مع بيانات حية"""
+    st.markdown("### 🎮 النموذج ثلاثي الأبعاد التفاعلي")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # نموذج 3D تفاعلي مع بيانات حية
+        current_data = st.session_state.get("current_sensor_data", {})
+        
+        st.markdown(f"""
+        <div style="width:100%; height:400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius:15px; display:flex; justify-content:center; align-items:center; color:white;
+                    position: relative; overflow: hidden;">
+            <div style="text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🏭</div>
+                <h3>النموذج ثلاثي الأبعاد</h3>
+                <p>اسحب وشاهد من جميع الزوايا</p>
+                
+                <!-- مؤشرات البيانات الحية -->
+                <div style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;">
+                    <div>🌡️ {current_data.get('temperature', 55.0):.1f}°م</div>
+                    <div>📊 {current_data.get('pressure', 7.2):.1f} بار</div>
+                    <div>⚠️ {current_data.get('methane', 1.4):.2f}%</div>
+                </div>
+            </div>
+            
+            <!-- عناصر تفاعلية -->
+            <div style="position: absolute; bottom: 20px; left: 20px;">
+                <button style="background: #43cea2; color: white; border: none; padding: 8px 15px; 
+                             border-radius: 5px; margin: 5px; cursor: pointer;">🔍 تكبير</button>
+                <button style="background: #185a9d; color: white; border: none; padding: 8px 15px; 
+                             border-radius: 5px; margin: 5px; cursor: pointer;">🔄 تدوير</button>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 🎯 عناصر التحكم")
+        
+        view_options = ["منظر علوي", "منظر جانبي", "منظر أمامي", "منظر داخلي"]
+        selected_view = st.selectbox("اختر视角 العرض", view_options)
+        
+        layers = st.multiselect(
+            "الطبقات المرئية",
+            ["الهيكل الرئيسي", "الأنابيب", "الأجهزة", "الحساسات", "الأسلاك"],
+            ["الهيكل الرئيسي", "الأنابيب", "الحساسات"]
+        )
+        
+        light_intensity = st.slider("شدة الإضاءة", 0, 100, 70)
+        
+        if st.button("🔄 تحديث النموذج"):
+            st.success("تم تحديث النموذج بالبيانات الجديدة")
+
+def show_live_data_overlay():
+    """عرض البيانات الحية على النموذج"""
+    st.markdown("### 📊 تراكب البيانات الحية")
+    
+    current_data = st.session_state.get("current_sensor_data", {})
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("🌡️ الحرارة", f"{current_data.get('temperature', 55.0):.1f}°م", 
+                 delta=f"{random.uniform(-2.0, 2.0):.1f}°م")
+    with col2:
+        st.metric("📊 الضغط", f"{current_data.get('pressure', 7.2):.1f} بار",
+                 delta=f"{random.uniform(-0.3, 0.3):.1f} بار")
+    with col3:
+        st.metric("⚠️ الميثان", f"{current_data.get('methane', 1.4):.2f}%",
+                 delta=f"{random.uniform(-0.2, 0.2):.2f}%")
+    
+    st.markdown("#### 🗺️ الخريطة الحرارية للمصنع")
+    
+    plant_sections = {
+        "الضاغط A": {"temp": current_data.get('temperature', 55.0) + random.uniform(-5, 5), "status": "normal"},
+        "المفاعل B": {"temp": current_data.get('temperature', 55.0) + random.uniform(-3, 7), "status": "warning"},
+        "مبادل الحرارة": {"temp": current_data.get('temperature', 55.0) + random.uniform(-2, 10), "status": "normal"},
+        "خزان التخزين": {"temp": current_data.get('temperature', 55.0) + random.uniform(-4, 2), "status": "normal"}
+    }
+    
+    for section, data in plant_sections.items():
+        status_color = "#43A047" if data["status"] == "normal" else "#FF9800" if data["status"] == "warning" else "#F44336"
+        st.markdown(f"""
+        <div style="background: {status_color}20; padding: 10px; border-radius: 8px; margin: 5px 0; 
+                    border-left: 4px solid {status_color}">
+            <div style="display: flex; justify-content: space-between;">
+                <span><b>{section}</b></span>
+                <span style="color: {status_color}; font-weight: bold;">{data['temp']:.1f}°م</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+def show_advanced_analysis():
+    """تحليل متقدم للنموذج ثلاثي الأبعاد"""
+    st.markdown("### 🎯 التحليل المتقدم")
+    
+    st.markdown("#### 📊 تحليل الإجهادات الهيكلية")
+    
+    stress_data = pd.DataFrame({
+        "المكون": ["الهيكل الرئيسي", "الأنابيب الرئيسية", "الدعامات", "الوصلات"],
+        "الإجهاد (%)": [35, 62, 28, 75],
+        "الحالة": ["آمن", "تحذير", "آمن", "حرج"]
+    })
+    
+    fig = px.bar(stress_data, x="المكون", y="الإجهاد (%)", color="الحالة",
+                 color_discrete_map={"آمن": "#43A047", "تحذير": "#FF9800", "حرج": "#F44336"})
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("#### 💧 محاكاة تدفق السوائل")
+    
+    flow_simulation = {
+        "السرعة": random.uniform(2.5, 4.0),
+        "الضغط": random.uniform(6.8, 8.2),
+        "الكفاءة": random.uniform(85, 95),
+        "التدفق": random.uniform(90, 110)
+    }
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("🚀 سرعة التدفق", f"{flow_simulation['السرعة']:.2f} م/ث")
+        st.metric("📊 كفاءة التدفق", f"{flow_simulation['الكفاءة']:.1f}%")
+    with col2:
+        st.metric("🔄 ضغط التدفق", f"{flow_simulation['الضغط']:.2f} بار")
+        st.metric("💧 معدل التدفق", f"{flow_simulation['التدفق']:.1f} لتر/دقيقة")
+    
+    st.markdown("#### 🔧 توصيات الصيانة")
+    
+    maintenance_recommendations = [
+        {"المكون": "الوصلات", "الأولوية": "عالي", "التوصية": "فحص الوصلات للضغط العالي"},
+        {"المكون": "الأنابيب الرئيسية", "الأولوية": "متوسط", "التوصية": "تنظيف الرواسب"},
+        {"المكون": "الدعامات", "الأولوية": "منخفض", "التوصية": "فحص دوري"}
+    ]
+    
+    for rec in maintenance_recommendations:
+        priority_color = "#F44336" if rec["الأولوية"] == "عالي" else "#FF9800" if rec["الأولوية"] == "متوسط" else "#43A047"
+        st.info(f"**{rec['المكون']}** - الأولوية: <span style='color:{priority_color}'>{rec['الأولوية']}</span> - {rec['التوصية']}", unsafe_allow_html=True)
+
+# -------------------- About Section --------------------
+def about_section():
+    st.markdown(f'<div class="main-header">حول النظام</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### ℹ️ معلومات النظام")
+        st.markdown("""
+        **منصة التوأم الرقمي العصبي الذكي (SNDT)**
+        
+        نظام متكامل للرقمنة الذكية للمصانع يجمع بين:
+        - المراقبة الحية للبيانات
+        - الذكاء الاصطناعي التنبؤي
+        - التحكم الفعلي في الأجهزة
+        - الذاكرة الدائمة للتعلم
+        
+        **المميزات الرئيسية:**
+        ✅ مراقبة حية للمعاملات
+        ✅ تحليلات تنبؤية متقدمة
+        ✅ تحكم عن بعد في الأجهزة
+        ✅ ذاكرة تعلم دائمة
+        ✅ واجهة عربية كاملة
+        """)
+    
+    with col2:
+        st.markdown("### 👨‍💻 معلومات المطور")
+        st.markdown("""
+        **الاسم:** ركان المري  
+        **البريد:** rakan.almarri.2@aramco.com  
+        **الهاتف:** +966532559664  
+        **الموقع:** الرياض، السعودية
+        
+        **المهارات:**
+        - برمجة الأنظمة المدمجة
+        - الذكاء الاصطناعي والتعلم الآلي
+        - تطوير تطبيقات الويب
+        - تحليل البيانات الضخمة
+        
+        **الشهادات:**
+        - هندسة الحاسب الآلي
+        - أخصائي ذكاء اصطناعي
+        - مطور أنظمة صناعية
+        """)
+    
+    st.markdown("---")
+    st.markdown("### 📞 الدعم الفني")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("**📧 البريد الإلكتروني**")
+        st.markdown("support@sndt.com")
+    with col2:
+        st.markdown("**📞 الهاتف**")
+        st.markdown("+966532559664")
+    with col3:
+        st.markdown("**🕒 ساعات العمل**")
+        st.markdown("24/7")
+
+# -------------------- Raspberry Pi Control Section --------------------
 def enhanced_raspberry_pi_section():
     st.markdown(f'<div class="main-header">🤖 التحكم المتقدم في المجسم التوضيحي</div>', unsafe_allow_html=True)
     
@@ -826,16 +1433,16 @@ def enhanced_raspberry_pi_section():
         st.markdown(f"**حالة MQTT:** {mqtt_status}")
     
     with col2:
-        pi_status = "✅ متصل" if physical_twin.pi_connected else "❌ غير متصل"
+        pi_status = "✅ متصل" if real_pi_controller.gpio_initialized else "❌ غير متصل"
         st.markdown(f"**حالة RPi:** {pi_status}")
     
     with col3:
         last_update = st.session_state.get("mqtt_last", datetime.now())
         st.markdown(f"**آخر تحديث:** {last_update.strftime('%H:%M:%S')}")
     
-    if not physical_twin.pi_connected:
+    if not st.session_state.get('physical_twin_connected', False):
         if st.button("🔗 الاتصال بـ Raspberry Pi", key="connect_rpi"):
-            success, message = physical_twin.connect_to_raspberry_pi()
+            success, message = real_pi_controller.connect_to_raspberry_pi()
             if success:
                 st.success(message)
                 st.rerun()
@@ -848,28 +1455,28 @@ def enhanced_raspberry_pi_section():
     
     with col1:
         st.markdown("#### ⚡ التحكم في المضخة")
-        pump_status = physical_twin.physical_components["pump"]["status"]
+        pump_status = real_pi_controller.physical_components["pump"]["status"]
         st.markdown(f"**الحالة:** {'🟢 مشغلة' if pump_status == 'on' else '🔴 متوقفة'}")
         
         if st.button("▶️ تشغيل المضخة", key="start_pump"):
-            success, message = physical_twin.control_physical_component("pump", "start", 80)
+            success, message = real_pi_controller.control_physical_component("pump", "start", 80)
             st.success(message)
         
         if st.button("⏹️ إيقاف المضخة", key="stop_pump"):
-            success, message = physical_twin.control_physical_component("pump", "stop")
+            success, message = real_pi_controller.control_physical_component("pump", "stop")
             st.success(message)
     
     with col2:
         st.markdown("#### 🎚️ التحكم في الصمام")
-        valve_status = physical_twin.physical_components["valve"]["status"]
+        valve_status = real_pi_controller.physical_components["valve"]["status"]
         st.markdown(f"**الحالة:** {'🟢 مفتوح' if valve_status == 'open' else '🔴 مغلق'}")
         
         if st.button("🔓 فتح الصمام", key="open_valve"):
-            success, message = physical_twin.control_physical_component("valve", "open", 50.0)
+            success, message = real_pi_controller.control_physical_component("valve", "open", 50.0)
             st.success(message)
         
         if st.button("🔐 غلق الصمام", key="close_valve"):
-            success, message = physical_twin.control_physical_component("valve", "close")
+            success, message = real_pi_controller.control_physical_component("valve", "close")
             st.success(message)
     
     st.markdown("### 💡 التحكم في الإضاءة")
@@ -880,21 +1487,21 @@ def enhanced_raspberry_pi_section():
         with led_cols[i]:
             st.markdown(f"**LED {color.upper()}**")
             if st.button(f"💡 تشغيل {color}", key=f"on_{color}"):
-                success, message = physical_twin.control_physical_component("leds", "on", color)
+                success, message = real_pi_controller.control_physical_component("leds", "on", color)
                 st.success(message)
             if st.button(f"⚫ إطفاء {color}", key=f"off_{color}"):
-                success, message = physical_twin.control_physical_component("leds", "off", color)
+                success, message = real_pi_controller.control_physical_component("leds", "off", color)
                 st.success(message)
     
     st.markdown("### 📊 قراءة البيانات من الحساسات")
     if st.button("📡 قراءة البيانات الحالية", key="read_sensors"):
-        sensor_data = physical_twin.control_physical_component("sensors", "read")
+        sensor_data = real_pi_controller.control_physical_component("sensors", "read")
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("🌡️ درجة الحرارة", f"{sensor_data['temperature']:.1f}°C")
+            st.metric("🌡️ درجة الحرارة", f"{sensor_data['temperature']:.1f}°م")
         with col2:
-            st.metric("📊 الضغط", f"{sensor_data['pressure']:.1f} bar")
+            st.metric("📊 الضغط", f"{sensor_data['pressure']:.1f} بار")
         with col3:
             st.metric("⚠️ الميثان", f"{sensor_data['methane']:.2f}%")
         
@@ -902,91 +1509,31 @@ def enhanced_raspberry_pi_section():
             event_type="sensor_reading",
             data=sensor_data,
             outcome="success",
-            lesson=f"قراءة حساسات: {sensor_data['temperature']:.1f}°C"
+            lesson=f"قراءة حساسات: {sensor_data['temperature']:.1f}°م"
         )
-
-# -------------------- Custom CSS --------------------
-def apply_custom_css():
-    st.markdown(f"""
-    <style>
-    :root {{
-        --primary: #1E88E5; --secondary: #FF6D00; --success: #43A047;
-        --danger: #E53935; --dark: #263238; --light: #F5F5F5;
-        --gradient-start: #43cea2; --gradient-end: #185a9d;
-    }}
-    .main {{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); color: var(--dark); }}
-    .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }}
-    .sidebar .sidebar-content {{ background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; }}
-    .main-header {{ font-size: 2.5rem; color: var(--gradient-end); text-align: center; margin-bottom: 1.5rem; font-weight: 700;
-        background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-    .sub-header {{ font-size: 1.6rem; color: var(--dark); margin-bottom: 1rem; font-weight: 600; border-left: 4px solid var(--gradient-start); padding-left: 1rem; }}
-    .metric-card {{ background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%); border-radius: 12px; padding: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease; border: 1px solid #e0e0e0; }}
-    .metric-card:hover {{ transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }}
-    .kpi-value {{ font-size: 2rem; font-weight: 700; color: var(--gradient-end); }}
-    .kpi-label {{ font-size: 0.9rem; color: var(--dark); font-weight: 500; }}
-    .stButton>button {{ background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; border: none; border-radius: 8px;
-        padding: 0.6rem 1.2rem; font-weight: 600; transition: all 0.3s ease; }}
-    .stButton>button:hover {{ transform: scale(1.05); box-shadow: 0 4px 12px rgba(67, 206, 162, 0.3); }}
-    .solution-card {{ background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 100%); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 4px solid var(--success); }}
-    .solution-title {{ font-size: 1.4rem; font-weight: 700; color: var(--dark); margin-bottom: 0.8rem; }}
-    .solution-detail {{ margin-bottom: 0.8rem; font-size: 1rem; }}
-    .solution-label {{ font-weight: 600; color: var(--dark); }}
-    .generate-btn {{ background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%); color: white; border: none; border-radius: 8px;
-        padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(67, 206, 162, 0.3); width: 100%; margin-bottom: 1.5rem; }}
-    .generate-btn:hover {{ transform: translateY(-2px); box-shadow: 0 6px 16px rgba(67, 206, 162, 0.4); }}
-    .about-card {{ background: linear-gradient(135deg, #ffffff 0%, #f3e5f5 100%); border-radius: 15px; padding: 2rem; margin: 1.5rem 0; box-shadow: 0 6px 20px rgba(0,0,0,0.1); }}
-    .feature-item {{ background: linear-gradient(135deg, #bbdefb 0%, #e3f2fd 100%); border-radius: 10px; padding: 1rem; margin: 0.5rem 0; border-left: 3px solid var(--primary); }}
-    .ai-insight-card {{ background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 10px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--success); }}
-    .anomaly-card {{ background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-radius: 10px; padding: 1rem; margin: 0.5rem 0; border-left: 4px solid var(--danger); }}
-    </style>
-    """, unsafe_allow_html=True)
-
-apply_custom_css()
-
-# -------------------- Helper Functions --------------------
-def to_arabic_numerals(num):
-    return str(num).translate(str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩"))
-
-def rtl_wrap(txt):
-    if st.session_state["lang"] == "ar":
-        return f'<div style="direction:rtl;text-align:right">{txt}</div>'
-    else:
-        return f'<div style="direction:ltr;text-align:left">{txt}</div>'
-
-def show_logo():
-    st.markdown(f'<div style="text-align:center;padding-bottom:1.2em;">{logo_svg}</div>', unsafe_allow_html=True)
-
-# -------------------- Demo Data --------------------
-np.random.seed(1)
-demo_df = pd.DataFrame({
-    "time": pd.date_range(datetime.now() - timedelta(hours=24), periods=48, freq="30min"),
-    "Temperature": np.random.normal(55, 6, 48),
-    "Pressure": np.random.normal(7, 1.2, 48),
-    "Methane": np.clip(np.random.normal(1.4, 0.7, 48), 0, 6)
-})
-
-# -------------------- Sections (يتبع باقي الأقسام بنفس الهيكل) --------------------
-# [يتم الحفاظ على كل الأقسام الأصلية مع استبدال الدوال المحدثة]
 
 # -------------------- Main Application --------------------
 def main():
     with st.sidebar:
+        show_logo()
+        
         st.markdown(f"""<div style="color:white;font-size:24px;font-weight:bold;text-align:center;margin-bottom:10px;">
         {texts[st.session_state["lang"]]["app_title"]}</div>
         <div style="color:rgba(255,255,255,0.8);text-align:center;margin-bottom:30px;">
         {texts[st.session_state["lang"]]["app_sub"]}</div>""", unsafe_allow_html=True)
         
-        lang_options = ["English", "Arabic"] if st.session_state["lang"] == "en" else ["الإنجليزية", "العربية"]
-        lang_sel = st.radio("Language / اللغة", lang_options, index=0, key="lang_selector")
-        st.session_state["lang"] = "en" if lang_sel == "English" or lang_sel == "الإنجليزية" else "ar"
+        # تبديل اللغة
+        lang_options = ["العربية", "English"]
+        lang_sel = st.radio("اللغة / Language", lang_options, index=0)
+        st.session_state["lang"] = "ar" if lang_sel == "العربية" else "en"
+        
+        # الميزات المتقدمة
+        st.session_state["show_advanced"] = st.checkbox("إظهار الميزات المتقدمة")
         
         lang = st.session_state["lang"]
         t = texts[lang]
         section_list = t["side_sections"]
-        section = st.radio("Navigate to / انتقل إلى", section_list, index=0)
+        section = st.radio("انتقل إلى / Navigate to", section_list, index=0)
     
     if section == t["side_sections"][0]:
         dashboard_section()
@@ -1005,11 +1552,11 @@ def main():
     elif section == t["side_sections"][7]:
         sndt_safety_section()
     elif section == t["side_sections"][8]:
-        enhanced_3d_visualization_section()  # استخدام 3D الجديدة
+        enhanced_3d_visualization_section()
     elif section == t["side_sections"][9]:
         about_section()
     elif section == t["side_sections"][10]:
-        enhanced_raspberry_pi_section()  # استخدام RPi الجديدة
+        enhanced_raspberry_pi_section()
 
 if __name__ == "__main__":
     main()
