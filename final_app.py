@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-# -------------------- توثيق النظام (حل Weakness 1) --------------------
+# -------------------- توثيق النظام --------------------
 """
 منصة التوأم الرقمي العصبي الذكي (SNDT)
 ---------------------------------------
@@ -58,6 +58,12 @@ MQTT_TOPIC_PRESSURE = "sndt/pressure"
 MQTT_TOPIC_METHANE = "sndt/methane"
 MQTT_TOPIC_CONTROL = "sndt/control"
 
+# -------------------- OpenAI & Twilio Config --------------------
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+TWILIO_ACCOUNT_SID = st.secrets.get("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = st.secrets.get("TWILIO_AUTH_TOKEN", "")
+TWILIO_PHONE_NUMBER = st.secrets.get("TWILIO_PHONE_NUMBER", "")
+
 # -------------------- App state Initialization --------------------
 for key, default in [
     ("lang", "ar"), ("scenario_step", 0), ("solution_idx", 0), ("theme", "light"),
@@ -70,7 +76,7 @@ for key, default in [
     ("lifelong_memory", []), ("physical_twin_connected", False),
     ("pressure", 7.2), ("methane", 1.4), ("vibration", 4.5), ("flow_rate", 110.0),
     ("mqtt_connected", False), ("current_sensor_data", {}),
-    ("show_advanced", False)  # إخفاء الميزات المتقدمة افتراضيًا
+    ("show_advanced", False), ("openai_enabled", False), ("openai_api_key", OPENAI_API_KEY)
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -489,89 +495,6 @@ class LifelongLearningMemory:
 
 lifelong_memory = LifelongLearningMemory()
 
-# -------------------- المساعد الذكي --------------------
-def generate_ai_response(prompt):
-    """مساعد ذكي مدعوم بالذاكرة الدائمة"""
-    prompt_lower = prompt.lower()
-    
-    # البحث في الذاكرة عن تجارب مشابهة
-    similar_experiences = lifelong_memory.find_similar(
-        {'prompt': prompt, 'type': 'ai_interaction'},
-        min_similarity=0.7
-    )
-    
-    response = ""
-    
-    # استخدام الدروس المستفادة
-    if similar_experiences and similar_experiences[0]['similarity'] > 0.8:
-        best_memory = similar_experiences[0]['memory']
-        response += f"🧠 بناءً على تجربة سابقة:\n{best_memory['lesson']}\n\n"
-    
-    # معالجة أنواع الأسئلة
-    if any(word in prompt_lower for word in ["الطقس", "درجة الحرارة", "weather", "temperature"]):
-        response += get_weather_info()
-    elif any(word in prompt_lower for word in ["الوقت", "التاريخ", "اليوم", "time", "date", "today"]):
-        response += get_current_time_info()
-    elif any(word in prompt_lower for word in ["مرحبا", "السلام", "hello", "hi"]):
-        response += "مرحباً! أنا المساعد الذكي لمنصة التوأم الرقمي. كيف يمكنني مساعدتك اليوم؟"
-    elif any(word in prompt_lower for word in ["تنبأ", "توقع", "predict", "forecast"]):
-        response += generate_time_based_prediction(prompt)
-    elif any(word in prompt_lower for word in ["حالي", "مباشر", "current", "now"]):
-        response += generate_current_status()
-    else:
-        response += "أنا المساعد الذكي للمنصة. يمكنني مساعدتك في مراقبة المصنع، التنبؤات، الطقس، الوقت، وأسئلة عامة أخرى."
-    
-    # تخزين التجربة
-    lifelong_memory.add_experience(
-        event_type="ai_interaction",
-        data={'prompt': prompt},
-        outcome="response_generated", 
-        lesson=f"تم الرد على: {prompt[:50]}..."
-    )
-    
-    return response
-
-def get_weather_info():
-    """معلومات الطقس"""
-    weather_data = {
-        "temperature": random.randint(20, 35),
-        "condition": random.choice(["مشمس", "غائم جزئياً", "صافي"]),
-        "humidity": random.randint(30, 70)
-    }
-    return f"حالة الطقس الحالية:\n• درجة الحرارة: {weather_data['temperature']}°م\n• الحالة: {weather_data['condition']}\n• الرطوبة: {weather_data['humidity']}%"
-
-def get_current_time_info():
-    """معلومات الوقت والتاريخ"""
-    now = datetime.now()
-    return f"الوقت الحالي: {now.strftime('%H:%M:%S')}\nتاريخ اليوم: {now.strftime('%Y-%m-%d')}\nاليوم: {now.strftime('%A')}"
-
-def generate_time_based_prediction(prompt):
-    """إنشاء تنبؤات زمنية"""
-    time_keywords = {"ساعة": 1, "ساعات": 1, "يوم": 24, "أيام": 24, "أسبوع": 168, "أسابيع": 168}
-    hours_ahead = 2
-    
-    for word, value in time_keywords.items():
-        if word in prompt.lower():
-            hours_ahead = value
-            break
-    
-    predictions = []
-    if "حرارة" in prompt.lower() or "temperature" in prompt.lower():
-        predictions.append(f"درجة الحرارة ستزيد بمقدار {random.randint(2, 8)}°م خلال {hours_ahead} ساعة")
-    if "ضغط" in prompt.lower() or "pressure" in prompt.lower():
-        predictions.append(f"الضغط سيرتفع بمقدار {random.uniform(0.5, 2.1):.1f} بار خلال {hours_ahead} ساعة")
-    if "ميثان" in prompt.lower() or "methane" in prompt.lower():
-        predictions.append(f"مستويات الميثان قد تصل إلى {random.uniform(2.5, 4.8):.1f}% خلال {hours_ahead} ساعة")
-    
-    if predictions:
-        return f"بناءً على الاتجاهات الحالية:\n\n" + "\n\n".join(f"• {pred}" for pred in predictions)
-    else:
-        return "سأقوم بتحليل النظام وتقديم تنبؤات. يرجى تحديد ما تريدني التنبؤ به."
-
-def generate_current_status():
-    """الحالة الحالية للنظام"""
-    return f"الحالة الحالية للنظام:\n• درجة الحرارة: {st.session_state['mqtt_temp']}°م\n• آخر تحديث: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}\n• صحة النظام: جيدة"
-
 # -------------------- Advanced AI Analysis --------------------
 class AdvancedAIAnalyzer:
     def __init__(self):
@@ -625,27 +548,187 @@ class AdvancedAIAnalyzer:
         avg_temp = data['temperature'].mean()
         
         if current_temp > avg_temp + 5:
-            insights.append("🌡️ High temperature detected. Consider checking cooling systems.")
+            insights.append("🌡️ ارتفاع درجة الحرارة. يرجى فحص أنظمة التبريد.")
         elif current_temp < avg_temp - 5:
-            insights.append("🌡️ Low temperature detected. Verify heating systems.")
+            insights.append("🌡️ انخفاض درجة الحرارة. يرجى فحص أنظمة التدفئة.")
         
         current_methane = data['methane'].iloc[-1]
         if current_methane > 2.5:
-            insights.append("⚠️ High methane levels detected. Potential leak possible.")
+            insights.append("⚠️ ارتفاع مستويات الميثان. احتمال وجود تسرب.")
         
         pressure_std = data['pressure'].std()
         if pressure_std > 3:
-            insights.append("📊 Pressure fluctuations detected. System may be unstable.")
+            insights.append("📊 تذبذب في الضغط. النظام قد يكون غير مستقر.")
         
         future_temp_trend = future_data['temperature'].iloc[-1] - future_data['temperature'].iloc[0]
         if abs(future_temp_trend) > 3:
-            trend_dir = "increasing" if future_temp_trend > 0 else "decreasing"
-            insights.append(f"📈 Temperature is {trend_dir}. Expected change: {abs(future_temp_trend):.1f}°C in 24h.")
+            trend_dir = "ارتفاع" if future_temp_trend > 0 else "انخفاض"
+            insights.append(f"📈 درجة الحرارة في {trend_dir}. التغير المتوقع: {abs(future_temp_trend):.1f}°م خلال 24 ساعة.")
         
         return insights
 
 ai_analyzer = AdvancedAIAnalyzer()
 sensor_data = ai_analyzer.generate_sensor_data()
+
+# -------------------- OpenAI Integration --------------------
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+def init_openai(api_key):
+    """تهيئة OpenAI"""
+    if api_key and OPENAI_AVAILABLE:
+        openai.api_key = api_key
+        st.session_state["openai_api_key"] = api_key
+        st.session_state["openai_enabled"] = True
+        return True
+    return False
+
+def generate_openai_response(prompt):
+    """إنشاء رد باستخدام OpenAI"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "أنت مساعد ذكي لمنصة التوأم الرقمي العصبي. أنت متخصص في مراقبة المصانع، التحليلات التنبؤية، وإدارة العمليات الصناعية. قدم إجابات دقيقة ومفيدة باللغة العربية."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"❌ خطأ في OpenAI: {e}")
+        return None
+
+# -------------------- Twilio Integration --------------------
+def send_twilio_alert(message, phone_number):
+    """إرسال تنبيه عبر Twilio"""
+    try:
+        from twilio.rest import Client
+        
+        if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER]):
+            print("❌ إعدادات Twilio غير مكتملة")
+            return False
+            
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        
+        message = client.messages.create(
+            body=message,
+            from_=TWILIO_PHONE_NUMBER,
+            to=phone_number
+        )
+        
+        print(f"✅ تم إرسال الرسالة: {message.sid}")
+        return True
+        
+    except ImportError:
+        print("❌ Twilio غير مثبت")
+        return False
+    except Exception as e:
+        print(f"❌ خطأ في إرسال الرسالة: {e}")
+        return False
+
+# -------------------- المساعد الذكي --------------------
+def generate_ai_response(prompt):
+    """مساعد ذكي مدعوم بالذاكرة الدائمة وOpenAI"""
+    prompt_lower = prompt.lower()
+    
+    # البحث في الذاكرة عن تجارب مشابهة
+    similar_experiences = lifelong_memory.find_similar(
+        {'prompt': prompt, 'type': 'ai_interaction'},
+        min_similarity=0.7
+    )
+    
+    response = ""
+    
+    # استخدام الدروس المستفادة من الذاكرة
+    if similar_experiences and similar_experiences[0]['similarity'] > 0.8:
+        best_memory = similar_experiences[0]['memory']
+        response += f"🧠 بناءً على تجربة سابقة:\n{best_memory['lesson']}\n\n"
+    
+    # استخدام OpenAI إذا كان مفعلاً
+    if st.session_state.get("openai_enabled", False) and st.session_state.get("openai_api_key"):
+        openai_response = generate_openai_response(prompt)
+        if openai_response:
+            response = openai_response
+        else:
+            # الرجوع للرد الافتراضي إذا فشل OpenAI
+            response += generate_fallback_response(prompt_lower)
+    else:
+        # استخدام النظام الافتراضي إذا لم يكن OpenAI مفعلاً
+        response += generate_fallback_response(prompt_lower)
+    
+    # تخزين التجربة في الذاكرة
+    lifelong_memory.add_experience(
+        event_type="ai_interaction",
+        data={'prompt': prompt},
+        outcome="response_generated", 
+        lesson=f"تم الرد على: {prompt[:50]}... باستخدام {'OpenAI' if st.session_state.get('openai_enabled') else 'النظام الافتراضي'}"
+    )
+    
+    return response
+
+def generate_fallback_response(prompt_lower):
+    """إنشاء رد عند عدم توفر OpenAI"""
+    response = ""
+    if any(word in prompt_lower for word in ["الطقس", "درجة الحرارة", "weather", "temperature"]):
+        response += get_weather_info()
+    elif any(word in prompt_lower for word in ["الوقت", "التاريخ", "اليوم", "time", "date", "today"]):
+        response += get_current_time_info()
+    elif any(word in prompt_lower for word in ["مرحبا", "السلام", "hello", "hi"]):
+        response += "مرحباً! أنا المساعد الذكي لمنصة التوأم الرقمي. كيف يمكنني مساعدتك اليوم؟"
+    elif any(word in prompt_lower for word in ["تنبأ", "توقع", "predict", "forecast"]):
+        response += generate_time_based_prediction(prompt_lower)
+    elif any(word in prompt_lower for word in ["حالي", "مباشر", "current", "now"]):
+        response += generate_current_status()
+    else:
+        response += "أنا المساعد الذكي للمنصة. يمكنني مساعدتك في مراقبة المصنع، التنبؤات، الطقس، الوقت، وأسئلة عامة أخرى."
+    
+    return response
+
+def get_weather_info():
+    """معلومات الطقس"""
+    weather_data = {
+        "temperature": random.randint(20, 35),
+        "condition": random.choice(["مشمس", "غائم جزئياً", "صافي"]),
+        "humidity": random.randint(30, 70)
+    }
+    return f"حالة الطقس الحالية:\n• درجة الحرارة: {weather_data['temperature']}°م\n• الحالة: {weather_data['condition']}\n• الرطوبة: {weather_data['humidity']}%"
+
+def get_current_time_info():
+    """معلومات الوقت والتاريخ"""
+    now = datetime.now()
+    return f"الوقت الحالي: {now.strftime('%H:%M:%S')}\nتاريخ اليوم: {now.strftime('%Y-%m-%d')}\nاليوم: {now.strftime('%A')}"
+
+def generate_time_based_prediction(prompt):
+    """إنشاء تنبؤات زمنية"""
+    time_keywords = {"ساعة": 1, "ساعات": 1, "يوم": 24, "أيام": 24, "أسبوع": 168, "أسابيع": 168}
+    hours_ahead = 2
+    
+    for word, value in time_keywords.items():
+        if word in prompt.lower():
+            hours_ahead = value
+            break
+    
+    predictions = []
+    if "حرارة" in prompt.lower() or "temperature" in prompt.lower():
+        predictions.append(f"درجة الحرارة ستزيد بمقدار {random.randint(2, 8)}°م خلال {hours_ahead} ساعة")
+    if "ضغط" in prompt.lower() or "pressure" in prompt.lower():
+        predictions.append(f"الضغط سيرتفع بمقدار {random.uniform(0.5, 2.1):.1f} بار خلال {hours_ahead} ساعة")
+    if "ميثان" in prompt.lower() or "methane" in prompt.lower():
+        predictions.append(f"مستويات الميثان قد تصل إلى {random.uniform(2.5, 4.8):.1f}% خلال {hours_ahead} ساعة")
+    
+    if predictions:
+        return f"بناءً على الاتجاهات الحالية:\n\n" + "\n\n".join(f"• {pred}" for pred in predictions)
+    else:
+        return "سأقوم بتحليل النظام وتقديم تنبؤات. يرجى تحديد ما تريدني التنبؤ به."
+
+def generate_current_status():
+    """الحالة الحالية للنظام"""
+    return f"الحالة الحالية للنظام:\n• درجة الحرارة: {st.session_state['mqtt_temp']}°م\n• آخر تحديث: {st.session_state['mqtt_last'].strftime('%H:%M:%S')}\n• صحة النظام: جيدة"
 
 # -------------------- Custom CSS --------------------
 def apply_custom_css():
@@ -684,6 +767,16 @@ def apply_custom_css():
         font-family: 'Arial', sans-serif;
     }}
     
+    .sub-header {{
+        font-size: 1.6rem; 
+        color: var(--dark); 
+        margin-bottom: 1rem; 
+        font-weight: 600; 
+        border-left: 4px solid var(--gradient-start); 
+        padding-left: 1rem;
+        font-family: 'Arial', sans-serif;
+    }}
+    
     .metric-card {{ 
         background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%); 
         border-radius: 12px; 
@@ -696,6 +789,20 @@ def apply_custom_css():
     .metric-card:hover {{ 
         transform: translateY(-3px); 
         box-shadow: 0 6px 16px rgba(0,0,0,0.15); 
+    }}
+    
+    .kpi-value {{ 
+        font-size: 2rem; 
+        font-weight: 700; 
+        color: var(--gradient-end);
+        font-family: 'Arial', sans-serif;
+    }}
+    
+    .kpi-label {{ 
+        font-size: 0.9rem; 
+        color: var(--dark); 
+        font-weight: 500;
+        font-family: 'Arial', sans-serif;
     }}
     
     .stButton>button {{ 
@@ -727,6 +834,35 @@ def apply_custom_css():
     
     .advanced-section {{
         display: {'block' if st.session_state.get('show_advanced', False) else 'none'};
+    }}
+    
+    .solution-card {{ 
+        background: linear-gradient(135deg, #ffffff 0%, #e8f5e9 100%); 
+        border-radius: 12px; 
+        padding: 1.5rem; 
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        border-left: 4px solid var(--success); 
+    }}
+    
+    .solution-title {{ 
+        font-size: 1.4rem; 
+        font-weight: 700; 
+        color: var(--dark); 
+        margin-bottom: 0.8rem;
+        font-family: 'Arial', sans-serif;
+    }}
+    
+    .solution-detail {{ 
+        margin-bottom: 0.8rem; 
+        font-size: 1rem;
+        font-family: 'Arial', sans-serif;
+    }}
+    
+    .solution-label {{ 
+        font-weight: 600; 
+        color: var(--dark);
+        font-family: 'Arial', sans-serif;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -764,7 +900,7 @@ texts = {
             "🏠 Dashboard", "📊 Predictive Analytics", "🏭 Operations Center", 
             "📱 Live Monitoring", "🤖 AI Copilot", "💡 Smart Solutions",
             "📈 KPI Metrics", "🛡️ SNDT Safety", "🎯 3D Visualization",
-            "ℹ️ About", "🤖 Raspberry Pi Control"
+            "ℹ️ About", "🤖 Raspberry Pi Control", "⚙️ AI Settings"
         ],
         "live3d_header": "Live 3D Plant Visualization"
     },
@@ -775,7 +911,7 @@ texts = {
             "🏠 لوحة التحكم", "📊 التحليلات التنبؤية", "🏭 مركز العمليات", 
             "📱 المراقبة الحية", "🤖 المساعد الذكي", "💡 الحلول الذكية",
             "📈 مؤشرات الأداء", "🛡️ نظام السلامة", "🎯 التصور ثلاثي الأبعاد",
-            "ℹ️ حول النظام", "🤖 تحكم Raspberry Pi"
+            "ℹ️ حول النظام", "🤖 تحكم Raspberry Pi", "⚙️ إعدادات الذكاء الاصطناعي"
         ],
         "live3d_header": "تصور المصنع ثلاثي الأبعاد المباشر"
     }
@@ -1211,7 +1347,10 @@ def sndt_safety_section():
                 st.warning("⚠️ الإجراء: إيقاف التشغيل الفوري وتفعيل نظام التهوية")
                 
                 if st.session_state.get('twilio_enabled', False):
-                    st.info("📱 تم إرسال تنبيه إلى الطاقم الفني")
+                    phone_number = st.session_state.get('alert_phone_number', '')
+                    if phone_number:
+                        send_twilio_alert("🚨 تحذير: تم اكتشاف تسرب غاز! مستوى الميثان: 4.8%", phone_number)
+                        st.info("📱 تم إرسال تنبيه إلى الطاقم الفني")
 
 # -------------------- 3D Visualization Section --------------------
 def enhanced_3d_visualization_section():
@@ -1294,7 +1433,7 @@ def show_live_data_overlay():
         st.metric("📊 الضغط", f"{current_data.get('pressure', 7.2):.1f} بار",
                  delta=f"{random.uniform(-0.3, 0.3):.1f} بار")
     with col3:
-        st.metric("⚠️ الميثان", f"{current_data.get('methane', 1.4):.2f}%",
+        st.metric("⚠️ الميثан", f"{current_data.get('methane', 1.4):.2f}%",
                  delta=f"{random.uniform(-0.2, 0.2):.2f}%")
     
     st.markdown("#### 🗺️ الخريطة الحرارية للمصنع")
@@ -1512,6 +1651,36 @@ def enhanced_raspberry_pi_section():
             lesson=f"قراءة حساسات: {sensor_data['temperature']:.1f}°م"
         )
 
+# -------------------- AI Settings Section --------------------
+def ai_settings_section():
+    st.markdown(f'<div class="main-header">إعدادات الذكاء الاصطناعي</div>', unsafe_allow_html=True)
+    
+    st.markdown("### 🔑 إعدادات OpenAI")
+    
+    api_key = st.text_input("مفتاح OpenAI API", type="password", 
+                           value=st.session_state.get("openai_api_key", ""),
+                           help="احصل على المفتاح من https://platform.openai.com/api-keys")
+    
+    if st.button("حفظ إعدادات OpenAI"):
+        if init_openai(api_key):
+            st.success("✅ تم حفظ إعدادات OpenAI بنجاح")
+        else:
+            st.warning("⚠️ لم يتم تهيئة OpenAI، تأكد من تثبيت الحزمة والمفتاح")
+    
+    st.markdown("### 📱 إعدادات Twilio")
+    
+    twilio_enabled = st.checkbox("تفعيل إرسال التنبيهات", value=st.session_state.get("twilio_enabled", True))
+    st.session_state["twilio_enabled"] = twilio_enabled
+    
+    alert_number = st.text_input("رقم الهاتف للتنبيهات", value=st.session_state.get("alert_phone_number", ""))
+    st.session_state["alert_phone_number"] = alert_number
+    
+    if st.button("اختبار إرسال التنبيه"):
+        if send_twilio_alert("🔔 هذا اختبار لنظام التنبيهات", alert_number):
+            st.success("✅ تم إرسال التنبيه بنجاح")
+        else:
+            st.error("❌ فشل إرسال التنبيه، تأكد من إعدادات Twilio")
+
 # -------------------- Main Application --------------------
 def main():
     with st.sidebar:
@@ -1557,6 +1726,8 @@ def main():
         about_section()
     elif section == t["side_sections"][10]:
         enhanced_raspberry_pi_section()
+    elif section == t["side_sections"][11]:
+        ai_settings_section()
 
 if __name__ == "__main__":
     main()
