@@ -1697,7 +1697,7 @@ def dashboard_section():
     
     with col2:
         fig_methane = px.line(live_data, x="time", y="Methane", title="الميثان خلال last 30 minutes")
-                fig_methane.update_layout(height=300, xaxis_title="الوقت", yaxis_title="الميثان (ppm)")
+        fig_methane.update_layout(height=300, xaxis_title="الوقت", yaxis_title="الميثان (ppm)")
         st.plotly_chart(fig_methane, use_container_width=True)
     
     # التنبيهات والتوصيات
