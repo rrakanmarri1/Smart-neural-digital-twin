@@ -231,7 +231,7 @@ class TranslationSystem:
 translator = TranslationSystem()
 
 # -------------------- SVG Logo --------------------
-logo_svg = """<svg width="64" height="64" viewBox="0 0 64 64" fill="none"> <circle cx="32" cy="32" r="32" fill="url(#grad1)"/><defs> <linearGradient id="grad1" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"> <stop stop-color="#43cea2"/><stop offset="1" stop-color="#185a9d"/></linearGradient></defs> <g><ellipse cx="32" cy="32" rx="22" ry="10" fill="#fff" fill-opacity="0.18"/> <ellipse cx="32" cy="32" rx="12" ry="22" fill="#fff" fill-opacity="0.10"/> <path d="M20 32a12 12 0 1 0 24 0 12 12 0 1 0 -24 0" fill="#fff" fill-opacity="0.7"/> <path d="M32 16v32M16 32h32" stroke="#185a9d" stroke-width="2" stroke-linecap="round"/> <circle cx="32" cy="32" r="6" fill="#43cea2" stroke="#185a9d" stroke-width="2"/></g></svg>"""
+logo_svg = """<svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#1f77b4"/><text x="32" y="38" text-anchor="middle" fill="#fff" font-size="24" font-family="Arial">SNDT</text></svg>"""
 
 # -------------------- MQTT Config --------------------
 MQTT_BROKER = "broker.emqx.io"
@@ -952,9 +952,9 @@ def send_twilio_alert(message, phone_number):
     try:
         from twilio.rest import Client
         
-        account_sid = "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-        auth_token = "your_auth_token"
-        from_number = "+12345678901"
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID", "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN", "your_auth_token")
+        from_number = os.getenv("TWILIO_FROM_NUMBER", "+12345678901")
         
         client = Client(account_sid, auth_token)
         
@@ -1026,7 +1026,7 @@ class DigitalTwinOptimizer:
         recommendations = []
         
         for rule_name, rule in self.optimization_rules.items():
-            if rule["condition"](current_data):
+                        if rule["condition"](current_data):
                 recommendations.append({
                     "rule": rule_name,
                     "action": rule["action"],
@@ -1279,7 +1279,7 @@ class EmergencyResponseSystem:
             ],
             "critical": [
                 "إخلاء المنطقة فوراً",
-                "إيقاف النظام بالكامل",
+                "إوقف النظام بالكامل",
                 "إخطار الدفاع المدني والطوارئ"
             ]
         }
