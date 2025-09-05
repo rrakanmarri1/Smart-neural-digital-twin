@@ -1014,24 +1014,24 @@ class DigitalTwinOptimizer:
         }
     
     def analyze_current_state(self):
-        current_data = {
-            "mqtt_temp": st.session_state.get("mqtt_temp", 55),
-            "pressure": st.session_state.get("pressure", 7.2),
-            "methane": st.session_state.get("methane", 1.4),
-            "vibration": st.session_state.get("vibration", 4.5),
-            "flow_rate": st.session_state.get("flow_rate", 110.0)
-        }
-        
-        recommendations = []
-        
-        for rule_name, rule in self.optimization_rules.items():
-                        if rule["condition"](current_data):
-                recommendations.append({
-                    "rule": rule_name,
-                    "action": rule["action"],
-                    "impact": rule["impact"],
-                    "timestamp": datetime.now().isoformat()
-                })
+    current_data = {
+        "mqtt_temp": st.session_state.get("mqtt_temp", 55),
+        "pressure": st.session_state.get("pressure", 7.2),
+        "methane": st.session_state.get("methane", 1.4),
+        "vibration": st.session_state.get("vibration", 4.5),
+        "flow_rate": st.session_state.get("flow_rate", 110.0)
+    }
+    
+    recommendations = []
+    
+    for rule_name, rule in self.optimization_rules.items():
+        if rule["condition"](current_data):
+            recommendations.append({
+                "rule": rule_name,
+                "action": rule["action"],
+                "impact": rule["impact"],
+                "timestamp": datetime.now().isoformat()
+            })
         
         if recommendations:
             st.session_state["recommendations"] = recommendations
