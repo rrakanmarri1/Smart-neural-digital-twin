@@ -232,7 +232,6 @@ translator = TranslationSystem()
 
 # -------------------- SVG Logo --------------------
 logo_svg = """<svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#1f77b4"/><text x="32" y="38" text-anchor="middle" fill="#fff" font-size="24" font-family="Arial">SNDT</text></svg>"""
-
 # -------------------- MQTT Config --------------------
 MQTT_BROKER = "broker.emqx.io"
 MQTT_PORT = 1883
@@ -2439,7 +2438,7 @@ def settings_help_section():
         ### منصة SNDT - التوأم الرقمي الذكي
         
         **الإصدار:** 1.0.0
-        **تاريخ البناء:** 2023-07-01
+        **تاريخ البناء:** 2025-07-01
         
         منصة SNDT هي نظام متكامل لإدارة المصانع والعمليات الصناعية باستخدام تقنيات التوأم الرقمي والذكاء الاصطناعي.
         
