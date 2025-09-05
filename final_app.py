@@ -1013,7 +1013,7 @@ class DigitalTwinOptimizer:
             }
         }
     
-    def analyze_current_state(self):
+def analyze_current_state(self):
     current_data = {
         "mqtt_temp": st.session_state.get("mqtt_temp", 55),
         "pressure": st.session_state.get("pressure", 7.2),
@@ -1032,19 +1032,19 @@ class DigitalTwinOptimizer:
                 "impact": rule["impact"],
                 "timestamp": datetime.now().isoformat()
             })
-        
-        if recommendations:
-            st.session_state["recommendations"] = recommendations
-            for rec in recommendations:
-                self.optimization_history.append(rec)
-                lifelong_memory.add_experience(
-                    "optimization", 
-                    f"حالة النظام: {current_data}", 
-                    f"تم اقتراح: {rec['action']} بسبب {rec['rule']}"
-                )
-        
-        logger.info(f"تم توليد {len(recommendations)} توصية تحسين")
-        return recommendations
+    
+    if recommendations:
+        st.session_state["recommendations"] = recommendations
+        for rec in recommendations:
+            self.optimization_history.append(rec)
+            lifelong_memory.add_experience(
+                "optimization", 
+                f"حالة النظام: {current_data}", 
+                f"تم اقتراح: {rec['action']} بسبب {rec['rule']}"
+            )
+    
+    logger.info(f"تم توليد {len(recommendations)} توصية تحسين")
+    return recommendations
     
     def apply_optimization(self, optimization):
         try:
