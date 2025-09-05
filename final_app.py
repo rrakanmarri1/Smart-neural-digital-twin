@@ -951,9 +951,9 @@ def send_twilio_alert(message, phone_number):
     try:
         from twilio.rest import Client
         
-        account_sid = os.getenv("TWILIO_ACCOUNT_SID", "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-        auth_token = os.getenv("TWILIO_AUTH_TOKEN", "your_auth_token")
-        from_number = os.getenv("TWILIO_FROM_NUMBER", "+12345678901")
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        from_number = os.getenv("TWILIO_FROM_NUMBER")
         
         client = Client(account_sid, auth_token)
         
@@ -1179,39 +1179,39 @@ class EmergencyResponseSystem:
         }
     
     def load_emergency_protocols(self):
-        return {
-            "temperature_extreme": {
-                "condition": lambda data: data.get("mqtt_temp", 0) > 75 or data.get("mqtt_temp", 0) < 40,
-                "message": "خطر: درجة حرارة غير طبيعية",
-                "level": "critical" if data.get("mqtt_temp", 0) > 75 else "high",
-                "actions": [
-                    "إيقاف النظام فوراً",
-                    "تفعيل نظام التبريد/التسخين الاحتياطي",
-                    "إخطار فريق الصيانة العاجل"
-                ]
-            },
-            "pressure_extreme": {
-                "condition": lambda data: data.get("pressure", 0) > 10 or data.get("pressure", 0) < 5,
-                "message": "خطر: ضغط غير طبيعي",
-                "level": "critical",
-                "actions": [
-                    "تفعيل صمامات الأمان تلقائياً",
-                    "تقليل ضغط التشغيل فوراً",
-                    "إخلاء المنطقة إذا لزم الأمر"
-                ]
-            },
-            "methane_leak": {
-                "condition": lambda data: data.get("methane", 0) > 4.0,
-                "message": "تحذير: تسرب غاز محتمل",
-                "level": "critical",
-                "actions": [
-                    "تفعيل نظام التهوية القصوى",
-                    "إيقاف مصادر الاشتعال",
-                    "إخلاء المنطقة فوراً",
-                    "إخطار فريق الطوارئ"
-                ]
-            }
+    return {
+        "temperature_extreme": {
+            "condition": lambda data: data.get("mqtt_temp", 0) > 75 or data.get("mqtt_temp", 0) < 40,
+            "message": "خطر: درجة حرارة غير طبيعية",
+            "level_func": lambda data: "critical" if data.get("mqtt_temp", 0) > 75 else "high",
+            "actions": [
+                "إيقاف النظام فوراً",
+                "تفعيل نظام التبريد/التسخين الاحتياطي",
+                "إخطار فريق الصيانة العاجل"
+            ]
+        },
+        "pressure_extreme": {
+            "condition": lambda data: data.get("pressure", 0) > 10 or data.get("pressure", 0) < 5,
+            "message": "خطر: ضغط غير طبيعي",
+            "level_func": lambda data: "critical",
+            "actions": [
+                "تفعيل صمامات الأمان تلقائياً",
+                "تقليل ضغط التشغيل فوراً",
+                "إخلاء المنطقة إذا لزم الأمر"
+            ]
+        },
+        "methane_leak": {
+            "condition": lambda data: data.get("methane", 0) > 4.0,
+            "message": "تحذير: تسرب غاز محتمل",
+            "level_func": lambda data: "critical",
+            "actions": [
+                "تفعيل نظام التهوية القصوى",
+                "إيقاف مصادر الاشتعال",
+                "إخلاء المنطقة فوراً",
+                "إخطار فريق الطوارئ"
+            ]
         }
+    }
     
     def check_emergency_conditions(self, sensor_data):
         emergencies = []
@@ -1221,7 +1221,7 @@ class EmergencyResponseSystem:
                 emergency = {
                     "protocol": protocol_name,
                     "message": protocol["message"],
-                    "level": protocol["level"],
+                    "level": protocol["level_func"](sensor_data),
                     "actions": protocol["actions"],
                     "timestamp": datetime.now().isoformat(),
                     "sensor_data": sensor_data
@@ -1278,7 +1278,7 @@ class EmergencyResponseSystem:
             ],
             "critical": [
                 "إخلاء المنطقة فوراً",
-                "إوقف النظام بالكامل",
+                "إيقاف النظام بالكامل",
                 "إخطار الدفاع المدني والطوارئ"
             ]
         }
