@@ -40,6 +40,3 @@ MQTT_TOPIC_TEMPERATURE = "sndt/temperature"
 MQTT_TOPIC_PRESSURE = "sndt/pressure"
 MQTT_TOPIC_METHANE = "sndt/methane"
 MQTT_TOPIC_CONTROL = "sndt/control"
-
-# -------------------- SVG Logo --------------------
-logo_svg = """<svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#1f77b4"/><text x="32" y="38" text-anchor="middle" fill="#fff" font-size="24" font-family="Arial">SNDT</text></svg>"""
