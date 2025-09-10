@@ -737,3 +737,7 @@ def generate_general_response(prompt, language="ar"):
         ]
     
     return random.choice(general_responses)
+
+def generate_fallback_response(prompt, language="ar"):
+    """إنشاء رد عند عدم توفر OpenAI - مع تحديد اللغة"""
+    return generate_improved_fallback_response(prompt, language)
