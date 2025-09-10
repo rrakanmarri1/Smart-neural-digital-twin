@@ -331,7 +331,7 @@ class AdvancedAIAnalyzer:
 
 ai_analyzer = AdvancedAIAnalyzer()
 
-# -------------------- نظام SNDT Chat الذكي --------------------
+# -------------------- نظام SNDT Chat الذكي المتقدم --------------------
 class SNDTChatSystem:
     """نظام دردشة ذكي مع تنبؤ بالمشاكل وتوصيات ذكية"""
     def __init__(self):
@@ -534,15 +534,22 @@ class SNDTChatSystem:
 
 sndt_chat = SNDTChatSystem()
 
-# -------------------- المساعد الذكي --------------------
+# -------------------- المساعد الذكي المتقدم --------------------
 def generate_ai_response(prompt):
-    """مساعد ذكي مدعوم بالذاكرة الدائمة"""
-    prompt_lower = prompt.lower()
+    """مساعد ذكي مدعوم بالذاكرة الدائمة - يجيب بنفس لغة السؤال"""
     
-    if st.session_state.get("openai_enabled", False) and st.session_state.get("openai_api_key", ""):
-        try:
+    # تحديد لغة السؤال (عربي أو إنجليزي)
+    is_english = any(char in 'abcdefghijklmnopqrstuvwxyz' for char in prompt.lower())
+    response_language = "en" if is_english else "ar"
+    
+    # استخدام OpenAI إذا كان متاحًا من خلال secrets
+    try:
+        # محاولة الحصول على API key من secrets
+        openai_api_key = st.secrets.get("OPENAI_API_KEY", "")
+        
+        if openai_api_key:
             import openai
-            openai.api_key = st.session_state["openai_api_key"]
+            openai.api_key = openai_api_key
             
             # تجميع السياق من الذاكرة الدائمة والبيانات الحالية
             context = "\n".join([
@@ -561,25 +568,31 @@ def generate_ai_response(prompt):
             - حالة النظام: {'جيدة' if st.session_state.get('mqtt_temp', 55) < 60 else 'تحت المراقبة'}
             """
             
+            # تحديد لغة الرد بناءً على لغة السؤال
+            language_instruction = "Respond in English." if is_english else "الرد باللغة العربية."
+            
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4",
                 messages=[
-                    {"role": "system", "content": f"""أنت مساعد ذكي لمنصة التوأم الرقمي SNDT. 
+                    {"role": "system", "content": f"""أنت مساعد ذكي متقدم لمنصة التوأم الرقمي SNDT. 
                     أنت متخصص في تحليل بيانات المصانع والتنبؤ بالمشاكل وتقديم التوصيات.
+                    
+                    {language_instruction}
                     
                     السياق من الذاكرة الدائمة: {context}
                     
                     {current_data}
                     
                     قواعد يجب اتباعها:
-                    1. قدم إجابات دقيقة وواقعية بناءً على البيانات
-                    2. ركز على السلامة والكفاءة في التوصيات
-                    3. كن واضحاً ومباشراً في الإجابات
-                    4. إذا لاحظت مشكلة محتملة، نبه المستخدم واقترح حلولاً
-                    5. استخدم لغة عربية فصحى واضحة"""},
+                    1. فهم أي سؤال بغض النظر عن صياغته
+                    2. قدم إجابات دقيقة وواقعية بناءً على البيانات المتاحة
+                    3. ركز على السلامة والكفاءة في التوصيات
+                    4. كن واضحاً ومباشراً في الإجابات
+                    5. إذا لم يكن لديك معلومات كافية، اطلب توضيحاً
+                    6. استخدم نفس لغة السؤال في الرد"""},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500,
+                max_tokens=600,
                 temperature=0.7
             )
             
@@ -589,7 +602,8 @@ def generate_ai_response(prompt):
                 "user": prompt,
                 "assistant": ai_response,
                 "timestamp": datetime.now().isoformat(),
-                "source": "openai"
+                "source": "openai",
+                "language": response_language
             })
             
             # إضافة هذه التجربة إلى الذاكرة الدائمة
@@ -599,119 +613,127 @@ def generate_ai_response(prompt):
                 f"تم الرد باستخدام الذكاء الاصطناعي: {ai_response[:100]}..."
             )
             
-            logger.info("تم توليد رد باستخدام OpenAI")
+            logger.info(f"تم توليد رد باستخدام OpenAI باللغة: {response_language}")
             return ai_response
+        else:
+            # إذا لم يتم العثور على API key في secrets
+            return generate_improved_fallback_response(prompt, response_language)
             
-        except Exception as e:
-            logger.error(f"خطأ في الاتصال بـ OpenAI: {e}")
-            return generate_fallback_response(prompt_lower)
+    except Exception as e:
+        logger.error(f"خطأ في الاتصال بـ OpenAI: {e}")
+        return generate_improved_fallback_response(prompt, response_language)
+
+def generate_improved_fallback_response(prompt, language="ar"):
+    """إنشاء رد محسن عند عدم توفر OpenAI - باستخدام اللغة المحددة"""
+    prompt_lower = prompt.lower()
     
+    # الردود بالعربية
+    if language == "ar":
+        if any(word in prompt_lower for word in ["كيف", "طريقة", "method", "how"]):
+            return generate_how_to_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["لماذا", "سبب", "reason", "why"]):
+            return generate_why_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["متى", "وقت", "time", "when"]):
+            return generate_when_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["أين", "مكان", "location", "where"]):
+            return "هذا النظام يركز على تحليل البيانات والعمليات، وليس له موقع جغرافي محدد."
+        elif any(word in prompt_lower for word in ["من", "شخص", "person", "who"]):
+            return "أنا المساعد الذكي لمنصة SNDT. يمكنني مساعدتك في إدارة وتحليل بيانات المصنع."
+        else:
+            return generate_general_response(prompt_lower, language)
+    
+    # الردود بالإنجليزية
     else:
-        return sndt_chat.generate_response(prompt)
+        if any(word in prompt_lower for word in ["how", "method"]):
+            return generate_how_to_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["why", "reason"]):
+            return generate_why_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["when", "time"]):
+            return generate_when_response(prompt_lower, language)
+        elif any(word in prompt_lower for word in ["where", "location"]):
+            return "This system focuses on data analysis and operations, not geographical location."
+        elif any(word in prompt_lower for word in ["who", "person"]):
+            return "I am the smart assistant for the SNDT platform. I can help you manage and analyze factory data."
+        else:
+            return generate_general_response(prompt_lower, language)
 
-def generate_fallback_response(prompt_lower):
-    """إنشاء رد عند عدم توفر OpenAI"""
-    response = ""
-    if any(word in prompt_lower for word in ["الطقس", "درجة الحرارة", "weather", "temperature"]):
-        response += get_weather_info()
-    elif any(word in prompt_lower for word in ["الوقت", "التاريخ", "اليوم", "time", "date", "today"]):
-        response += get_current_time_info()
-    elif any(word in prompt_lower for word in ["مرحبا", "السلام", "hello", "hi"]):
-        response += "مرحباً! أنا المساعد الذكي لمنصة التوأم الرقمي. كيف يمكنني مساعدتك اليوم؟"
-    elif any(word in prompt_lower for word in ["تنبأ", "توقع", "predict", "forecast"]):
-        response += generate_time_based_prediction(prompt_lower)
-    elif any(word in prompt_lower for word in ["حالي", "مباشر", "current", "now"]):
-        response += generate_current_status()
+def generate_how_to_response(prompt, language="ar"):
+    """الرد على أسئلة 'كيف' / 'how'"""
+    if language == "ar":
+        responses = [
+            "يمكنني شرح ذلك بالتفصيل. ما الجزء الذي تريد معرفة المزيد عنه؟",
+            "هناك عدة طرق للقيام بذلك. هل يمكنك توضيح هدفك؟",
+            "يعتمد ذلك على عدة عوامل. هل تريد الإجراءات التفصيلية؟",
+            "سأشرح لك الخطوات بالترتيب. من أي نقطة تريد البدء؟"
+        ]
     else:
-        response += "أنا المساعد الذكي للمنصة. يمكنني مساعدتك في مراقبة المصنع، التنبؤات، الطقس، الوقت، وأسئلة عامة أخرى."
-    
-    st.session_state["chat_history"].append({
-        "user": prompt_lower,
-        "assistant": response,
-        "timestamp": datetime.now().isoformat(),
-        "source": "fallback"
-    })
-    
-    return response
+        responses = [
+            "I can explain that in detail. Which part would you like to know more about?",
+            "There are several ways to do this. Can you clarify your goal?",
+            "It depends on several factors. Would you like detailed procedures?",
+            "I'll explain the steps in order. Where would you like to start?"
+        ]
+    return random.choice(responses)
 
-def get_weather_info():
-    """معلومات الطقس"""
-    weather_data = {
-        "temperature": random.randint(20, 35),
-        "condition": random.choice(["مشمس", "غائم جزئياً", "صافي"]),
-        "humidity": random.randint(30, 70)
-    }
-    return f"""حالة الطقس الحالية:
-• درجة الحرارة: {weather_data['temperature']}°م
-• الحالة: {weather_data['condition']}
-• الرطوبة: {weather_data['humidity']}%"""
+def generate_why_response(prompt, language="ar"):
+    """الرد على أسئلة 'لماذا' / 'why'"""
+    if language == "ar":
+        responses = [
+            "هناك عدة أسباب لذلك. الأهم هو ضمان السلامة والكفاءة.",
+            "ذلك يعود إلى معايير السلامة وكفاءة الطاقة في النظام.",
+            "السبب الرئيسي هو الحفاظ على استقرار العمليات وجودة المنتج.",
+            "هذا الإجراء مبني على تحليل البيانات والتجارب السابقة."
+        ]
+    else:
+        responses = [
+            "There are several reasons for this. The most important is ensuring safety and efficiency.",
+            "This is due to safety standards and energy efficiency in the system.",
+            "The main reason is to maintain operational stability and product quality.",
+            "This action is based on data analysis and previous experiences."
+        ]
+    return random.choice(responses)
 
-def get_current_time_info():
-    """معلومات الوقت والتاريخ"""
-    now = datetime.now()
-    return f"""الوقت الحالي: {now.strftime('%H:%M:%S')}
-تاريخ اليوم: {now.strftime('%Y-%m-%d')}
-اليوم: {now.strftime('%A')}"""
+def generate_when_response(prompt, language="ar"):
+    """الرد على أسئلة 'متى' / 'when'"""
+    if language == "ar":
+        responses = [
+            "الوقت المناسب يعتمد على الظروف الحالية للعمليات.",
+            "يمكن تحديد الوقت الأمثل بناءً على تحليل البيانات الحالية.",
+            "ذلك يختلف حسب حالة النظام والعوامل الخارجية.",
+            "سأقترح الوقت المناسب بعد تحليل البيانات الحالية."
+        ]
+    else:
+        responses = [
+            "The appropriate time depends on current operational conditions.",
+            "The optimal time can be determined based on current data analysis.",
+            "This varies depending on system status and external factors.",
+            "I will suggest the appropriate time after analyzing current data."
+        ]
+    return random.choice(responses)
 
-def generate_time_based_prediction(prompt):
-    """إنشاء تنبؤات زمنية"""
-    time_keywords = {"ساعة": 1, "ساعات": 1, "يوم": 24, "أيام": 24, "أسبوع": 168, "أسابيع": 168}
-    hours_ahead = 2
-    
-    for keyword, hours in time_keywords.items():
-        if keyword in prompt:
-            hours_ahead = hours
-            break
-    
-    # تحليل البيانات الحالية لإنشاء تنبؤات أكثر دقة
+def generate_general_response(prompt, language="ar"):
+    """الرد العام على أي سؤال"""
     current_temp = st.session_state.get("mqtt_temp", 55)
     current_pressure = st.session_state.get("pressure", 7.2)
     current_methane = st.session_state.get("methane", 1.4)
     
-    predictions = []
-    
-    if current_temp > 60:
-        predictions.append(f"درجة الحرارة قد تصل إلى {current_temp + 2}°م")
-    elif current_temp < 50:
-        predictions.append(f"درجة الحرارة قد تنخفض إلى {current_temp - 2}°م")
+    if language == "ar":
+        general_responses = [
+            "هذا سؤال مثير للاهتمام. بناءً على البيانات الحالية، أستطيع مساعدتك في ذلك.",
+            f"شكراً لسؤالك. حالياً، النظام يعمل بشكل { 'مستقر' if current_temp < 60 else 'تحت المراقبة' }.",
+            "سأحاول مساعدتك في هذا الأمر. هل يمكنك إعطائي المزيد من التفاصيل؟",
+            "هذا موضوع مهم. بناءً على تحليل البيانات، يمكنني تقديم التوصيات المناسبة.",
+            f"حالياً، درجة الحرارة {current_temp}°م والضغط {current_pressure} بار. كيف يمكنني مساعدتك؟",
+            "أنا هنا للإجابة على استفساراتك. ما الجانب الذي تريد التركيز عليه؟"
+        ]
     else:
-        predictions.append(f"درجة الحرارة ستستقر حول {current_temp}°م")
+        general_responses = [
+            "That's an interesting question. Based on current data, I can help you with that.",
+            f"Thank you for your question. Currently, the system is operating { 'stably' if current_temp < 60 else 'under monitoring' }.",
+            "I'll try to help you with this matter. Can you give me more details?",
+            "This is an important topic. Based on data analysis, I can provide appropriate recommendations.",
+            f"Currently, temperature is {current_temp}°C and pressure is {current_pressure} bar. How can I assist you?",
+            "I'm here to answer your inquiries. Which aspect would you like to focus on?"
+        ]
     
-    if current_pressure > 8.0:
-        predictions.append("ضغط النظام سيظل مرتفعاً ويتطلب مراقبة")
-    else:
-        predictions.append("ضغط النظام سيبقى ضمن النطاق الآمن")
-    
-    if current_methane > 2.5:
-        predictions.append("مستويات الميثان مرتفعة وقد تتطلب تدخلاً")
-    else:
-        predictions.append("مستويات الميثان ستظل مستقرة")
-    
-    return f"خلال الـ {hours_ahead} ساعة القادمة، {'، '.join(predictions)}"
-
-def generate_current_status():
-    """الحالة الحالية للنظام"""
-    # تحليل شامل للحالة الحالية
-    current_temp = st.session_state.get("mqtt_temp", 55)
-    temp_status = "طبيعية" if 50 <= current_temp <= 60 else "مرتفعة" if current_temp > 60 else "منخفضة"
-    
-    current_pressure = st.session_state.get("pressure", 7.2)
-    pressure_status = "طبيعي" if 6.5 <= current_pressure <= 8.0 else "مرتفع" if current_pressure > 8.0 else "منخفض"
-    
-    current_methane = st.session_state.get("methane", 1.4)
-    methane_status = "طبيعي" if current_methane <= 2.0 else "مرتفع"
-    
-    system_health = "جيدة"
-    if current_temp > 65 or current_pressure > 9.0 or current_methane > 3.0:
-        system_health = "تحت المراقبة"
-    if current_temp > 70 or current_pressure > 10.0 or current_methane > 4.0:
-        system_health = "في خطر"
-    
-    return f"""الحالة الحالية للنظام:
-• درجة الحرارة: {current_temp}°م ({temp_status})
-• الضغط: {current_pressure} بار ({pressure_status})
-• الميثان: {current_methane} ppm ({methane_status})
-• الاهتزاز: {st.session_state.get('vibration', 4.5)}
-• معدل التدفق: {st.session_state.get('flow_rate', 110)}
-• آخر تحديث: {st.session_state.get('mqtt_last', datetime.now()).strftime('%H:%M:%S')}
-• صحة النظام: {system_health}"""
+    return random.choice(general_responses)
