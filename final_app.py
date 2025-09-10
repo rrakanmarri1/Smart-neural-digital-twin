@@ -58,14 +58,14 @@ def dashboard_section():
         efficiency = sustainability_monitor.calculate_energy_efficiency()
         st.markdown(f"""
         <div class="metric-card">
-            <h3>كفاءة الطاقة</h3>
+            <h3>{translator.get_text('energy_efficiency')}</h3>
             <h2>{efficiency:.1f}%</h2>
             <p>{'▲ جيدة' if efficiency > 80 else '▼ تحتاج تحسين'}</p>
         </div>
         """, unsafe_allow_html=True)
     
     # مخططات البيانات
-    st.markdown(f'<div class="section-header">البيانات المباشرة</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-header">{translator.get_text("real_time_data")}</div>', unsafe_allow_html=True)
     
     live_data = pd.DataFrame({
         "time": [datetime.now() - timedelta(minutes=i) for i in range(30, 0, -1)],
@@ -74,20 +74,20 @@ def dashboard_section():
         "Methane": np.random.normal(st.session_state.get("methane", 1.4), 0.1, 30)
     })
     
-    fig_temp = px.line(live_data, x="time", y="Temperature", title="درجة الحرارة خلال last 30 minutes")
-    fig_temp.update_layout(height=300, xaxis_title="الوقت", yaxis_title="درجة الحرارة (°م)")
+    fig_temp = px.line(live_data, x="time", y="Temperature", title=f"{translator.get_text('temperature')} خلال last 30 minutes")
+    fig_temp.update_layout(height=300, xaxis_title="الوقت", yaxis_title=f"{translator.get_text('temperature')} (°م)")
     st.plotly_chart(fig_temp, use_container_width=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        fig_pressure = px.line(live_data, x="time", y="Pressure", title="الضغط خلال last 30 minutes")
-        fig_pressure.update_layout(height=300, xaxis_title="الوقت", yaxis_title="الضغط (بار)")
+        fig_pressure = px.line(live_data, x="time", y="Pressure", title=f"{translator.get_text('pressure')} خلال last 30 minutes")
+        fig_pressure.update_layout(height=300, xaxis_title="الوقت", yaxis_title=f"{translator.get_text('pressure')} (بار)")
         st.plotly_chart(fig_pressure, use_container_width=True)
     
     with col2:
-        fig_methane = px.line(live_data, x="time", y="Methane", title="الميثان خلال last 30 minutes")
-        fig_methane.update_layout(height=300, xaxis_title="الوقت", yaxis_title="الميثان (ppm)")
+        fig_methane = px.line(live_data, x="time", y="Methane", title=f"{translator.get_text('methane')} خلال last 30 minutes")
+        fig_methane.update_layout(height=300, xaxis_title="الوقت", yaxis_title=f"{translator.get_text('methane')} (ppm)")
         st.plotly_chart(fig_methane, use_container_width=True)
     
     # التنبيهات والتوصيات
@@ -311,13 +311,13 @@ def operations_control_section():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("الإنتاج اليومي", "2,450 طن", "+3.2%")
+        st.metric(translator.get_text("production"), "2,450 طن", "+3.2%")
     
     with col2:
-        st.metric("كفاءة الطاقة", "87.5%", "+1.8%")
+        st.metric(translator.get_text("energy_efficiency"), "87.5%", "+1.8%")
     
     with col3:
-        st.metric("الجودة", "98.2%", "-0.4%")
+        st.metric(translator.get_text("quality"), "98.2%", "-0.4%")
     
     # مخطط أداء العمليات
     operation_data = pd.DataFrame({
@@ -504,13 +504,13 @@ def safety_emergency_section():
     
     with col1:
         days_since = (datetime.now() - datetime(2023, 1, 1)).days
-        st.metric("الأيام بدون حوادث", f"{days_since} يوم")
+        st.metric(translator.get_text("days_without_incidents"), f"{days_since} يوم")
     
     with col2:
-        st.metric("التنبيهات النشطة", "3", "-1 من الأسبوع الماضي")
+        st.metric(translator.get_text("active_alerts"), "3", "-1 من الأسبوع الماضي")
     
     with col3:
-        st.metric("مستوى المخاطر", "منخفض", "2%")
+        st.metric(translator.get_text("risk_level"), "منخفض", "2%")
     
     # خريطة الحرارة للمخاطر
     risk_data = pd.DataFrame({
@@ -767,23 +767,6 @@ def smart_assistant_section():
         st.write("• هل هناك أي مشاكل متوقعة؟")
         st.write("• ما هي توصياتك لتحسين الأداء؟")
         st.write("• ما هو الطقس اليوم؟")
-    
-    # إعدادات الذكاء الاصطناعي
-    st.markdown(f'<div class="section-header">إعدادات الذكاء الاصطناعي</div>', unsafe_allow_html=True)
-    
-    openai_enabled = st.toggle("تفعيل OpenAI (GPT)", value=st.session_state.get("openai_enabled", False))
-    st.session_state["openai_enabled"] = openai_enabled
-    
-    if openai_enabled:
-        api_key = st.text_input("OpenAI API Key", type="password", value=st.session_state.get("openai_api_key", ""))
-        st.session_state["openai_api_key"] = api_key
-        
-        if api_key:
-            st.success("تم تفعيل الذكاء الاصطناعي المتقدم")
-        else:
-            st.warning("يرجى إدخال مفتاح API لتفعيل الذكاء الاصطناعي المتقدم")
-    else:
-        st.info("يستخدم النظام الذكاء الاصطناعي المدمج (بدون OpenAI)")
 
 def settings_help_section():
     """الإعدادات والمساعدة"""
@@ -906,17 +889,6 @@ def settings_help_section():
         - اتصل بفريق الدعم الفني
         - تحقق من forums المجتمع
         """)
-    
-    # معلومات الاتصال
-    st.markdown(f'<div class="section-header">الدعم والاتصال</div>', unsafe_allow_html=True)
-    
-    st.write("**ساعات الدعم:** الأحد - الخميس، 8 ص - 5 م")
-    st.write("**هاتف الدعم:** +966 12 345 6789")
-    st.write("**البريد الإلكتروني:** support@sndt.com")
-    st.write("**الموقع الإلكتروني:** https://sndt.com")
-    
-    if st.button("طلب دعم فني"):
-        st.info("تم إرسال طلب الدعم الفني. سيتصل بك فريق الدعم خلال 24 ساعة.")
 
 # -------------------- التطبيق الرئيسي --------------------
 def main():
@@ -930,24 +902,24 @@ def main():
         
         # اختيار القسم
         sections = translator.get_text("side_sections")
-        selected_section = st.radio("اختر القسم", sections, index=0)
+        selected_section = st.radio(translator.get_text("choose_section"), sections, index=0)
         
         st.divider()
         
         # معلومات النظام
-        st.write("**معلومات النظام:**")
-        st.write(f"الحالة: {'متصل' if st.session_state.get('mqtt_connected', False) else 'غير متصل'}")
-        st.write(f"آخر تحديث: {st.session_state.get('mqtt_last', datetime.now()).strftime('%H:%M:%S')}")
+        st.write(f"**{translator.get_text('system_info')}:**")
+        st.write(f"{translator.get_text('system_status_real') if st.session_state.get('mqtt_connected', False) else translator.get_text('system_status_simulation')}")
+        st.write(f"{translator.get_text('last_update')}: {st.session_state.get('mqtt_last', datetime.now()).strftime('%H:%M:%S')}")
         
         if st.session_state.get("pi_connected", False):
-            st.success("✓ Raspberry Pi متصل")
+            st.success(f"✓ Raspberry Pi {translator.get_text('connected')}")
         else:
-            st.error("✗ Raspberry Pi غير متصل")
+            st.error(f"✗ Raspberry Pi {translator.get_text('disconnected')}")
         
         st.divider()
         
         # الإصدار
-        st.write("الإصدار: 1.0.0")
+        st.write(f"{translator.get_text('version')}: 1.0.0")
     
     # عرض القسم المحدد
     section_index = sections.index(selected_section)
