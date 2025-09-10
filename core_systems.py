@@ -10,10 +10,42 @@ import random
 import time
 import json
 import hashlib
-from config_and_logging import logger, MQTT_BROKER, MQTT_PORT, MQTT_TOPIC_TEMPERATURE, MQTT_TOPIC_PRESSURE, MQTT_TOPIC_METHANE, MQTT_TOPIC_CONTROL
+import logging
+from logging.handlers import RotatingFileHandler
+import warnings
+warnings.filterwarnings('ignore')
 
 # -------------------- SVG Logo --------------------
 logo_svg = """<svg width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="32" fill="#1f77b4"/><text x="32" y="38" text-anchor="middle" fill="#fff" font-size="24" font-family="Arial">SNDT</text></svg>"""
+
+# -------------------- نظام التسجيل والمراقبة --------------------
+def setup_logging():
+    """إعداد نظام التسجيل والمراقبة"""
+    logger = logging.getLogger('SNDT_Platform')
+    logger.setLevel(logging.INFO)
+    
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    
+    handler = RotatingFileHandler(
+        'logs/sndt_platform.log', 
+        maxBytes=5*1024*1024,
+        backupCount=5
+    )
+    
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+logger = setup_logging()
 
 # -------------------- نظام التخزين المتقدم --------------------
 class AdvancedCache:
@@ -90,20 +122,20 @@ class EventSystem:
 
 event_system = EventSystem()
 
-# -------------------- نظام الثيمات --------------------
+# -------------------- نظام الثيمات المتقدم --------------------
 class ThemeManager:
-    """مدير الثيمات لوضع الضوء والداكن"""
+    """مدير الثيمات المتقدم مع دعم كامل للسامسونق وجميع المتصفحات"""
     def __init__(self):
         self.themes = {
             "light": {
                 "primary": "#1f77b4", "secondary": "#ff7f0e", "background": "#ffffff",
                 "text": "#000000", "card": "#f0f2f6", "success": "#2ecc71",
-                "warning": "#f39c12", "danger": "#e74c3c"
+                "warning": "#f39c12", "danger": "#e74c3c", "accent": "#3498db"
             },
             "dark": {
                 "primary": "#4a9fff", "secondary": "#ffaa45", "background": "#0e1117",
                 "text": "#ffffff", "card": "#262730", "success": "#27ae60",
-                "warning": "#f39c12", "danger": "#e74c3c"
+                "warning": "#f39c12", "danger": "#e74c3c", "accent": "#5dade2"
             }
         }
     
@@ -113,47 +145,132 @@ class ThemeManager:
         
         st.markdown(f"""
         <style>
-            .main {{ background-color: {colors['background']}; color: {colors['text']}; }}
+            /* أنماط أساسية متوافقة مع جميع المتصفحات */
+            .main {{ 
+                background-color: {colors['background']}; 
+                color: {colors['text']};
+            }}
+            
+            /* تحسين التوافق مع متصفح السامسونق */
+            @media screen and (-webkit-min-device-pixel-ratio:0) {{
+                .main {{
+                    -webkit-text-size-adjust: 100%;
+                }}
+            }}
+            
             .main-header {{
-                color: {colors['primary']}; font-size: 2.2rem; font-weight: 700;
-                margin-bottom: 1.5rem; border-bottom: 2px solid {colors['primary']};
+                color: {colors['primary']}; 
+                font-size: 2.2rem; 
+                font-weight: 700;
+                margin-bottom: 1.5rem; 
+                border-bottom: 2px solid {colors['primary']};
                 padding-bottom: 0.5rem;
+                text-align: right;
             }}
+            
             .section-header {{
-                color: {colors['secondary']}; font-size: 1.6rem; font-weight: 600;
+                color: {colors['secondary']}; 
+                font-size: 1.6rem; 
+                font-weight: 600;
                 margin: 1.2rem 0 0.8rem 0;
+                text-align: right;
             }}
+            
             .card {{
-                background-color: {colors['card']}; padding: 1.2rem; border-radius: 0.5rem;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 1rem;
+                background-color: {colors['card']}; 
+                padding: 1.2rem; 
+                border-radius: 0.5rem;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1); 
+                margin-bottom: 1rem;
+                border: 1px solid {colors['accent']}20;
             }}
+            
             .metric-card {{
                 background: linear-gradient(135deg, {colors['primary']}, {colors['secondary']});
-                color: white; padding: 1.2rem; border-radius: 0.5rem; text-align: center;
+                color: white; 
+                padding: 1.2rem; 
+                border-radius: 0.5rem; 
+                text-align: center;
                 box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                border: none;
             }}
+            
             .status-simulation {{
-                background-color: {colors['warning']}; color: white; padding: 0.5rem 1rem;
-                border-radius: 0.25rem; font-weight: bold;
+                background-color: {colors['warning']}; 
+                color: white; 
+                padding: 0.5rem 1rem;
+                border-radius: 0.25rem; 
+                font-weight: bold;
+                display: inline-block;
             }}
+            
             .status-real {{
-                background-color: {colors['success']}; color: white; padding: 0.5rem 1rem;
-                border-radius: 0.25rem; font-weight: bold;
+                background-color: {colors['success']}; 
+                color: white; 
+                padding: 0.5rem 1rem;
+                border-radius: 0.25rem; 
+                font-weight: bold;
+                display: inline-block;
             }}
+            
             .stButton>button {{
-                background-color: {colors['primary']}; color: white; border: none;
-                border-radius: 0.25rem; padding: 0.5rem 1rem; font-weight: 500;
+                background-color: {colors['primary']}; 
+                color: white; 
+                border: none;
+                border-radius: 0.25rem; 
+                padding: 0.5rem 1rem; 
+                font-weight: 500;
+                transition: all 0.3s ease;
             }}
+            
             .stButton>button:hover {{
-                background-color: {colors['secondary']}; color: white;
+                background-color: {colors['secondary']}; 
+                color: white;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             }}
+            
             .notification {{
-                background-color: {colors['card']}; border-left: 4px solid {colors['primary']};
-                padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 0 0.25rem 0.25rem 0;
+                background-color: {colors['card']}; 
+                border-left: 4px solid {colors['primary']};
+                padding: 0.8rem; 
+                margin-bottom: 0.5rem; 
+                border-radius: 0 0.25rem 0.25rem 0;
             }}
-            .notification-warning {{ border-left-color: {colors['warning']}; }}
-            .notification-danger {{ border-left-color: {colors['danger']}; }}
-            .notification-success {{ border-left-color: {colors['success']}; }}
+            
+            .notification-warning {{ 
+                border-left-color: {colors['warning']}; 
+            }}
+            
+            .notification-danger {{ 
+                border-left-color: {colors['danger']}; 
+            }}
+            
+            .notification-success {{ 
+                border-left-color: {colors['success']}; 
+            }}
+            
+            /* تحسينات للوضع الداكن */
+            .stAlert {{
+                background-color: {colors['card']} !important;
+                border: 1px solid {colors['accent']}30 !important;
+            }}
+            
+            /* تحسينات للنصوص */
+            .rtl-text {{
+                direction: rtl;
+                text-align: right;
+            }}
+            
+            .ltr-text {{
+                direction: ltr;
+                text-align: left;
+            }}
+            
+            /* تحسينات للجداول */
+            .dataframe {{
+                font-family: inherit !important;
+            }}
         </style>
         """, unsafe_allow_html=True)
     
@@ -161,13 +278,14 @@ class ThemeManager:
         current_theme = st.session_state.get("theme", "light")
         new_theme = "dark" if current_theme == "light" else "light"
         st.session_state["theme"] = new_theme
+        self.apply_theme_styles()
         logger.info(f"تم تغيير الثيم إلى: {new_theme}")
 
 theme_manager = ThemeManager()
 
-# -------------------- نظام الترجمة --------------------
+# -------------------- نظام الترجمة المتقدم --------------------
 class TranslationSystem:
-    """نظام متكامل للترجمة متعددة اللغات"""
+    """نظام متكامل للترجمة متعددة اللغات بدون اختلاط"""
     def __init__(self):
         self.translations = {
             "ar": {
@@ -180,11 +298,63 @@ class TranslationSystem:
                     "المساعد الذكي",
                     "الإعدادات والمساعدة"
                 ],
-                "temperature": "درجة الحرارة", "pressure": "الضغط", "methane": "الميثان",
-                "vibration": "الاهتزاز", "flow_rate": "معدل التدفق",
-                "real_time_data": "البيانات المباشرة", "historical_data": "البيانات التاريخية",
-                "anomaly_detection": "كشف الشذوذ", "predictive_analysis": "التحليل التنبؤي",
-                "system_status_simulation": "وضع المحاكاة", "system_status_real": "وضع التشغيل الحقيقي"
+                "temperature": "درجة الحرارة", 
+                "pressure": "الضغط", 
+                "methane": "الميثان",
+                "vibration": "الاهتزاز", 
+                "flow_rate": "معدل التدفق",
+                "real_time_data": "البيانات المباشرة", 
+                "historical_data": "البيانات التاريخية",
+                "anomaly_detection": "كشف الشذوذ", 
+                "predictive_analysis": "التحليل التنبؤي",
+                "system_status_simulation": "وضع المحاكاة", 
+                "system_status_real": "وضع التشغيل الحقيقي",
+                "energy_efficiency": "كفاءة الطاقة",
+                "production": "الإنتاج اليومي",
+                "quality": "الجودة",
+                "risk_level": "مستوى المخاطر",
+                "active_alerts": "التنبيهات النشطة",
+                "days_without_incidents": "الأيام بدون حوادث",
+                "choose_section": "اختر القسم",
+                "system_info": "معلومات النظام",
+                "last_update": "آخر تحديث",
+                "version": "الإصدار",
+                "connected": "متصل",
+                "disconnected": "غير متصل"
+            },
+            "en": {
+                "side_sections": [
+                    "Main Dashboard",
+                    "Analytics & AI", 
+                    "Operations & Control",
+                    "Safety & Emergency",
+                    "Sustainability & Energy",
+                    "Smart Assistant",
+                    "Settings & Help"
+                ],
+                "temperature": "Temperature", 
+                "pressure": "Pressure", 
+                "methane": "Methane",
+                "vibration": "Vibration", 
+                "flow_rate": "Flow Rate",
+                "real_time_data": "Real-time Data", 
+                "historical_data": "Historical Data",
+                "anomaly_detection": "Anomaly Detection", 
+                "predictive_analysis": "Predictive Analysis",
+                "system_status_simulation": "Simulation Mode", 
+                "system_status_real": "Real Operation Mode",
+                "energy_efficiency": "Energy Efficiency",
+                "production": "Daily Production",
+                "quality": "Quality",
+                "risk_level": "Risk Level",
+                "active_alerts": "Active Alerts",
+                "days_without_incidents": "Days Without Incidents",
+                "choose_section": "Choose Section",
+                "system_info": "System Information",
+                "last_update": "Last Update",
+                "version": "Version",
+                "connected": "Connected",
+                "disconnected": "Disconnected"
             }
         }
     
