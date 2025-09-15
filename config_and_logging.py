@@ -14,9 +14,60 @@ class LogLevel(Enum):
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
 
+class ThemeConfig:
+    """إعدادات التصميم المرئي المريح للعين"""
+    PRIMARY_COLOR = "#1f4e79"  # أزرق غامق مريح
+    SECONDARY_COLOR = "#2e75b6"  # أزرق متوسط
+    ACCENT_COLOR = "#8faadc"  # أزرق فاتح
+    BACKGROUND_COLOR = "#f0f4f8"  # خلفية فاتحة مريحة
+    TEXT_COLOR = "#2d2d2d"  # نص غامق مريح
+    SUCCESS_COLOR = "#107c10"  # أخضر مريح
+    WARNING_COLOR = "#d83b01"  # برتقالي تحذيري
+    ERROR_COLOR = "#e81123"  # أحمر طوارئ
+    
+    @classmethod
+    def get_css_styles(cls):
+        """إرجاع أنماط CSS مخصصة"""
+        return f"""
+            <style>
+            .main {{
+                background-color: {cls.BACKGROUND_COLOR};
+                color: {cls.TEXT_COLOR};
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }}
+            .stButton>button {{
+                background-color: {cls.PRIMARY_COLOR};
+                color: white;
+                border-radius: 8px;
+                border: none;
+                padding: 10px 20px;
+                font-weight: 500;
+            }}
+            .stButton>button:hover {{
+                background-color: {cls.SECONDARY_COLOR};
+            }}
+            .metric-card {{
+                background: linear-gradient(135deg, {cls.BACKGROUND_COLOR}, #ffffff);
+                border-radius: 12px;
+                padding: 20px;
+                border-left: 4px solid {cls.PRIMARY_COLOR};
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }}
+            .emergency-alert {{
+                background: linear-gradient(135deg, #ffe6e6, #ffcccc);
+                border: 2px solid {cls.ERROR_COLOR};
+                border-radius: 10px;
+                padding: 15px;
+                color: #d13438;
+                font-weight: bold;
+            }}
+            </style>
+        """
+
 class AdvancedConfig:
     def __init__(self, config_file: str = "config/system_config.json"):
         self.config_file = config_file
+        self.theme = ThemeConfig()
         self.config = self.load_config()
         self.setup_logging()
         self.last_modified = datetime.now()
@@ -26,8 +77,8 @@ class AdvancedConfig:
         default_config = {
             "system": {
                 "name": "Smart Oil Field Neural Digital Twin",
-                "version": "7.0.0",
-                "description": "Advanced AI-Powered Disaster Prevention System",
+                "version": "8.0.0",
+                "description": "Advanced AI-Powered Disaster Prevention with Dynamic Model Selection",
                 "log_level": "INFO",
                 "data_retention_days": 365,
                 "timezone": "Asia/Riyadh",
@@ -35,6 +86,13 @@ class AdvancedConfig:
                 "emergency_contacts": [],
                 "max_anomaly_score": 0.85,
                 "raspberry_pi_mode": True
+            },
+            "theme": {
+                "primary_color": self.theme.PRIMARY_COLOR,
+                "secondary_color": self.theme.SECONDARY_COLOR,
+                "accent_color": self.theme.ACCENT_COLOR,
+                "background_color": self.theme.BACKGROUND_COLOR,
+                "text_color": self.theme.TEXT_COLOR
             },
             "twilio": {
                 "enabled": False,
@@ -68,6 +126,12 @@ class AdvancedConfig:
                 }
             },
             "ai": {
+                "dynamic_model_selection": {
+                    "enabled": True,
+                    "max_models": 5,
+                    "selection_interval": 300,
+                    "performance_threshold": 0.8
+                },
                 "anomaly_detection": {
                     "enabled": True,
                     "confidence_threshold": 0.8,
@@ -77,7 +141,7 @@ class AdvancedConfig:
                 "prediction": {
                     "enabled": True,
                     "horizon_hours": 24,
-                    "monte_carlo_simulations": 1000,  # تم التخفيض ليتناسب مع Raspberry Pi
+                    "monte_carlo_simulations": 1000,
                     "prediction_interval": 300
                 },
                 "optimization": {
@@ -103,23 +167,28 @@ class AdvancedConfig:
                     "level_3": {"threshold": 95, "actions": ["evacuate", "emergency_services"]}
                 }
             },
-            "api": {
-                "websocket": {
-                    "enabled": True,
-                    "port": 8765,
-                    "max_connections": 10
-                },
-                "rest": {
-                    "enabled": True,
-                    "port": 8000,
-                    "cors_origins": ["http://localhost:3000"]
-                }
+            "performance": {
+                "optimized_for_pi": True,
+                "max_threads": 4,
+                "memory_limit_mb": 512,
+                "cpu_usage_limit": 0.7,
+                "cache_enabled": True,
+                "cache_size": 100,
+                "data_compression": True,
+                "batch_processing": True
             },
-            "simulation": {
-                "realistic_mode": True,
-                "noise_level": 0.05,
-                "failure_probability": 0.01,
-                "trend_changes": True
+            "security": {
+                "encryption_enabled": True,
+                "authentication_required": True,
+                "rate_limiting": True,
+                "max_login_attempts": 3,
+                "session_timeout": 3600,
+                "data_backup": {
+                    "enabled": True,
+                    "interval": 86400,
+                    "retention_days": 7
+                },
+                "audit_logging": True
             }
         }
         
