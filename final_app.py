@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import time
 import logging
 
-from config.settings import AdvancedConfig, ThemeConfig
+from config_and_logging import AdvancedConfig, ThemeConfig
 from core_systems import AdvancedCoreSystem, create_core_system
 from advanced_systems import AdvancedSystems
 from twilio_integration import TwilioIntegration, create_twilio_integration
