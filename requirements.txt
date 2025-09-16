@@ -33,7 +33,6 @@ adafruit-circuitpython-dht>=3.7.0; sys_platform == "linux"
 
 # Database & Caching
 redis>=4.6.0
-sqlite3; python_version >= "3.0"
 pymongo>=4.4.0
 
 # Performance & Optimization
