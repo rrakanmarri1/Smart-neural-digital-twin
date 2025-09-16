@@ -88,7 +88,6 @@ statsmodels>=0.14.0
 
 # Threading & Async
 asyncio; python_version >= "3.7"
-threading2>=0.1.2
 
 # Environment Variables
 python-decouple>=3.8.0
