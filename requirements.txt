@@ -17,7 +17,7 @@ xgboost>=1.7.0
 
 # Signal Processing & Analysis
 scipy>=1.11.0
-pywt>=1.4.1
+PyWavelets>=1.4.1
 librosa>=0.10.0
 
 # Communication & Integration
