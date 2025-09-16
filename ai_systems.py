@@ -28,39 +28,46 @@ class ModelPerformance:
     def update_performance(self, accuracy: float, latency: float, 
                          memory_usage: float, success: bool):
         """تحديث أداء النموذج"""
-        self.accuracy_history.append(accuracy)
-        self.latency_history.append(latency)
-        self.memory_usage_history.append(memory_usage)
-        self.last_used = datetime.now()
-        
-        if success:
-            self.success_count += 1
-        else:
-            self.failure_count += 1
-        
-        # الاحتفاظ فقط بـ 100 قياس حديثة
-        if len(self.accuracy_history) > 100:
-            self.accuracy_history = self.accuracy_history[-100:]
-            self.latency_history = self.latency_history[-100:]
-            self.memory_usage_history = self.memory_usage_history[-100:]
+        try:
+            self.accuracy_history.append(accuracy)
+            self.latency_history.append(latency)
+            self.memory_usage_history.append(memory_usage)
+            self.last_used = datetime.now()
+            
+            if success:
+                self.success_count += 1
+            else:
+                self.failure_count += 1
+            
+            # الاحتفاظ فقط بـ 100 قياس حديثة
+            if len(self.accuracy_history) > 100:
+                self.accuracy_history = self.accuracy_history[-100:]
+                self.latency_history = self.latency_history[-100:]
+                self.memory_usage_history = self.memory_usage_history[-100:]
+        except Exception as e:
+            logging.error(f"❌ Error updating model performance: {e}")
     
     def get_performance_score(self) -> float:
         """حساب درجة أداء النموذج"""
-        if not self.accuracy_history:
+        try:
+            if not self.accuracy_history:
+                return 0.0
+            
+            # حساب المتوسط المرجح
+            accuracy = np.mean(self.accuracy_history[-10:]) if self.accuracy_history else 0.0
+            latency = np.mean(self.latency_history[-10:]) if self.latency_history else 1.0
+            memory = np.mean(self.memory_usage_history[-10:]) if self.memory_usage_history else 1.0
+            
+            # تحويل الكمون والذاكرة إلى عوامل تصحيح (كلما قلوا كلما كان أفضل)
+            latency_factor = 1.0 / max(0.1, latency)
+            memory_factor = 1.0 / max(0.1, memory)
+            
+            # حساب الدرجة النهائية
+            score = accuracy * 0.6 + latency_factor * 0.2 + memory_factor * 0.2
+            return max(0.0, min(1.0, score))
+        except Exception as e:
+            logging.error(f"❌ Error calculating performance score: {e}")
             return 0.0
-        
-        # حساب المتوسط المرجح
-        accuracy = np.mean(self.accuracy_history[-10:]) if self.accuracy_history else 0.0
-        latency = np.mean(self.latency_history[-10:]) if self.latency_history else 1.0
-        memory = np.mean(self.memory_usage_history[-10:]) if self.memory_usage_history else 1.0
-        
-        # تحويل الكمون والذاكرة إلى عوامل تصحيح (كلما قلوا كلما كان أفضل)
-        latency_factor = 1.0 / max(0.1, latency)
-        memory_factor = 1.0 / max(0.1, memory)
-        
-        # حساب الدرجة النهائية
-        score = accuracy * 0.6 + latency_factor * 0.2 + memory_factor * 0.2
-        return max(0.0, min(1.0, score))
 
 class DynamicModelSelector:
     """
@@ -82,19 +89,29 @@ class DynamicModelSelector:
         self.current_model: Optional[ModelType] = None
         self.logger = logging.getLogger(__name__)
         
-        self.initialize_models()
+        try:
+            self.initialize_models()
+        except Exception as e:
+            self.logger.error(f"❌ Failed to initialize DynamicModelSelector: {e}")
     
     def initialize_models(self):
         """تهيئة جميع النماذج المتاحة"""
-        for model_type in ModelType:
-            self.model_performance[model_type] = ModelPerformance(model_type)
-        
-        self.logger.info("✅ Dynamic Model Selector initialized")
+        try:
+            for model_type in ModelType:
+                self.model_performance[model_type] = ModelPerformance(model_type)
+            
+            self.logger.info("✅ Dynamic Model Selector initialized")
+        except Exception as e:
+            self.logger.error(f"❌ Error initializing models: {e}")
+            raise
     
     def register_model(self, model_type: ModelType, model_instance: Any):
         """تسجيل نموذج جديد في النظام"""
-        self.available_models[model_type] = model_instance
-        self.logger.info(f"✅ Registered model: {model_type.value}")
+        try:
+            self.available_models[model_type] = model_instance
+            self.logger.info(f"✅ Registered model: {model_type.value}")
+        except Exception as e:
+            self.logger.error(f"❌ Error registering model {model_type.value}: {e}")
     
     def select_best_model(self, data_characteristics: Dict[str, Any], 
                         resource_constraints: Dict[str, float]) -> ModelType:
@@ -108,120 +125,147 @@ class DynamicModelSelector:
         Returns:
             ModelType: أفضل نموذج للاستخدام
         """
-        # تحليل خصائص البيانات
-        data_complexity = self._analyze_data_complexity(data_characteristics)
-        data_size = data_characteristics.get('size', 0)
-        
-        # تحليل قيود الموارد
-        cpu_available = resource_constraints.get('cpu_available', 1.0)
-        memory_available = resource_constraints.get('memory_available', 1.0)
-        
-        # حساب درجات الملائمة لكل نموذج
-        model_scores = {}
-        
-        for model_type, performance in self.model_performance.items():
-            if model_type not in self.available_models:
-                continue
+        try:
+            # تحليل خصائص البيانات
+            data_complexity = self._analyze_data_complexity(data_characteristics)
+            data_size = data_characteristics.get('size', 0)
             
-            # درجة الأداء التاريخي
-            performance_score = performance.get_performance_score()
+            # تحليل قيود الموارد
+            cpu_available = resource_constraints.get('cpu_available', 1.0)
+            memory_available = resource_constraints.get('memory_available', 1.0)
             
-            # درجة الملائمة للبيانات
-            suitability_score = self._calculate_model_suitability(
-                model_type, data_complexity, data_size
-            )
+            # حساب درجات الملائمة لكل نموذج
+            model_scores = {}
             
-            # درجة كفاءة الموارد
-            efficiency_score = self._calculate_resource_efficiency(
-                model_type, cpu_available, memory_available
-            )
+            for model_type, performance in self.model_performance.items():
+                if model_type not in self.available_models:
+                    continue
+                
+                # درجة الأداء التاريخي
+                performance_score = performance.get_performance_score()
+                
+                # درجة الملائمة للبيانات
+                suitability_score = self._calculate_model_suitability(
+                    model_type, data_complexity, data_size
+                )
+                
+                # درجة كفاءة الموارد
+                efficiency_score = self._calculate_resource_efficiency(
+                    model_type, cpu_available, memory_available
+                )
+                
+                # الدرجة النهائية (مرجحة)
+                final_score = (
+                    performance_score * 0.4 +
+                    suitability_score * 0.3 +
+                    efficiency_score * 0.3
+                )
+                
+                model_scores[model_type] = final_score
             
-            # الدرجة النهائية (مرجحة)
-            final_score = (
-                performance_score * 0.4 +
-                suitability_score * 0.3 +
-                efficiency_score * 0.3
-            )
+            if not model_scores:
+                self.logger.warning("No models available, using default")
+                return ModelType.LSTM
             
-            model_scores[model_type] = final_score
-        
-        if not model_scores:
-            self.logger.warning("No models available, using default")
-            return ModelType.LSTM
-        
-        # اختيار النموذج بأعلى درجة
-        best_model = max(model_scores.items(), key=lambda x: x[1])[0]
-        self.current_model = best_model
-        
-        self.logger.info(f"🎯 Selected model: {best_model.value} (score: {model_scores[best_model]:.3f})")
-        return best_model
+            # اختيار النموذج بأعلى درجة
+            best_model = max(model_scores.items(), key=lambda x: x[1])[0]
+            self.current_model = best_model
+            
+            self.logger.info(f"🎯 Selected model: {best_model.value} (score: {model_scores[best_model]:.3f})")
+            return best_model
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error selecting best model: {e}")
+            return ModelType.LSTM  # Default fallback
     
     def _analyze_data_complexity(self, data_characteristics: Dict[str, Any]) -> float:
         """تحليل تعقيد البيانات"""
-        size = data_characteristics.get('size', 0)
-        dimensions = data_characteristics.get('dimensions', 0)
-        variability = data_characteristics.get('variability', 0)
-        
-        # حساب درجة التعقيد (0-1)
-        complexity = min(1.0, (size / 10000 + dimensions / 10 + variability) / 3)
-        return complexity
+        try:
+            size = data_characteristics.get('size', 0)
+            dimensions = data_characteristics.get('dimensions', 0)
+            variability = data_characteristics.get('variability', 0)
+            
+            # حساب درجة التعقيد (0-1)
+            complexity = min(1.0, (size / 10000 + dimensions / 10 + variability) / 3)
+            return complexity
+        except Exception as e:
+            self.logger.error(f"❌ Error analyzing data complexity: {e}")
+            return 0.5  # Default complexity
     
     def _calculate_model_suitability(self, model_type: ModelType, 
                                    data_complexity: float, data_size: int) -> float:
         """حساب ملائمة النموذج للبيانات"""
-        suitability_scores = {
-            ModelType.LSTM: min(1.0, 0.8 + data_complexity * 0.2),  # جيد للبيانات المعقدة
-            ModelType.ISOLATION_FOREST: 0.9 if data_size > 1000 else 0.6,
-            ModelType.ONE_CLASS_SVM: 0.7 + data_complexity * 0.3,
-            ModelType.MONTE_CARLO: 0.8 if data_complexity < 0.5 else 0.6,
-            ModelType.GRADIENT_BOOSTING: 0.9 if data_size > 500 else 0.7,
-            ModelType.LIGHT_GBM: 0.85 if data_size > 1000 else 0.65
-        }
-        
-        return suitability_scores.get(model_type, 0.5)
+        try:
+            suitability_scores = {
+                ModelType.LSTM: min(1.0, 0.8 + data_complexity * 0.2),  # جيد للبيانات المعقدة
+                ModelType.ISOLATION_FOREST: 0.9 if data_size > 1000 else 0.6,
+                ModelType.ONE_CLASS_SVM: 0.7 + data_complexity * 0.3,
+                ModelType.MONTE_CARLO: 0.8 if data_complexity < 0.5 else 0.6,
+                ModelType.GRADIENT_BOOSTING: 0.9 if data_size > 500 else 0.7,
+                ModelType.LIGHT_GBM: 0.85 if data_size > 1000 else 0.65
+            }
+            
+            return suitability_scores.get(model_type, 0.5)
+        except Exception as e:
+            self.logger.error(f"❌ Error calculating model suitability: {e}")
+            return 0.5
     
     def _calculate_resource_efficiency(self, model_type: ModelType,
                                     cpu_available: float, memory_available: float) -> float:
         """حساب كفاءة النموذج في استخدام الموارد"""
-        # احتياجات الموارد التقريبية لكل نموذج
-        resource_needs = {
-            ModelType.LSTM: {'cpu': 0.8, 'memory': 0.7},
-            ModelType.ISOLATION_FOREST: {'cpu': 0.5, 'memory': 0.4},
-            ModelType.ONE_CLASS_SVM: {'cpu': 0.6, 'memory': 0.5},
-            ModelType.MONTE_CARLO: {'cpu': 0.9, 'memory': 0.6},
-            ModelType.GRADIENT_BOOSTING: {'cpu': 0.7, 'memory': 0.5},
-            ModelType.LIGHT_GBM: {'cpu': 0.6, 'memory': 0.4}
-        }
-        
-        needs = resource_needs.get(model_type, {'cpu': 0.7, 'memory': 0.5})
-        
-        # حساب الكفاءة (كلما قل الاستخدام كلما كانت الكفاءة أعلى)
-        cpu_efficiency = 1.0 - max(0, needs['cpu'] - cpu_available)
-        memory_efficiency = 1.0 - max(0, needs['memory'] - memory_available)
-        
-        return (cpu_efficiency + memory_efficiency) / 2
+        try:
+            # احتياجات الموارد التقريبية لكل نموذج
+            resource_needs = {
+                ModelType.LSTM: {'cpu': 0.8, 'memory': 0.7},
+                ModelType.ISOLATION_FOREST: {'cpu': 0.5, 'memory': 0.4},
+                ModelType.ONE_CLASS_SVM: {'cpu': 0.6, 'memory': 0.5},
+                ModelType.MONTE_CARLO: {'cpu': 0.9, 'memory': 0.6},
+                ModelType.GRADIENT_BOOSTING: {'cpu': 0.7, 'memory': 0.5},
+                ModelType.LIGHT_GBM: {'cpu': 0.6, 'memory': 0.4}
+            }
+            
+            needs = resource_needs.get(model_type, {'cpu': 0.7, 'memory': 0.5})
+            
+            # حساب الكفاءة (كلما قل الاستخدام كلما كانت الكفاءة أعلى)
+            cpu_efficiency = 1.0 - max(0, needs['cpu'] - cpu_available)
+            memory_efficiency = 1.0 - max(0, needs['memory'] - memory_available)
+            
+            return (cpu_efficiency + memory_efficiency) / 2
+        except Exception as e:
+            self.logger.error(f"❌ Error calculating resource efficiency: {e}")
+            return 0.5
     
     def update_model_performance(self, model_type: ModelType, accuracy: float,
                                latency: float, memory_usage: float, success: bool):
         """تحديث أداء النموذج بعد الاستخدام"""
-        if model_type in self.model_performance:
-            self.model_performance[model_type].update_performance(
-                accuracy, latency, memory_usage, success
-            )
+        try:
+            if model_type in self.model_performance:
+                self.model_performance[model_type].update_performance(
+                    accuracy, latency, memory_usage, success
+                )
+        except Exception as e:
+            self.logger.error(f"❌ Error updating model performance: {e}")
     
     def get_performance_report(self) -> Dict[str, Any]:
         """الحصول على تقرير أداء النماذج"""
-        report = {}
-        for model_type, performance in self.model_performance.items():
-            report[model_type.value] = {
-                'performance_score': performance.get_performance_score(),
-                'success_rate': performance.success_count / max(1, performance.success_count + performance.failure_count),
-                'last_used': performance.last_used.isoformat() if performance.last_used else None,
-                'usage_count': performance.success_count + performance.failure_count
-            }
-        return report
+        try:
+            report = {}
+            for model_type, performance in self.model_performance.items():
+                total_usage = performance.success_count + performance.failure_count
+                success_rate = performance.success_count / max(1, total_usage)
+                
+                report[model_type.value] = {
+                    'performance_score': performance.get_performance_score(),
+                    'success_rate': success_rate,
+                    'last_used': performance.last_used.isoformat() if performance.last_used else None,
+                    'usage_count': total_usage
+                }
+            return report
+        except Exception as e:
+            self.logger.error(f"❌ Error generating performance report: {e}")
+            return {}
     
-        def auto_optimize(self):
+    def auto_optimize(self):
         """التحسين التلقائي للنماذج بناءً على الأداء"""
         try:
             # إعادة تدريب النماذج ذات الأداء المنخفض
@@ -251,14 +295,27 @@ class DynamicModelSelector:
     
     def _check_resource_availability(self) -> bool:
         """التحقق من توفر الموارد لتحميل نماذج إضافية"""
-        # محاكاة التحقق من الموارد
-        return True  # في الواقع سيتم التحقق من CPU و RAM
+        try:
+            # محاكاة التحقق من الموارد
+            return True  # في الواقع سيتم التحقق من CPU و RAM
+        except Exception as e:
+            self.logger.error(f"❌ Error checking resource availability: {e}")
+            return False
     
     def _load_additional_models(self):
         """تحميل نماذج إضافية إذا كانت الموارد تسمح"""
-        # يمكن إضافة نماذج جديدة هنا
-        pass
+        try:
+            # يمكن إضافة نماذج جديدة هنا
+            pass
+        except Exception as e:
+            self.logger.error(f"❌ Error loading additional models: {e}")
 
 # دالة مساعدة
 def create_model_selector(config: Dict[str, Any]) -> DynamicModelSelector:
-    return DynamicModelSelector(config)
+    """إنشاء محدد النماذج الديناميكي مع معالجة الأخطاء"""
+    try:
+        return DynamicModelSelector(config)
+    except Exception as e:
+        logging.error(f"❌ Failed to create model selector: {e}")
+        # إرجاع محدد افتراضي في حالة الفشل
+        return DynamicModelSelector({})
