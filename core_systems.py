@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 # استيراد جميع المكونات
-from data_processing.preprocess_data import DataPreprocessor
-from data_processing.generate_sensor_data import SensorDataGenerator
+from preprocess_data import DataPreprocessor
+from generate_sensor_data import SensorDataGenerator
 from ai_systems.advanced_anomaly_system import AdvancedAnomalyDetector
 from ai_systems.advanced_prediction_engine import AdvancedPredictionEngine
 from ai_systems.advanced_prediction_modules import PredictionModules
