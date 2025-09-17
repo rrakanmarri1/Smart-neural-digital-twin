@@ -11,7 +11,7 @@ from config_and_logging import AdvancedConfig, ThemeConfig
 from core_systems import AdvancedCoreSystem, create_core_system
 from advanced_systems import AdvancedSystems
 from advanced_systems import TwilioIntegration, create_twilio_integration
-from ai_chat_system import AIChatSystem, create_ai_chat
+from ai_systems import AIChatSystem, create_ai_chat
 
 class CompleteDashboard:
     def __init__(self):
