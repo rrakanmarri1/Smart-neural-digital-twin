@@ -319,3 +319,68 @@ def create_model_selector(config: Dict[str, Any]) -> DynamicModelSelector:
         logging.error(f"❌ Failed to create model selector: {e}")
         # إرجاع محدد افتراضي في حالة الفشل
         return DynamicModelSelector({})
+
+# نظام الدردشة AI - إضافة جديدة
+class AIChatSystem:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        self.chat_history = []
+        self.initialized = False
+        self._initialize_chat_system()
+    
+    def _initialize_chat_system(self):
+        """تهيئة نظام الدردشة AI"""
+        try:
+            chat_config = self.config.get('ai_chat', {})
+            if chat_config.get('enabled', False):
+                self.initialized = True
+                self.logger.info("✅ AI Chat system initialized")
+            else:
+                self.logger.warning("⚠️ AI Chat is disabled in config")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to initialize AI Chat: {e}")
+    
+    def broadcast_emergency(self, message: str) -> bool:
+        """بث رسالة طوارئ إلى جميع المستخدمين"""
+        try:
+            if not self.initialized:
+                self.logger.warning("AI Chat not initialized, cannot broadcast")
+                return False
+            
+            self.logger.info(f"📢 AI Chat broadcast: {message}")
+            
+            # محاكاة إرسال الرسالة إلى المستخدمين
+            # في الإنتاج الحقيقي، سيتم إرسالها عبر WebSocket أو API
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to broadcast emergency: {e}")
+            return False
+    
+    def send_message(self, user_id: str, message: str) -> bool:
+        """إرسال رسالة إلى مستخدم معين"""
+        try:
+            if not self.initialized:
+                return False
+            
+            self.logger.info(f"💬 Message to {user_id}: {message}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to send message: {e}")
+            return False
+    
+    def cleanup(self):
+        """تنظيف الموارد"""
+        self.logger.info("🧹 AI Chat system cleaned up")
+
+# دالة مساعدة لإنشاء نظام الدردشة AI
+def create_ai_chat(config: Dict[str, Any]) -> Optional[AIChatSystem]:
+    """إنشاء نظام الدردشة AI مع معالجة الأخطاء"""
+    try:
+        return AIChatSystem(config)
+    except Exception as e:
+        logging.error(f"❌ Failed to create AI Chat system: {e}")
+        return None
