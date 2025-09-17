@@ -241,3 +241,71 @@ class PerformanceMonitor:
 # دالة مساعدة
 def create_advanced_systems(core_system, config) -> AdvancedSystems:
     return AdvancedSystems(core_system, config)
+
+# تكامل Twilio للإشعارات - إضافة جديدة
+class TwilioIntegration:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        self.initialized = False
+        self._initialize_twilio()
+    
+    def _initialize_twilio(self):
+        """تهيئة تكامل Twilio"""
+        try:
+            # محاكاة التهيئة - في الواقع سيتم استيراد twilio هنا
+            twilio_config = self.config.get('twilio', {})
+            if twilio_config.get('enabled', False):
+                self.account_sid = twilio_config.get('account_sid', '')
+                self.auth_token = twilio_config.get('auth_token', '')
+                self.from_number = twilio_config.get('from_number', '')
+                self.initialized = True
+                self.logger.info("✅ Twilio integration initialized")
+            else:
+                self.logger.warning("⚠️ Twilio is disabled in config")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to initialize Twilio: {e}")
+    
+    def send_emergency_sms(self, message: str, to_number: Optional[str] = None) -> bool:
+        """إرسال رسالة طوارئ عبر SMS"""
+        try:
+            if not self.initialized:
+                self.logger.warning("Twilio not initialized, cannot send SMS")
+                return False
+            
+            # محاكاة إرسال SMS - في الواقع سيستخدم twilio REST API
+            target_number = to_number or self.config.get('twilio', {}).get('emergency_number', '')
+            
+            if not target_number:
+                self.logger.warning("No emergency number configured")
+                return False
+            
+            self.logger.info(f"📱 SMS simulated to {target_number}: {message}")
+            
+            # في الإنتاج الحقيقي:
+            # from twilio.rest import Client
+            # client = Client(self.account_sid, self.auth_token)
+            # message = client.messages.create(
+            #     body=message,
+            #     from_=self.from_number,
+            #     to=target_number
+            # )
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to send SMS: {e}")
+            return False
+    
+    def cleanup(self):
+        """تنظيف الموارد"""
+        self.logger.info("🧹 Twilio integration cleaned up")
+
+# دالة مساعدة لإنشاء تكامل Twilio
+def create_twilio_integration(config: Dict[str, Any]) -> Optional[TwilioIntegration]:
+    """إنشاء تكامل Twilio مع معالجة الأخطاء"""
+    try:
+        return TwilioIntegration(config)
+    except Exception as e:
+        logging.error(f"❌ Failed to create Twilio integration: {e}")
+        return None
