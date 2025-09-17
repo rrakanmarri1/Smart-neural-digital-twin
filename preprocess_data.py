@@ -19,6 +19,16 @@ try:
 except ImportError:
     HAS_ADVANCED_PREPROCESSING = False
 
+class DataPreprocessor:
+    def __init__(self, config):
+        self.config = config
+    
+    def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return preprocess_data(data)
+    
+    def preprocess_realtime_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return preprocess_realtime_data(data)
+        
 class DataQualityLevel(Enum):
     RAW = "raw"
     CLEANED = "cleaned"
