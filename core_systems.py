@@ -20,7 +20,7 @@ try:
 except ImportError as e:
     logging.warning(f"SensorDataGenerator not available: {e}")
     SensorDataGenerator = None
-
+    
 # استيراد أنظمة الذكاء الاصطناعي
 try:
     from ai_systems.advanced_anomaly_system import AdvancedAnomalyDetector
