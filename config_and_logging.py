@@ -1,269 +1,257 @@
-import json
 import logging
+import json
 import os
-from typing import Dict, Any, Optional, List
-from pathlib import Path
-from datetime import datetime
-import streamlit as st
-from enum import Enum
+from typing import Dict, Any
 
-class LogLevel(Enum):
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
-
-class ThemeConfig:
-    """إعدادات التصميم المرئي المريح للعين"""
-    PRIMARY_COLOR = "#1f4e79"  # أزرق غامق مريح
-    SECONDARY_COLOR = "#2e75b6"  # أزرق متوسط
-    ACCENT_COLOR = "#8faadc"  # أزرق فاتح
-    BACKGROUND_COLOR = "#f0f4f8"  # خلفية فاتحة مريحة
-    TEXT_COLOR = "#2d2d2d"  # نص غامق مريح
-    SUCCESS_COLOR = "#107c10"  # أخضر مريح
-    WARNING_COLOR = "#d83b01"  # برتقالي تحذيري
-    ERROR_COLOR = "#e81123"  # أحمر طوارئ
-    
-    @classmethod
-    def get_css_styles(cls):
-        """إرجاع أنماط CSS مخصصة"""
-        return f"""
-            <style>
-            .main {{
-                background-color: {cls.BACKGROUND_COLOR};
-                color: {cls.TEXT_COLOR};
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            }}
-            .stButton>button {{
-                background-color: {cls.PRIMARY_COLOR};
-                color: white;
-                border-radius: 8px;
-                border: none;
-                padding: 10px 20px;
-                font-weight: 500;
-            }}
-            .stButton>button:hover {{
-                background-color: {cls.SECONDARY_COLOR};
-            }}
-            .metric-card {{
-                background: linear-gradient(135deg, {cls.BACKGROUND_COLOR}, #ffffff);
-                border-radius: 12px;
-                padding: 20px;
-                border-left: 4px solid {cls.PRIMARY_COLOR};
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }}
-            .emergency-alert {{
-                background: linear-gradient(135deg, #ffe6e6, #ffcccc);
-                border: 2px solid {cls.ERROR_COLOR};
-                border-radius: 10px;
-                padding: 15px;
-                color: #d13438;
-                font-weight: bold;
-            }}
-            </style>
-        """
-
-class AdvancedConfig:
-    def __init__(self, config_file: str = "config/system_config.json"):
-        self.config_file = config_file
-        self.theme = ThemeConfig()
-        self.config = self.load_config()
-        self.setup_logging()
-        self.last_modified = datetime.now()
+def setup_logging(log_level: str = "INFO", log_file: str = "digital_twin.log"):
+    """
+    إعداد نظام التسجيل (Logging) المتقدم
+    """
+    try:
+        # إنشاء مجلد اللوجات إذا لم يكن موجوداً
+        os.makedirs('logs', exist_ok=True)
         
-    def load_config(self) -> Dict[str, Any]:
-        """تحميل الإعدادات من Streamlit secrets أو ملف JSON"""
-        default_config = {
+        log_path = os.path.join('logs', log_file)
+        
+        # تنسيق اللوجات
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # معالج الملفات
+        file_handler = logging.FileHandler(log_path, encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        
+        # معهد وحدة التحكم
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        
+        # إعداد اللوجر الرئيسي
+        logger = logging.getLogger()
+        logger.setLevel(getattr(logging, log_level.upper()))
+        
+        # إزالة المعالجات القديمة إذا وجدت
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        
+        # إضافة المعالجات الجديدة
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+        # إعداد لوجرات محددة
+        setup_specific_loggers()
+        
+        logging.info("✅ Logging system initialized successfully")
+        return logger
+        
+    except Exception as e:
+        print(f"❌ Failed to setup logging: {e}")
+        raise
+
+def setup_specific_loggers():
+    """
+    إعداد لوجرات محددة لأجزاء النظام
+    """
+    # لوجر الذكاء الاصطناعي
+    ai_logger = logging.getLogger('ai_systems')
+    ai_logger.setLevel(logging.INFO)
+    
+    # لوجر الهاردوير
+    hw_logger = logging.getLogger('hardware')
+    hw_logger.setLevel(logging.INFO)
+    
+    # لوجر المستشعرات
+    sensor_logger = logging.getLogger('sensors')
+    sensor_logger.setLevel(logging.INFO)
+
+class ConfigLoader:
+    """
+    محمل الإعدادات المتقدم مع معالجة الأخطاء
+    """
+    
+    def __init__(self, config_path: str = "config/settings.json"):
+        self.config_path = config_path
+        self.default_config = self._get_default_config()
+        self.logger = logging.getLogger(__name__)
+    
+    def _get_default_config(self) -> Dict[str, Any]:
+        """الإعدادات الافتراضية للنظام"""
+        return {
             "system": {
-                "name": "Smart Oil Field Neural Digital Twin",
-                "version": "8.0.0",
-                "description": "Advanced AI-Powered Disaster Prevention with Dynamic Model Selection",
-                "log_level": "INFO",
-                "data_retention_days": 365,
-                "timezone": "Asia/Riyadh",
-                "simulation_mode": True,
-                "emergency_contacts": [],
-                "max_anomaly_score": 0.85,
-                "raspberry_pi_mode": True
+                "name": "Smart Neural Digital Twin",
+                "version": "1.0.0",
+                "description": "Oil Field Disaster Prevention System",
+                "update_interval": 5  # ثواني
             },
-            "theme": {
-                "primary_color": self.theme.PRIMARY_COLOR,
-                "secondary_color": self.theme.SECONDARY_COLOR,
-                "accent_color": self.theme.ACCENT_COLOR,
-                "background_color": self.theme.BACKGROUND_COLOR,
-                "text_color": self.theme.TEXT_COLOR
+            "sensors": {
+                "pressure": {"min": 0, "max": 100, "unit": "bar"},
+                "temperature": {"min": 0, "max": 150, "unit": "celsius"},
+                "methane": {"min": 0, "max": 1000, "unit": "ppm"},
+                "hydrogen_sulfide": {"min": 0, "max": 100, "unit": "ppm"},
+                "vibration": {"min": 0, "max": 10, "unit": "m/s²"},
+                "flow": {"min": 0, "max": 100, "unit": "L/min"}
             },
-            "twilio": {
-                "enabled": False,
-                "account_sid": "",
-                "auth_token": "",
-                "phone_number": "",
-                "emergency_contacts": []
-            },
-            "openai": {
-                "enabled": False,
-                "api_key": "",
-                "model": "gpt-4",
-                "max_tokens": 500
-            },
-            "hardware": {
-                "sampling_interval": 2.0,
-                "sensor_update_frequency": 5.0,
-                "sensors": {
-                    "temperature": {"pin": 22, "min": -10, "max": 85, "unit": "°C"},
-                    "pressure": {"pin": 23, "min": 800, "max": 1200, "unit": "hPa"},
-                    "vibration": {"pin": 24, "min": 0, "max": 10, "unit": "g"},
-                    "methane": {"pin": 25, "min": 0, "max": 2000, "unit": "ppm"},
-                    "h2s": {"pin": 26, "min": 0, "max": 200, "unit": "ppm"},
-                    "flow": {"pin": 27, "min": 0, "max": 500, "unit": "L/min"}
-                },
-                "actuators": {
-                    "valve_1": {"pin": 17, "type": "servo", "min_angle": 0, "max_angle": 180},
-                    "valve_2": {"pin": 18, "type": "servo", "min_angle": 0, "max_angle": 180},
-                    "pump_1": {"pin": 19, "type": "pwm", "min_speed": 0, "max_speed": 100},
-                    "emergency_shutdown": {"pin": 20, "type": "digital", "active_low": True}
-                }
-            },
-            "ai": {
-                "dynamic_model_selection": {
-                    "enabled": True,
-                    "max_models": 5,
-                    "selection_interval": 300,
-                    "performance_threshold": 0.8
-                },
+            "ai_models": {
                 "anomaly_detection": {
-                    "enabled": True,
-                    "confidence_threshold": 0.8,
-                    "update_interval": 3600,
-                    "max_training_samples": 5000
+                    "sensitivity": 0.8,
+                    "window_size": 100,
+                    "retrain_interval": 3600  # ثانية
                 },
                 "prediction": {
-                    "enabled": True,
-                    "horizon_hours": 24,
-                    "monte_carlo_simulations": 1000,
-                    "prediction_interval": 300
-                },
-                "optimization": {
-                    "enabled": True,
-                    "target_efficiency": 0.85,
-                    "max_iterations": 500
+                    "horizon": 24,  # ساعة
+                    "confidence_threshold": 0.7
                 }
             },
-            "memory": {
-                "max_patterns": 1000,
-                "pattern_min_confidence": 0.7,
-                "auto_cleanup": True,
-                "cleanup_interval": 3600,
-                "playbook_enabled": True,
-                "lifelong_learning": True
+            "hardware": {
+                "raspberry_pi": {
+                    "gpio_pins": {
+                        "relay_1": 17,
+                        "relay_2": 27,
+                        "servo_1": 22,
+                        "led_green": 5,
+                        "led_red": 6
+                    }
+                },
+                "i2c_addresses": {
+                    "ads1115": 0x48,
+                    "bmp280": 0x76
+                }
             },
             "emergency": {
-                "auto_shutdown": True,
-                "response_timeout": 30,
-                "escalation_levels": {
-                    "level_1": {"threshold": 70, "actions": ["alert", "log"]},
-                    "level_2": {"threshold": 85, "actions": ["shutdown", "notify"]},
-                    "level_3": {"threshold": 95, "actions": ["evacuate", "emergency_services"]}
+                "risk_thresholds": {
+                    "warning": 0.4,
+                    "critical": 0.6,
+                    "emergency": 0.8
+                },
+                "notification": {
+                    "sms_enabled": True,
+                    "email_enabled": True,
+                    "phone_numbers": [],
+                    "emails": []
                 }
             },
-            "performance": {
-                "optimized_for_pi": True,
-                "max_threads": 4,
-                "memory_limit_mb": 512,
-                "cpu_usage_limit": 0.7,
-                "cache_enabled": True,
-                "cache_size": 100,
-                "data_compression": True,
-                "batch_processing": True
-            },
-            "security": {
-                "encryption_enabled": True,
-                "authentication_required": True,
-                "rate_limiting": True,
-                "max_login_attempts": 3,
-                "session_timeout": 3600,
-                "data_backup": {
-                    "enabled": True,
-                    "interval": 86400,
-                    "retention_days": 7
+            "api_keys": {
+                "twilio": {
+                    "account_sid": "",
+                    "auth_token": "",
+                    "from_number": ""
                 },
-                "audit_logging": True
+                "openai": {
+                    "api_key": ""
+                }
             }
         }
-        
+    
+    def load(self) -> Dict[str, Any]:
+        """
+        تحميل الإعدادات من الملف مع الدمج مع الإعدادات الافتراضية
+        """
         try:
-            # محاولة تحميل من Streamlit secrets أولاً
-            if hasattr(st, 'secrets'):
-                secrets = st.secrets
-                if 'twilio' in secrets:
-                    default_config['twilio'].update({
-                        'account_sid': secrets['twilio']['account_sid'],
-                        'auth_token': secrets['twilio']['auth_token'],
-                        'phone_number': secrets['twilio']['phone_number'],
-                        'enabled': True
-                    })
-                if 'openai' in secrets:
-                    default_config['openai'].update({
-                        'api_key': secrets['openai']['api_key'],
-                        'enabled': True
-                    })
-                if 'emergency_contacts' in secrets:
-                    default_config['system']['emergency_contacts'] = secrets['emergency_contacts']
-            
-            # ثم تحميل من ملف الإعدادات إذا وجد
-            config_path = Path(self.config_file)
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
+            # تحميل الإعدادات من الملف إذا وجد
+            if os.path.exists(self.config_path):
+                with open(self.config_path, 'r', encoding='utf-8') as f:
                     file_config = json.load(f)
-                    return self.deep_merge(default_config, file_config)
-            
-            return default_config
-            
+                
+                # الدمج مع الإعدادات الافتراضية
+                merged_config = self._deep_merge(self.default_config, file_config)
+                self.logger.info(f"✅ Configuration loaded from {self.config_path}")
+                return merged_config
+            else:
+                # إنشاء ملف الإعدادات إذا لم يكن موجوداً
+                self._create_default_config_file()
+                self.logger.warning(f"⚠️ Using default config, created {self.config_path}")
+                return self.default_config
+                
         except Exception as e:
-            logging.error(f"Error loading config: {e}")
-            return default_config
+            self.logger.error(f"❌ Error loading configuration: {e}")
+            self.logger.info("🔄 Using default configuration")
+            return self.default_config
     
-    def deep_merge(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
-        """دمج عميق للإعدادات"""
-        for key, value in update.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                base[key] = self.deep_merge(base[key], value)
+    def _deep_merge(self, default: Dict[str, Any], custom: Dict[str, Any]) -> Dict[str, Any]:
+        """دمج القواميس بشكل متعمق"""
+        result = default.copy()
+        
+        for key, value in custom.items():
+            if isinstance(value, dict) and key in result and isinstance(result[key], dict):
+                result[key] = self._deep_merge(result[key], value)
             else:
-                base[key] = value
-        return base
+                result[key] = value
+        
+        return result
     
-    def setup_logging(self):
-        """تهيئة نظام التسجيل"""
-        log_level = self.config.get('system', {}).get('log_level', 'INFO')
-        logging.basicConfig(
-            level=getattr(logging, log_level),
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """الحصول على إعداد"""
-        keys = key.split('.')
-        value = self.config
-        for k in keys:
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                return default
-        return value
-    
-    def set(self, key: str, value: Any) -> bool:
-        """تعيين إعداد"""
+    def _create_default_config_file(self):
+        """إنشاء ملف الإعدادات الافتراضي"""
         try:
-            keys = key.split('.')
-            config = self.config
-            for k in keys[:-1]:
-                config = config.setdefault(k, {})
-            config[keys[-1]] = value
-            return True
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.default_config, f, indent=4, ensure_ascii=False)
+            
+            self.logger.info(f"✅ Default config file created at {self.config_path}")
+            
         except Exception as e:
-            logging.error(f"Error setting config: {e}")
+            self.logger.error(f"❌ Error creating config file: {e}")
+    
+    def save(self, config: Dict[str, Any]):
+        """حفظ الإعدادات إلى الملف"""
+        try:
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+            
+            self.logger.info(f"✅ Configuration saved to {self.config_path}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error saving configuration: {e}")
+    
+    def validate(self, config: Dict[str, Any]) -> bool:
+        """التحقق من صحة الإعدادات"""
+        try:
+            required_sections = ['system', 'sensors', 'ai_models', 'emergency']
+            
+            for section in required_sections:
+                if section not in config:
+                    self.logger.error(f"❌ Missing required section: {section}")
+                    return False
+            
+            # التحقق من قيم المستشعرات
+            sensors = config.get('sensors', {})
+            for sensor, params in sensors.items():
+                if 'min' not in params or 'max' not in params:
+                    self.logger.error(f"❌ Invalid sensor config for {sensor}")
+                    return False
+            
+            self.logger.info("✅ Configuration validation passed")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Configuration validation failed: {e}")
             return False
 
-# إنشاء instance عالمي
-config = AdvancedConfig()
+# دالة مساعدة لتحميل الإعدادات
+def load_configuration(config_path: str = "config/settings.json") -> Dict[str, Any]:
+    """
+    دالة مساعدة لتحميل الإعدادات مع معالجة الأخطاء
+    """
+    try:
+        loader = ConfigLoader(config_path)
+        config = loader.load()
+        
+        if loader.validate(config):
+            return config
+        else:
+            raise ValueError("Configuration validation failed")
+            
+    except Exception as e:
+        logging.error(f"❌ Failed to load configuration: {e}")
+        raise
+
+if __name__ == "__main__":
+    # اختبار نظام الإعدادات والتسجيل
+    setup_logging()
+    
+    config = load_configuration()
+    print("✅ Config and logging tested successfully!")
+    print(f"System: {config['system']['name']} v{config['system']['version']}")
