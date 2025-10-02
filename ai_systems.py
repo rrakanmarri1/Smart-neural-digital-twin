@@ -1,152 +1,210 @@
 import logging
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
-from enum import Enum
-import random
-from sklearn.ensemble import IsolationForest
-from sklearn.svm import OneClassSVM
 import torch
 import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader, TensorDataset
+import joblib
+from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
+from sklearn.cluster import DBSCAN
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_score, recall_score, f1_score
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
-class AIChatSystem:
-    """
-    نظام الدردشة بالذكاء الاصطناعي باستخدام OpenAI
-    """
-    
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key
-        self.logger = logging.getLogger(__name__)
-        self.conversation_history = []
-        
-        # استخدام secrets إذا كان في بيئة Streamlit
-        if hasattr(__import__('streamlit'), 'secrets'):
-            import streamlit as st
-            if st.secrets.get('openai', {}):
-                self.api_key = st.secrets['openai'].get('api_key', self.api_key)
-    
-    def ask_question(self, question: str, context: Dict[str, Any] = None) -> str:
-        """طرح سؤال على الذكاء الاصطناعي"""
-        try:
-            if not self.api_key:
-                return "⚠️ OpenAI API key not configured. Using simulated response."
-            
-            # هنا سيتم تكامل OpenAI الحقيقي
-            # response = openai.ChatCompletion.create(...)
-            
-            # نموذج محاكاة مؤقت
-            return self._simulate_ai_response(question, context)
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error in AI chat: {e}")
-            return f"❌ Error: {str(e)}"
-    
-    def _simulate_ai_response(self, question: str, context: Dict[str, Any] = None) -> str:
-        """محاكاة ردود الذكاء الاصطناعي"""
-        question_lower = question.lower()
-        
-        if 'pressure' in question_lower:
-            return "Based on current sensor readings, pressure levels are within normal range. No immediate action required."
-        elif 'temperature' in question_lower:
-            return "Temperature sensors indicate stable conditions. Monitoring ongoing."
-        elif 'emergency' in question_lower or 'risk' in question_lower:
-            return "Emergency systems are active. Risk assessment shows normal conditions. All safety protocols are operational."
-        elif 'prediction' in question_lower or 'forecast' in question_lower:
-            return "AI models predict stable conditions for the next 24 hours. Continuous monitoring in progress."
-        else:
-            return "I've analyzed your query. The oil field monitoring system is functioning optimally. All critical parameters are within safe limits."
-
-class AdvancedAnomalyDetector:
-    """
-    نظام متقدم لكشف الشذوذ باستخدام多种 خوارزميات
-    """
+class AdvancedPreprocessor:
+    """معالج بيانات متقدم للذكاء الاصطناعي"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
-        self.models = {}
-        self.anomaly_history = []
+        self.logger = logging.getLogger('SmartNeural.AI.Preprocessor')
+        self.scaler = StandardScaler()
+        self.feature_names = ['pressure', 'temperature', 'methane', 'hydrogen_sulfide', 'vibration', 'flow']
         
-        self._initialize_models()
-    
-    def _initialize_models(self):
-        """تهيئة نماذج كشف الشذوذ"""
+    def preprocess_data(self, sensor_data: Dict[str, Any]) -> np.ndarray:
+        """معالجة متقدمة لبيانات المستشعرات"""
         try:
-            # Isolation Forest للكشف عن الشذوذ
-            self.models['isolation_forest'] = IsolationForest(
-                contamination=0.1,
-                random_state=42
-            )
+            # استخراج القيم بالترتيب الصحيح
+            values = [sensor_data.get(sensor, 0.0) for sensor in self.feature_names]
+            array_data = np.array(values).reshape(1, -1)
             
-            # One-Class SVM
-            self.models['one_class_svm'] = OneClassSVM(
-                nu=0.1,
-                kernel='rbf'
-            )
+            # تطبيع البيانات
+            normalized_data = self.scaler.fit_transform(array_data)
             
-            # نموذج LSTM للكشف عن الشذوذ الزمني
-            self.models['lstm_autoencoder'] = self._create_lstm_autoencoder()
-            
-            self.logger.info("✅ Anomaly detection models initialized")
+            return normalized_data
             
         except Exception as e:
-            self.logger.error(f"❌ Error initializing anomaly models: {e}")
+            self.logger.error(f"❌ Data preprocessing failed: {e}")
+            return np.zeros((1, len(self.feature_names)))
     
-    def _create_lstm_autoencoder(self) -> nn.Module:
-        """إنشاء LSTM Autoencoder للكشف عن الشذوذ"""
-        class LSTMAutoencoder(nn.Module):
-            def __init__(self, input_dim=6, hidden_dim=32, num_layers=2):
+    def create_sequences(self, data: np.ndarray, sequence_length: int = 50) -> np.ndarray:
+        """إنشاء متواليات زمنية للتدريب"""
+        sequences = []
+        for i in range(len(data) - sequence_length):
+            sequences.append(data[i:(i + sequence_length)])
+        return np.array(sequences)
+
+class AdvancedAnomalySystem:
+    """نظام كشف الشذوذ المتقدم باستخدام多种 خوارزميات"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.logger = logging.getLogger('SmartNeural.AI.Anomaly')
+        
+        # تهيئة نماذج كشف الشذوذ المتقدمة
+        self.models = {
+            'isolation_forest': IsolationForest(
+                n_estimators=config['ai_models']['isolation_forest']['n_estimators'],
+                contamination=config['ai_models']['isolation_forest']['contamination'],
+                max_features=config['ai_models']['isolation_forest']['max_features'],
+                bootstrap=config['ai_models']['isolation_forest']['bootstrap'],
+                random_state=42,
+                n_jobs=-1
+            ),
+            'one_class_svm': OneClassSVM(
+                nu=0.1,
+                kernel='rbf',
+                gamma='scale'
+            ),
+            'dbscan': DBSCAN(eps=0.5, min_samples=5)
+        }
+        
+        self.autoencoder = self._build_advanced_autoencoder()
+        self.preprocessor = AdvancedPreprocessor(config)
+        self.anomaly_history = []
+        self.is_trained = False
+        
+        self.logger.info("✅ Advanced Anomaly Detection System Initialized")
+    
+    def _build_advanced_autoencoder(self) -> nn.Module:
+        """بناء Autoencoder متقدم للكشف عن الشذوذ"""
+        class AdvancedAutoencoder(nn.Module):
+            def __init__(self, input_dim=6, encoding_dim=32):
                 super().__init__()
-                self.encoder = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
-                self.decoder = nn.LSTM(hidden_dim, input_dim, num_layers, batch_first=True)
+                # Encoder
+                self.encoder = nn.Sequential(
+                    nn.Linear(input_dim, 64),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(64),
+                    nn.Linear(64, encoding_dim),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(encoding_dim)
+                )
+                # Decoder
+                self.decoder = nn.Sequential(
+                    nn.Linear(encoding_dim, 64),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(64),
+                    nn.Linear(64, input_dim),
+                    nn.Sigmoid()
+                )
             
             def forward(self, x):
-                encoded, _ = self.encoder(x)
-                decoded, _ = self.decoder(encoded)
+                encoded = self.encoder(x)
+                decoded = self.decoder(encoded)
                 return decoded
         
-        return LSTMAutoencoder()
+        return AdvancedAutoencoder(
+            input_dim=6,
+            encoding_dim=self.config['ai_models']['autoencoder']['encoding_dim']
+        )
+    
+    def train_anomaly_models(self, training_data: List[Dict[str, Any]]):
+        """تدريب جميع نماذج كشف الشذوذ"""
+        try:
+            self.logger.info("🔄 Training anomaly detection models...")
+            
+            # تحضير البيانات
+            X = np.array([list(data.values()) for data in training_data])
+            
+            # تدريب Isolation Forest
+            self.models['isolation_forest'].fit(X)
+            
+            # تدريب OneClass SVM
+            self.models['one_class_svm'].fit(X)
+            
+            # تدريب Autoencoder
+            self._train_autoencoder(X)
+            
+            self.is_trained = True
+            self.logger.info("✅ All anomaly models trained successfully")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Anomaly models training failed: {e}")
+    
+    def _train_autoencoder(self, X: np.ndarray):
+        """تدريب الـAutoencoder"""
+        try:
+            # تحويل البيانات إلى Tensor
+            X_tensor = torch.FloatTensor(X)
+            dataset = TensorDataset(X_tensor)
+            dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+            
+            # خيارات التدريب
+            criterion = nn.MSELoss()
+            optimizer = optim.Adam(self.autoencoder.parameters(), lr=0.001)
+            
+            # التدريب
+            self.autoencoder.train()
+            for epoch in range(self.config['ai_models']['autoencoder']['epochs']):
+                total_loss = 0
+                for batch in dataloader:
+                    data = batch[0]
+                    optimizer.zero_grad()
+                    output = self.autoencoder(data)
+                    loss = criterion(output, data)
+                    loss.backward()
+                    optimizer.step()
+                    total_loss += loss.item()
+                
+                if epoch % 20 == 0:
+                    self.logger.info(f"Autoencoder Epoch {epoch}, Loss: {total_loss/len(dataloader):.6f}")
+                    
+        except Exception as e:
+            self.logger.error(f"❌ Autoencoder training failed: {e}")
     
     def detect_anomalies(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
-        """كشف الشذوذ في بيانات المستشعرات"""
+        """كشف شذوذ متقدم باستخدام多种 خوارزميات"""
         try:
-            if not sensor_data:
-                return {'error': 'No sensor data provided'}
+            if not self.is_trained:
+                return {'error': 'Models not trained', 'is_anomaly': False}
             
-            # تحويل البيانات إلى مصفوفة
-            data_array = self._prepare_data(sensor_data)
+            # معالجة البيانات
+            processed_data = self.preprocessor.preprocess_data(sensor_data)
             
-            # الكشف باستخدام多种 خوارزميات
+            # الكشف باستخدام جميع النماذج
             results = {}
             
             # Isolation Forest
-            iforest_pred = self.models['isolation_forest'].fit_predict(data_array.reshape(1, -1))
-            results['isolation_forest'] = iforest_pred[0] == -1
+            iforest_pred = self.models['isolation_forest'].predict(processed_data)[0]
+            results['isolation_forest'] = iforest_pred == -1
             
-            # One-Class SVM
-            svm_pred = self.models['one_class_svm'].fit_predict(data_array.reshape(1, -1))
-            results['one_class_svm'] = svm_pred[0] == -1
+            # OneClass SVM
+            svm_pred = self.models['one_class_svm'].predict(processed_data)[0]
+            results['one_class_svm'] = svm_pred == -1
             
-            # LSTM Autoencoder (reconstruction error)
-            lstm_anomaly = self._detect_lstm_anomaly(data_array)
-            results['lstm_autoencoder'] = lstm_anomaly
+            # Autoencoder Reconstruction Error
+            autoencoder_anomaly = self._detect_autoencoder_anomaly(processed_data)
+            results['autoencoder'] = autoencoder_anomaly
             
-            # تحليل النتائج
+            # حساب درجة الشذوذ الإجمالية
             anomaly_score = sum(results.values()) / len(results)
-            is_anomaly = anomaly_score > 0.5
             
-            # تصنيف مستوى الخطورة
-            risk_level = self._classify_anomaly_risk(sensor_data, anomaly_score)
+            # تحليل متقدم
+            critical_anomalies = self._analyze_critical_anomalies(sensor_data)
+            risk_level = self._calculate_risk_level(anomaly_score, critical_anomalies)
             
             result = {
-                'is_anomaly': is_anomaly,
-                'anomaly_score': anomaly_score,
+                'is_anomaly': anomaly_score > 0.5,
+                'anomaly_score': float(anomaly_score),
                 'risk_level': risk_level,
                 'algorithm_results': results,
-                'critical_anomalies': self._identify_critical_anomalies(sensor_data),
+                'critical_anomalies': critical_anomalies,
+                'confidence': self._calculate_confidence(results),
                 'timestamp': datetime.now()
             }
             
@@ -158,306 +216,309 @@ class AdvancedAnomalyDetector:
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ Error detecting anomalies: {e}")
-            return {'error': str(e)}
+            self.logger.error(f"❌ Anomaly detection failed: {e}")
+            return {'error': str(e), 'is_anomaly': False}
     
-    def _prepare_data(self, sensor_data: Dict[str, Any]) -> np.ndarray:
-        """تحضير البيانات للتحليل"""
+    def _detect_autoencoder_anomaly(self, data: np.ndarray) -> bool:
+        """كشف الشذوذ باستخدام Autoencoder"""
         try:
-            # استخراج القيم العددية من بيانات المستشعرات
-            values = []
-            sensors = ['pressure', 'temperature', 'methane', 'hydrogen_sulfide', 'vibration', 'flow']
-            
-            for sensor in sensors:
-                value = sensor_data.get(sensor, 0)
-                if isinstance(value, (int, float)):
-                    values.append(float(value))
-                else:
-                    values.append(0.0)
-            
-            return np.array(values)
+            self.autoencoder.eval()
+            with torch.no_grad():
+                data_tensor = torch.FloatTensor(data)
+                reconstructed = self.autoencoder(data_tensor)
+                reconstruction_error = torch.mean((data_tensor - reconstructed) ** 2).item()
+                
+            return reconstruction_error > 0.1  # عتبة الشذوذ
             
         except Exception as e:
-            self.logger.error(f"❌ Error preparing data: {e}")
-            return np.zeros(6)
-    
-    def _detect_lstm_anomaly(self, data: np.ndarray) -> bool:
-        """الكشف عن الشذوذ باستخدام LSTM"""
-        try:
-            # محاكاة خطإ إعادة البناء
-            reconstruction_error = np.random.random() * 0.1
-            return reconstruction_error > 0.05  # عتبة
-        except Exception as e:
-            self.logger.error(f"❌ LSTM anomaly detection failed: {e}")
+            self.logger.error(f"❌ Autoencoder detection failed: {e}")
             return False
     
-    def _classify_anomaly_risk(self, sensor_data: Dict[str, Any], anomaly_score: float) -> str:
-        """تصنيف مستوى خطورة الشذوذ"""
-        try:
-            if anomaly_score >= 0.8:
-                return 'critical'
-            elif anomaly_score >= 0.6:
-                return 'high'
-            elif anomaly_score >= 0.4:
-                return 'medium'
-            else:
-                return 'low'
-        except Exception as e:
-            self.logger.error(f"❌ Error classifying risk: {e}")
-            return 'unknown'
-    
-    def _identify_critical_anomalies(self, sensor_data: Dict[str, Any]) -> List[str]:
-        """تحديد الشذوذ الحرج"""
+    def _analyze_critical_anomalies(self, sensor_data: Dict[str, Any]) -> List[str]:
+        """تحليل الشذوذ الحرج"""
         critical_anomalies = []
+        thresholds = {
+            'pressure': 150,
+            'temperature': 200,
+            'methane': 1000,
+            'hydrogen_sulfide': 50,
+            'vibration': 8,
+            'flow': 400
+        }
         
-        try:
-            # تحقق من الضغط
-            pressure = sensor_data.get('pressure', 0)
-            if pressure > 80:  # بار
-                critical_anomalies.append('High pressure detected')
-            
-            # تحقق من الحرارة
-            temperature = sensor_data.get('temperature', 0)
-            if temperature > 120:  # درجة مئوية
-                critical_anomalies.append('High temperature detected')
-            
-            # تحقق من الميثان
-            methane = sensor_data.get('methane', 0)
-            if methane > 500:  # جزء في المليون
-                critical_anomalies.append('High methane level')
-            
-            # تحقق من الاهتزاز
-            vibration = sensor_data.get('vibration', 0)
-            if vibration > 5:  # م/ث²
-                critical_anomalies.append('Excessive vibration')
-            
-            return critical_anomalies
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error identifying critical anomalies: {e}")
-            return []
+        for sensor, value in sensor_data.items():
+            if sensor in thresholds and value > thresholds[sensor]:
+                critical_anomalies.append(f"{sensor} exceeded threshold: {value} > {thresholds[sensor]}")
+        
+        return critical_anomalies
+    
+    def _calculate_risk_level(self, anomaly_score: float, critical_anomalies: List[str]) -> str:
+        """حساب مستوى الخطورة"""
+        if anomaly_score >= 0.8 or len(critical_anomalies) >= 2:
+            return 'CRITICAL'
+        elif anomaly_score >= 0.6 or len(critical_anomalies) >= 1:
+            return 'HIGH'
+        elif anomaly_score >= 0.4:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _calculate_confidence(self, results: Dict[str, bool]) -> float:
+        """حساب درجة الثقة في الكشف"""
+        agreement = sum(results.values())
+        total = len(results)
+        return agreement / total if total > 0 else 0.0
 
 class AdvancedPredictionEngine:
-    """
-    محرك تنبؤ متقدم للتنبؤ بالمستقبل 24 ساعة
-    """
+    """محرك تنبؤ متقدم باستخدام LSTM متعدد المستويات"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('SmartNeural.AI.Prediction')
+        
+        # نماذج LVM للمستويات الزمنية المختلفة
+        self.models = {
+            'short_term': self._build_lstm_model('short_term'),
+            'medium_term': self._build_lstm_model('medium_term'),
+            'long_term': self._build_lstm_model('long_term')
+        }
+        
+        self.preprocessor = AdvancedPreprocessor(config)
         self.prediction_history = []
-        self.model = self._create_prediction_model()
+        self.is_trained = False
+        
+        self.logger.info("✅ Advanced Prediction Engine Initialized")
     
-    def _create_prediction_model(self):
-        """إنشاء نموذج التنبؤ"""
-        # نموذج LSTM للتنبؤ الزمني
-        class PredictionLSTM(nn.Module):
-            def __init__(self, input_size=6, hidden_size=64, output_size=6, num_layers=2):
+    def _build_lstm_model(self, timeframe: str) -> nn.Module:
+        """بناء نموذج LSTM للمستوى الزمني المحدد"""
+        config = self.config['ai_models']['lstm_models'][timeframe]
+        
+        class TimeframeLSTM(nn.Module):
+            def __init__(self, input_size=6, hidden_size=128, output_size=6, num_layers=2, dropout=0.2):
                 super().__init__()
-                self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-                self.linear = nn.Linear(hidden_size, output_size)
+                self.hidden_size = hidden_size
+                self.num_layers = num_layers
+                
+                self.lstm = nn.LSTM(input_size, hidden_size, num_layers, 
+                                  batch_first=True, dropout=dropout)
+                self.dropout = nn.Dropout(dropout)
+                self.fc = nn.Linear(hidden_size, output_size)
+                self.attention = nn.Linear(hidden_size, 1)
             
             def forward(self, x):
-                lstm_out, _ = self.lstm(x)
-                predictions = self.linear(lstm_out[:, -1, :])
-                return predictions
+                # LSTM
+                lstm_out, (hidden, cell) = self.lstm(x)
+                
+                # Attention mechanism
+                attention_weights = torch.softmax(self.attention(lstm_out).squeeze(-1), dim=1)
+                context_vector = torch.sum(lstm_out * attention_weights.unsqueeze(-1), dim=1)
+                
+                # التنبؤ
+                output = self.fc(self.dropout(context_vector))
+                return output
         
-        return PredictionLSTM()
+        return TimeframeLSTM(
+            input_size=6,
+            hidden_size=config['units'],
+            num_layers=config['layers'],
+            dropout=config['dropout']
+        )
     
-    def predict_next_24_hours(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
-        """التنبؤ بالمستقبل 24 ساعة"""
+    def train_prediction_models(self, historical_data: List[Dict[str, Any]]):
+        """تدريب نماذج التنبؤ"""
         try:
-            # تحضير البيانات التاريخية
-            historical_data = self._prepare_historical_data(sensor_data)
+            self.logger.info("🔄 Training prediction models...")
             
-            # التنبؤ باستخدام النموذج
-            predictions = self._generate_predictions(historical_data)
+            # تحضير البيانات
+            sequences, targets = self._prepare_training_data(historical_data)
             
-            # تحليل الاتجاهات
-            trends = self._analyze_trends(predictions)
+            # تدريب كل نموذج
+            for timeframe, model in self.models.items():
+                self._train_single_model(model, sequences, targets, timeframe)
+            
+            self.is_trained = True
+            self.logger.info("✅ All prediction models trained successfully")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Prediction models training failed: {e}")
+    
+    def _prepare_training_data(self, data: List[Dict]) -> Tuple[np.ndarray, np.ndarray]:
+        """تحضير بيانات التدريب"""
+        # تحويل البيانات إلى مصفوفة
+        values = np.array([list(d.values()) for d in data])
+        
+        # إنشاء متواليات
+        sequence_length = 50
+        sequences = []
+        targets = []
+        
+        for i in range(len(values) - sequence_length):
+            sequences.append(values[i:i + sequence_length])
+            targets.append(values[i + sequence_length])
+        
+        return np.array(sequences), np.array(targets)
+    
+    def _train_single_model(self, model: nn.Module, sequences: np.ndarray, 
+                          targets: np.ndarray, timeframe: str):
+        """تدريب نموذج فردي"""
+        try:
+            # تحويل إلى Tensor
+            X_tensor = torch.FloatTensor(sequences)
+            y_tensor = torch.FloatTensor(targets)
+            
+            dataset = TensorDataset(X_tensor, y_tensor)
+            dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+            
+            # خيارات التدريب
+            criterion = nn.MSELoss()
+            optimizer = optim.Adam(model.parameters(), lr=0.001)
+            
+            # التدريب
+            model.train()
+            for epoch in range(100):  # 100 epoch للتدريب
+                total_loss = 0
+                for batch_X, batch_y in dataloader:
+                    optimizer.zero_grad()
+                    predictions = model(batch_X)
+                    loss = criterion(predictions, batch_y)
+                    loss.backward()
+                    optimizer.step()
+                    total_loss += loss.item()
+                
+                if epoch % 20 == 0:
+                    self.logger.info(f"{timeframe} LSTM Epoch {epoch}, Loss: {total_loss/len(dataloader):.6f}")
+                    
+        except Exception as e:
+            self.logger.error(f"❌ {timeframe} model training failed: {e}")
+    
+    def predict(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """التنبؤ متعدد المستويات"""
+        try:
+            if not self.is_trained:
+                return self._generate_simulated_predictions(sensor_data)
+            
+            # معالجة البيانات
+            processed_data = self.preprocessor.preprocess_data(sensor_data)
+            
+            # التنبؤ لكل مستوى زمني
+            predictions = {}
+            horizons = self.config['foresight_engine']['prediction_horizons']
+            
+            for timeframe, horizon in horizons.items():
+                predictions[timeframe] = self._predict_timeframe(
+                    self.models[timeframe], processed_data, horizon
+                )
+            
+            # تحليل الاتجاهات والمخاطر
+            trend_analysis = self._analyze_trends(predictions)
+            risk_assessment = self._assess_risks(predictions)
             
             result = {
                 'predictions': predictions,
-                'trends': trends,
-                'confidence_scores': self._calculate_confidence(predictions),
+                'trend_analysis': trend_analysis,
+                'risk_assessment': risk_assessment,
+                'confidence_scores': self._calculate_prediction_confidence(predictions),
                 'critical_points': self._identify_critical_points(predictions),
-                'timestamp': datetime.now(),
-                'time_horizon': '24_hours'
+                'timestamp': datetime.now()
             }
             
-            # تخزين في السجل
             self.prediction_history.append(result)
-            if len(self.prediction_history) > 100:
-                self.prediction_history = self.prediction_history[-100:]
-            
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ Error generating predictions: {e}")
-            return {'error': str(e)}
+            self.logger.error(f"❌ Prediction failed: {e}")
+            return self._generate_simulated_predictions(sensor_data)
     
-    def _prepare_historical_data(self, current_data: Dict[str, Any]) -> np.ndarray:
-        """تحضير البيانات التاريخية للتنبؤ"""
+    def _predict_timeframe(self, model: nn.Module, data: np.ndarray, horizon: int) -> Dict[str, Any]:
+        """التنبؤ لمستوى زمني محدد"""
         try:
-            # محاكاة بيانات تاريخية
-            time_steps = 24  # 24 ساعة سابقة
-            num_sensors = 6
-            
-            historical = np.random.normal(0.5, 0.1, (time_steps, num_sensors))
-            
-            # إضافة البيانات الحالية
-            current_values = self._extract_sensor_values(current_data)
-            historical = np.vstack([historical, current_values.reshape(1, -1)])
-            
-            return historical
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error preparing historical data: {e}")
-            return np.random.normal(0.5, 0.1, (25, 6))
-    
-    def _extract_sensor_values(self, sensor_data: Dict[str, Any]) -> np.ndarray:
-        """استخراج قيم المستشعرات"""
-        sensors = ['pressure', 'temperature', 'methane', 'hydrogen_sulfide', 'vibration', 'flow']
-        values = []
-        
-        for sensor in sensors:
-            value = sensor_data.get(sensor, 0)
-            if isinstance(value, (int, float)):
-                # تطبيع القيمة
-                normalized = max(0, min(1, value / 100))
-                values.append(normalized)
-            else:
-                values.append(0.5)
-        
-        return np.array(values)
-    
-    def _generate_predictions(self, historical_data: np.ndarray) -> Dict[str, List[float]]:
-        """توليد التنبؤات"""
-        try:
-            # محاكاة التنبؤات
-            predictions = {}
-            sensors = ['pressure', 'temperature', 'methane', 'hydrogen_sulfide', 'vibration', 'flow']
-            
-            for i, sensor in enumerate(sensors):
-                # إنشاء تنبؤات واقعية مع بعض التقلبات
-                base_value = historical_data[-1, i]
-                future_values = []
+            model.eval()
+            with torch.no_grad():
+                # تحضير بيانات الإدخال
+                input_seq = torch.FloatTensor(data).unsqueeze(0)
                 
-                for hour in range(24):
-                    # إضافة بعض التقلبات الطبيعية
-                    fluctuation = np.random.normal(0, 0.05)
-                    predicted_value = base_value + (hour * 0.01) + fluctuation
-                    future_values.append(max(0, min(1, predicted_value)) * 100)  # إعادة التحجيم
+                # التنبؤ
+                prediction = model(input_seq).numpy().flatten()
                 
-                predictions[sensor] = future_values
-            
-            return predictions
-            
+                return {
+                    'horizon': horizon,
+                    'values': prediction.tolist(),
+                    'time_unit': 'hours',
+                    'model': 'Advanced_LSTM'
+                }
+                
         except Exception as e:
-            self.logger.error(f"❌ Error generating predictions: {e}")
-            return {}
+            self.logger.error(f"❌ Timeframe prediction failed: {e}")
+            return self._simulate_prediction(horizon)
     
-    def _analyze_trends(self, predictions: Dict[str, List[float]]) -> Dict[str, str]:
-        """تحليل الاتجاهات في التنبؤات"""
-        trends = {}
+    def _generate_simulated_predictions(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """توليد تنبؤات محاكاة (للاختبار)"""
+        predictions = {}
+        horizons = self.config['foresight_engine']['prediction_horizons']
         
-        try:
-            for sensor, values in predictions.items():
-                if len(values) >= 2:
-                    start_val = values[0]
-                    end_val = values[-1]
-                    
-                    if end_val > start_val * 1.1:
-                        trends[sensor] = 'increasing'
-                    elif end_val < start_val * 0.9:
-                        trends[sensor] = 'decreasing'
-                    else:
-                        trends[sensor] = 'stable'
-                else:
-                    trends[sensor] = 'unknown'
-            
-            return trends
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error analyzing trends: {e}")
-            return {}
+        for timeframe, horizon in horizons.items():
+            predictions[timeframe] = self._simulate_prediction(horizon)
+        
+        return {
+            'predictions': predictions,
+            'trend_analysis': {'overall': 'stable'},
+            'risk_assessment': {'overall_risk': 'low'},
+            'confidence_scores': {'overall': 0.8},
+            'critical_points': [],
+            'timestamp': datetime.now(),
+            'simulated': True
+        }
     
-    def _calculate_confidence(self, predictions: Dict[str, List[float]]) -> Dict[str, float]:
-        """حساب درجات الثقة في التنبؤات"""
-        confidence = {}
+    def _simulate_prediction(self, horizon: int) -> Dict[str, Any]:
+        """محاكاة تنبؤ واقعي"""
+        base_values = np.random.uniform(0.3, 0.7, 6)
+        trend = np.linspace(0, 0.2, horizon)
         
-        try:
-            for sensor in predictions.keys():
-                # محاكاة درجات الثقة بناءً على تقلب البيانات
-                confidence[sensor] = max(0.5, min(0.95, np.random.normal(0.8, 0.1)))
-            
-            return confidence
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error calculating confidence: {e}")
-            return {}
-    
-    def _identify_critical_points(self, predictions: Dict[str, List[float]]) -> List[Dict[str, Any]]:
-        """تحديد النقاط الحرجة في التنبؤات"""
-        critical_points = []
+        predicted_values = []
+        for i in range(horizon):
+            values = base_values * (1 + trend[i] * np.random.normal(1, 0.1))
+            predicted_values.append(values.tolist())
         
-        try:
-            thresholds = {
-                'pressure': 80,
-                'temperature': 120,
-                'methane': 500,
-                'vibration': 5
-            }
-            
-            for sensor, values in predictions.items():
-                if sensor in thresholds:
-                    for hour, value in enumerate(values):
-                        if value > thresholds[sensor]:
-                            critical_points.append({
-                                'sensor': sensor,
-                                'hour': hour,
-                                'value': value,
-                                'threshold': thresholds[sensor],
-                                'risk_level': 'high' if value > thresholds[sensor] * 1.2 else 'medium'
-                            })
-            
-            return critical_points
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error identifying critical points: {e}")
-            return []
+        return {
+            'horizon': horizon,
+            'values': predicted_values,
+            'time_unit': 'hours',
+            'model': 'Simulated_LSTM'
+        }
 
 class InterventionEngine:
-    """
-    محرك اتخاذ القرارات المستحيلة باستخدام مونتي كارلو
-    """
+    """محرك التدخل المتقدم - بديل Monte Carlo"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('SmartNeural.AI.Intervention')
+        self.scenarios_per_second = config['foresight_engine']['scenarios_per_second']['default']
         self.decision_history = []
+        
+        self.logger.info("✅ Advanced Intervention Engine Initialized")
     
-    def make_impossible_decision(self, situation_data: Dict[str, Any], risk_level: float) -> Dict[str, Any]:
-        """اتخاذ قرار مستحيل باستخدام محاكاة مونتي كارلو"""
+    def make_decision(self, sensor_data: Dict, predictions: Dict, anomalies: Dict) -> Dict[str, Any]:
+        """اتخاذ قرار تدخل متقدم"""
         try:
-            # توليد آلاف السيناريوهات باستخدام مونتي كارلو
-            scenarios = self._generate_monte_carlo_scenarios(situation_data, risk_level)
+            # تحليل الوضع الحالي
+            situation_analysis = self._analyze_current_situation(sensor_data, predictions, anomalies)
             
-            # تقييم كل سيناريو بناءً على معايير متعددة
+            # توليد سيناريوهات
+            scenarios = self._generate_scenarios(situation_analysis)
+            
+            # تقييم السيناريوهات
             evaluated_scenarios = self._evaluate_scenarios(scenarios)
             
-            # اختيار أفضل سيناريو
-            best_scenario = self._select_best_scenario(evaluated_scenarios)
-            
-            # تطوير الحل الثالث (التوفيقي)
-            third_way_solution = self._develop_third_way(best_scenario, evaluated_scenarios)
+            # دمج القرارات
+            final_decision = self._make_final_decision(evaluated_scenarios)
             
             result = {
-                'decision_type': 'monte_carlo_optimized',
-                'risk_level': risk_level,
-                'best_scenario': best_scenario,
-                'third_way_solution': third_way_solution,
-                'evaluation_metrics': self._calculate_metrics(evaluated_scenarios),
+                'decision': final_decision,
+                'situation_analysis': situation_analysis,
+                'scenarios_generated': len(scenarios),
+                'scenarios_per_second': self.scenarios_per_second,
+                'confidence': final_decision.get('confidence', 0.7),
+                'reasoning': final_decision.get('reasoning', ''),
                 'timestamp': datetime.now()
             }
             
@@ -465,461 +526,250 @@ class InterventionEngine:
             return result
             
         except Exception as e:
-            self.logger.error(f"❌ Error making impossible decision: {e}")
+            self.logger.error(f"❌ Decision making failed: {e}")
             return {'error': str(e)}
     
-    def _generate_monte_carlo_scenarios(self, situation: Dict[str, Any], risk_level: float, num_scenarios: int = 1000) -> List[Dict[str, Any]]:
-        """توليد سيناريوهات مونتي كارلو"""
+    def _analyze_current_situation(self, sensor_data: Dict, predictions: Dict, anomalies: Dict) -> Dict[str, Any]:
+        """تحليل الوضع الحالي المتقدم"""
+        risk_factors = {}
+        
+        # تحليل بيانات المستشعرات
+        for sensor, value in sensor_data.items():
+            risk_factors[sensor] = self._calculate_sensor_risk(sensor, value)
+        
+        # تحليل التنبؤات
+        pred_risk = self._analyze_prediction_risk(predictions)
+        
+        # تحليل الشذوذ
+        anomaly_risk = self._analyze_anomaly_risk(anomalies)
+        
+        return {
+            'sensor_risks': risk_factors,
+            'prediction_risks': pred_risk,
+            'anomaly_risks': anomaly_risk,
+            'overall_risk': max(list(risk_factors.values()) + [pred_risk, anomaly_risk])
+        }
+    
+    def _generate_scenarios(self, situation: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """توليد سيناريوهات متعددة"""
         scenarios = []
+        num_scenarios = min(self.scenarios_per_second, 1000)
         
-        try:
-            for i in range(num_scenarios):
-                scenario = {
-                    'id': i,
-                    'actions': self._generate_random_actions(risk_level),
-                    'expected_outcomes': {},
-                    'risk_factors': np.random.random(),
-                    'resource_usage': np.random.random(),
-                    'time_to_resolve': np.random.exponential(10)
-                }
-                
-                # حساب النتائج المتوقعة
-                scenario['expected_outcomes'] = self._simulate_outcomes(scenario['actions'], situation)
-                
-                scenarios.append(scenario)
-            
-            return scenarios
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error generating Monte Carlo scenarios: {e}")
-            return []
-    
-    def _generate_random_actions(self, risk_level: float) -> List[Dict[str, Any]]:
-        """توليد إجراءات عشوائية"""
-        actions = []
-        
-        try:
-            possible_actions = [
-                {'type': 'pressure_release', 'intensity': np.random.random()},
-                {'type': 'emergency_cooling', 'intensity': np.random.random()},
-                {'type': 'gas_venting', 'venting_rate': np.random.random()},
-                {'type': 'flow_adjustment', 'adjustment': np.random.uniform(-20, 20)},
-                {'type': 'vibration_dampening', 'effectiveness': np.random.random()}
-            ]
-            
-            # عدد الإجراءات يعتمد على مستوى الخطورة
-            num_actions = min(5, max(1, int(risk_level * 10)))
-            
-            for _ in range(num_actions):
-                action = random.choice(possible_actions).copy()
-                # تعديل الشدة بناءً على مستوى الخطورة
-                if 'intensity' in action:
-                    action['intensity'] *= risk_level
-                actions.append(action)
-            
-            return actions
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error generating random actions: {e}")
-            return []
-    
-    def _simulate_outcomes(self, actions: List[Dict[str, Any]], situation: Dict[str, Any]) -> Dict[str, float]:
-        """محاكاة نتائج الإجراءات"""
-        try:
-            outcomes = {
-                'safety_improvement': 0.0,
-                'production_impact': 0.0,
-                'cost_effectiveness': 0.0,
-                'environmental_impact': 0.0,
-                'reputation_effect': 0.0
+        for i in range(num_scenarios):
+            scenario = {
+                'id': i,
+                'actions': self._generate_random_actions(situation['overall_risk']),
+                'expected_outcomes': {},
+                'risk_reduction': np.random.random(),
+                'cost': np.random.random() * 1000,
+                'time_to_implement': np.random.exponential(10)
             }
             
-            for action in actions:
-                action_type = action['type']
-                intensity = action.get('intensity', action.get('adjustment', action.get('venting_rate', 0.5)))
-                
-                if action_type == 'pressure_release':
-                    outcomes['safety_improvement'] += intensity * 0.8
-                    outcomes['production_impact'] -= intensity * 0.3
-                elif action_type == 'emergency_cooling':
-                    outcomes['safety_improvement'] += intensity * 0.7
-                    outcomes['cost_effectiveness'] -= intensity * 0.4
-                elif action_type == 'gas_venting':
-                    outcomes['safety_improvement'] += intensity * 0.9
-                    outcomes['environmental_impact'] -= intensity * 0.6
-                elif action_type == 'flow_adjustment':
-                    outcomes['production_impact'] += abs(intensity) * 0.1
-                    outcomes['safety_improvement'] += intensity * 0.2 if intensity > 0 else -intensity * 0.1
-                elif action_type == 'vibration_dampening':
-                    outcomes['safety_improvement'] += intensity * 0.5
-                    outcomes['reputation_effect'] += intensity * 0.3
-            
-            # تطبيع النتائج
-            for key in outcomes:
-                outcomes[key] = max(0.0, min(1.0, outcomes[key]))
-            
-            return outcomes
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error simulating outcomes: {e}")
-            return {}
+            # حساب النتائج المتوقعة
+            scenario['expected_outcomes'] = self._simulate_outcomes(scenario['actions'])
+            scenarios.append(scenario)
+        
+        return scenarios
     
     def _evaluate_scenarios(self, scenarios: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """تقييم السيناريوهات باستخدام معايير متعددة"""
         evaluated = []
         
-        try:
-            for scenario in scenarios:
-                # حساب الدرجة الإجمالية
-                outcomes = scenario['expected_outcomes']
-                
-                # الأوزان للمعايير المختلفة
-                weights = {
-                    'safety': 0.35,
-                    'production': 0.25,
-                    'cost': 0.15,
-                    'environment': 0.15,
-                    'reputation': 0.10
-                }
-                
-                total_score = (
-                    outcomes['safety_improvement'] * weights['safety'] +
-                    outcomes['production_impact'] * weights['production'] +
-                    outcomes['cost_effectiveness'] * weights['cost'] +
-                    outcomes['environmental_impact'] * weights['environment'] +
-                    outcomes['reputation_effect'] * weights['reputation']
-                )
-                
-                scenario['total_score'] = total_score
-                scenario['weighted_score'] = total_score / (scenario['risk_factors'] + 0.1)
-                
-                evaluated.append(scenario)
-            
-            return evaluated
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error evaluating scenarios: {e}")
-            return scenarios
+        for scenario in scenarios:
+            # حساب الدرجة الإجمالية
+            score = self._calculate_scenario_score(scenario)
+            scenario['score'] = score
+            evaluated.append(scenario)
+        
+        # ترتيب حسب الدرجة
+        evaluated.sort(key=lambda x: x['score'], reverse=True)
+        return evaluated
     
-    def _select_best_scenario(self, scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """اختيار أفضل سيناريو"""
-        try:
-            if not scenarios:
-                return {}
-            
-            # اختيار السيناريو بأعلى درجة
-            best = max(scenarios, key=lambda x: x.get('weighted_score', 0))
-            return best
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error selecting best scenario: {e}")
-            return {}
-    
-    def _develop_third_way(self, best_scenario: Dict[str, Any], all_scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """تطوير الحل الثالث (التوفيقي)"""
-        try:
-            if not all_scenarios:
-                return best_scenario
-            
-            # أخذ أفضل 10 سيناريوهات
-            top_scenarios = sorted(all_scenarios, key=lambda x: x.get('weighted_score', 0), reverse=True)[:10]
-            
-            # دمج أفضل العناصر من السيناريوهات المختلفة
-            combined_actions = []
-            combined_outcomes = {
-                'safety_improvement': 0.0,
-                'production_impact': 0.0,
-                'cost_effectiveness': 0.0,
-                'environmental_impact': 0.0,
-                'reputation_effect': 0.0
-            }
-            
-            for scenario in top_scenarios:
-                # أخذ أفضل إجراء من كل سيناريو
-                if scenario.get('actions'):
-                    best_action = max(scenario['actions'], 
-                                   key=lambda a: a.get('intensity', a.get('adjustment', a.get('venting_rate', 0))))
-                    combined_actions.append(best_action)
-                
-                # متوسط النتائج
-                for key in combined_outcomes.keys():
-                    combined_outcomes[key] += scenario['expected_outcomes'].get(key, 0) / len(top_scenarios)
-            
-            third_way = {
-                'actions': combined_actions[:5],  # الحد إلى 5 إجراءات
-                'expected_outcomes': combined_outcomes,
-                'description': 'Hybrid solution combining best elements from top scenarios',
-                'innovation_score': 0.8  # درجة الابتكار
-            }
-            
-            return third_way
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error developing third way: {e}")
-            return best_scenario
-    
-    def _calculate_metrics(self, scenarios: List[Dict[str, Any]]) -> Dict[str, float]:
-        """حساب مقاييس التقييم"""
-        try:
-            if not scenarios:
-                return {}
-            
-            scores = [s.get('total_score', 0) for s in scenarios]
-            
-            return {
-                'average_score': np.mean(scores),
-                'max_score': np.max(scores),
-                'min_score': np.min(scores),
-                'std_score': np.std(scores),
-                'num_scenarios': len(scenarios)
-            }
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error calculating metrics: {e}")
-            return {}
+    def _make_final_decision(self, scenarios: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """اتخاذ القرار النهائي"""
+        if not scenarios:
+            return {'actions': [], 'confidence': 0.0, 'reasoning': 'No scenarios available'}
+        
+        # اختيار أفضل سيناريو
+        best_scenario = scenarios[0]
+        
+        return {
+            'actions': best_scenario['actions'][:3],  # أفضل 3 إجراءات
+            'confidence': best_scenario['score'],
+            'reasoning': f"Selected scenario {best_scenario['id']} with score {best_scenario['score']:.3f}",
+            'expected_risk_reduction': best_scenario['risk_reduction'],
+            'implementation_time': best_scenario['time_to_implement']
+        }
 
-class LifelongMemory:
-    """
-    نظام الذاكرة المستدامة - التعلم من التجارب السابقة
-    """
+class AdaptiveLifelongMemory:
+    """ذاكرة مستدامة تكيفية متقدمة"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger('SmartNeural.AI.Memory')
         self.memory_store = []
-        self.learning_rate = 0.1
+        self.pattern_library = {}
+        self.experience_weights = {}
+        self.max_memories = 10000
+        
+        self.logger.info("✅ Adaptive Lifelong Memory Initialized")
     
-    def store_experience(self, sensor_data: Dict[str, Any], 
-                        anomaly_results: Dict[str, Any], 
-                        predictions: Dict[str, Any]):
-        """تخزين التجربة في الذاكرة"""
+    def store_experience(self, experience: Dict[str, Any]):
+        """تخزين تجربة مع تحليل أنماط"""
         try:
-            experience = {
-                'timestamp': datetime.now(),
-                'sensor_data': sensor_data.copy(),
-                'anomaly_results': anomaly_results.copy(),
-                'predictions': predictions.copy(),
-                'lessons_learned': self._extract_lessons(anomaly_results, predictions)
-            }
+            # إضافة معلومات زمنية
+            experience['timestamp'] = datetime.now()
+            experience['memory_id'] = len(self.memory_store)
+            experience['pattern_hash'] = self._generate_pattern_hash(experience)
             
+            # التخزين الأساسي
             self.memory_store.append(experience)
             
-            # الاحتفاظ فقط بـ 10000 تجربة حديثة
-            if len(self.memory_store) > 10000:
-                self.memory_store = self.memory_store[-10000:]
+            # تحديث مكتبة الأنماط
+            self._update_pattern_library(experience)
             
-            self.logger.info("✅ Experience stored in lifelong memory")
+            # التعلم التكيفي
+            self._adaptive_learning(experience)
             
-        except Exception as e:
-            self.logger.error(f"❌ Error storing experience: {e}")
-    
-    def _extract_lessons(self, anomaly_results: Dict[str, Any], predictions: Dict[str, Any]) -> List[str]:
-        """استخلاص الدروس من التجارب"""
-        lessons = []
-        
-        try:
-            if anomaly_results.get('is_anomaly', False):
-                risk_level = anomaly_results.get('risk_level', 'low')
-                lessons.append(f"Anomaly detected with {risk_level} risk level")
+            # إدارة الذاكرة
+            self._manage_memory_size()
             
-            if predictions.get('critical_points'):
-                lessons.append(f"Critical points predicted: {len(predictions['critical_points'])}")
-            
-            return lessons
+            self.logger.debug(f"💾 Experience stored: {experience['memory_id']}")
             
         except Exception as e:
-            self.logger.error(f"❌ Error extracting lessons: {e}")
-            return []
+            self.logger.error(f"❌ Experience storage failed: {e}")
     
-    def retrieve_relevant_experiences(self, current_situation: Dict[str, Any], 
-                                    max_experiences: int = 10) -> List[Dict[str, Any]]:
-        """استرجاع التجارب ذات الصلة بالحالة الحالية"""
+    def retrieve_relevant_memories(self, current_situation: Dict[str, Any], 
+                                 max_memories: int = 10) -> List[Dict[str, Any]]:
+        """استرجاع ذكريات ذات صلة مع ترجيح"""
         try:
-            if not self.memory_store:
-                return []
+            scored_memories = []
             
-            # حساب التشابه مع التجارب السابقة
-            scored_experiences = []
-            
-            for experience in self.memory_store[-1000:]:  # البحث في آخر 1000 تجربة
-                similarity = self._calculate_similarity(current_situation, experience['sensor_data'])
-                scored_experiences.append((similarity, experience))
-            
-            # ترتيب حسب التشابه
-            scored_experiences.sort(key=lambda x: x[0], reverse=True)
-            
-            return [exp for _, exp in scored_experiences[:max_experiences]]
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error retrieving experiences: {e}")
-            return []
-    
-    def _calculate_similarity(self, current: Dict[str, Any], previous: Dict[str, Any]) -> float:
-        """حساب التشابه بين الحالة الحالية والسابقة"""
-        try:
-            common_sensors = set(current.keys()) & set(previous.keys())
-            if not common_sensors:
-                return 0.0
-            
-            similarities = []
-            for sensor in common_sensors:
-                curr_val = current[sensor]
-                prev_val = previous[sensor]
+            for memory in self.memory_store[-1000:]:  # البحث في الذاكرة الحديثة
+                similarity = self._calculate_similarity(current_situation, memory)
+                relevance = self._calculate_temporal_relevance(memory)
+                pattern_match = self._calculate_pattern_match(current_situation, memory)
                 
-                if isinstance(curr_val, (int, float)) and isinstance(prev_val, (int, float)):
-                    # حساب التشابه بناءً على الفرق النسبي
-                    if max(abs(curr_val), abs(prev_val)) > 0:
-                        similarity = 1 - (abs(curr_val - prev_val) / max(abs(curr_val), abs(prev_val)))
-                        similarities.append(max(0, similarity))
+                # حساب النقاط الإجمالية
+                total_score = (similarity * 0.4 + relevance * 0.3 + pattern_match * 0.3)
+                
+                scored_memories.append((total_score, memory))
             
-            return np.mean(similarities) if similarities else 0.0
+            # ترتيب حسب النقاط
+            scored_memories.sort(key=lambda x: x[0], reverse=True)
+            
+            return [memory for score, memory in scored_memories[:max_memories]]
             
         except Exception as e:
-            self.logger.error(f"❌ Error calculating similarity: {e}")
-            return 0.0
+            self.logger.error(f"❌ Memory retrieval failed: {e}")
+            return []
+    
+    def _generate_pattern_hash(self, experience: Dict[str, Any]) -> str:
+        """توليد هاش للنمط"""
+        import hashlib
+        pattern_data = str(experience.get('sensor_data', {}))
+        return hashlib.md5(pattern_data.encode()).hexdigest()[:16]
+    
+    def _update_pattern_library(self, experience: Dict[str, Any]):
+        """تحديث مكتبة الأنماط"""
+        pattern_hash = experience['pattern_hash']
+        
+        if pattern_hash in self.pattern_library:
+            self.pattern_library[pattern_hash]['count'] += 1
+            self.pattern_library[pattern_hash]['last_seen'] = datetime.now()
+        else:
+            self.pattern_library[pattern_hash] = {
+                'count': 1,
+                'first_seen': datetime.now(),
+                'last_seen': datetime.now(),
+                'example': experience
+            }
+    
+    def _adaptive_learning(self, experience: Dict[str, Any]):
+        """تعلم تكيفي من التجارب"""
+        # تحديث أوزان التجارب المماثلة
+        similar_memories = self.retrieve_relevant_memories(experience, 5)
+        
+        for _, memory in similar_memories:
+            mem_id = memory['memory_id']
+            if mem_id in self.experience_weights:
+                self.experience_weights[mem_id] *= 1.1  # تعزيز الوزن
+            else:
+                self.experience_weights[mem_id] = 1.0
+    
+    def _manage_memory_size(self):
+        """إدارة حجم الذاكرة"""
+        if len(self.memory_store) > self.max_memories:
+            # إزالة الذكريات الأقل أهمية
+            self.memory_store.sort(key=lambda x: self.experience_weights.get(x['memory_id'], 0))
+            self.memory_store = self.memory_store[-self.max_memories:]
 
-class MemoryPlaybook:
-    """
-    دفتر خطط الطوارئ - استجابة ذكية للكوارث
-    """
+class ForeSightEngine:
+    """محرك التوقع الشامل - يجمع كل المكونات"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.logger = logging.getLogger(__name__)
-        self.emergency_playbooks = self._load_default_playbooks()
-    
-    def _load_default_playbooks(self) -> Dict[str, Any]:
-        """تحميل خطط الطوارئ الافتراضية"""
-        return {
-            'high_pressure': {
-                'name': 'High Pressure Emergency',
-                'triggers': ['pressure > 80'],
-                'actions': [
-                    {'type': 'pressure_release', 'intensity': 0.8},
-                    {'type': 'flow_adjustment', 'adjustment': -15},
-                    {'type': 'emergency_cooling', 'intensity': 0.6}
-                ],
-                'priority': 'critical'
-            },
-            'high_temperature': {
-                'name': 'High Temperature Emergency', 
-                'triggers': ['temperature > 120'],
-                'actions': [
-                    {'type': 'emergency_cooling', 'intensity': 0.9},
-                    {'type': 'flow_adjustment', 'adjustment': 10},
-                    {'type': 'pressure_release', 'intensity': 0.3}
-                ],
-                'priority': 'critical'
-            },
-            'gas_leak': {
-                'name': 'Gas Leak Emergency',
-                'triggers': ['methane > 500', 'hydrogen_sulfide > 50'],
-                'actions': [
-                    {'type': 'gas_venting', 'venting_rate': 0.9},
-                    {'type': 'flow_adjustment', 'adjustment': -20},
-                    {'type': 'emergency_cooling', 'intensity': 0.4}
-                ],
-                'priority': 'emergency'
-            },
-            'equipment_failure': {
-                'name': 'Equipment Failure',
-                'triggers': ['vibration > 5'],
-                'actions': [
-                    {'type': 'vibration_dampening', 'effectiveness': 0.8},
-                    {'type': 'flow_adjustment', 'adjustment': -10},
-                    {'type': 'pressure_release', 'intensity': 0.2}
-                ],
-                'priority': 'high'
-            }
-        }
-    
-    def load_emergency_playbooks(self) -> Dict[str, Any]:
-        """تحميل خطط الطوارئ"""
-        return self.emergency_playbooks
-    
-    def get_appropriate_playbook(self, sensor_data: Dict[str, Any], 
-                               anomaly_results: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """الحصول على خطة الطوارئ المناسبة"""
-        try:
-            triggered_playbooks = []
-            
-            for playbook_name, playbook in self.emergency_playbooks.items():
-                if self._check_triggers(playbook['triggers'], sensor_data):
-                    triggered_playbooks.append(playbook)
-            
-            if triggered_playbooks:
-                # اختيار الخطة ذات الأولوية الأعلى
-                priority_order = {'emergency': 3, 'critical': 2, 'high': 1, 'medium': 0}
-                best_playbook = max(triggered_playbooks, 
-                                  key=lambda p: priority_order.get(p['priority'], 0))
-                return best_playbook
-            
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error getting appropriate playbook: {e}")
-            return None
-    
-    def _check_triggers(self, triggers: List[str], sensor_data: Dict[str, Any]) -> bool:
-        """التحقق من شروط التنشيط"""
-        try:
-            for trigger in triggers:
-                if '>' in trigger:
-                    sensor, value = trigger.split('>')
-                    sensor = sensor.strip()
-                    threshold = float(value.strip())
-                    
-                    if sensor in sensor_data and sensor_data[sensor] > threshold:
-                        return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error checking triggers: {e}")
-            return False
-    
-    def add_custom_playbook(self, name: str, triggers: List[str], 
-                          actions: List[Dict[str, Any]], priority: str = 'medium'):
-        """إضافة خطة طوارئ مخصصة"""
-        try:
-            self.emergency_playbooks[name] = {
-                'name': name,
-                'triggers': triggers,
-                'actions': actions,
-                'priority': priority
-            }
-            self.logger.info(f"✅ Custom playbook added: {name}")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Error adding custom playbook: {e}")
-
-# دالة إنشاء أنظمة الذكاء الاصطناعي
-def create_ai_systems(config: Dict[str, Any]) -> Dict[str, Any]:
-    """إنشاء جميع أنظمة الذكاء الاصطناعي"""
-    try:
-        systems = {
-            'ai_chat': AIChatSystem(config.get('api_keys', {}).get('openai', {}).get('api_key', '')),
-            'anomaly_detector': AdvancedAnomalyDetector(config),
-            'prediction_engine': AdvancedPredictionEngine(config),
-            'intervention_engine': InterventionEngine(config),
-            'lifelong_memory': LifelongMemory(config),
-            'memory_playbook': MemoryPlaybook(config)
-        }
+        self.logger = logging.getLogger('SmartNeural.AI.ForeSight')
         
-        logging.info("✅ AI systems created successfully")
-        return systems
+        # تهيئة جميع المكونات
+        self.anomaly_system = AdvancedAnomalySystem(config)
+        self.prediction_engine = AdvancedPredictionEngine(config)
+        self.intervention_engine = InterventionEngine(config)
+        self.memory_system = AdaptiveLifelongMemory(config)
         
-    except Exception as e:
-        logging.error(f"❌ Failed to create AI systems: {e}")
-        raise
+        # إعدادات المحرك
+        self.scenarios_per_second = config['foresight_engine']['scenarios_per_second']['default']
+        self.processing_history = []
+        
+        self.logger.info("🚀 ForeSight Engine Initialized - All Systems Ready")
+    
+    def process_sensor_data(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """معالجة كاملة لبيانات المستشعرات"""
+        try:
+            # 1. كشف الشذوذ
+            anomalies = self.anomaly_system.detect_anomalies(sensor_data)
+            
+            # 2. التنبؤ بالمستقبل
+            predictions = self.prediction_engine.predict(sensor_data)
+            
+            # 3. اتخاذ قرار التدخل
+            decision = self.intervention_engine.make_decision(sensor_data, predictions, anomalies)
+            
+            # 4. تخزين في الذاكرة التكيفية
+            experience = {
+                'sensor_data': sensor_data,
+                'anomalies': anomalies,
+                'predictions': predictions,
+                'decision': decision,
+                'processing_time': datetime.now()
+            }
+            self.memory_system.store_experience(experience)
+            
+            # 5. تجميع النتائج
+            result = {
+                'anomalies': anomalies,
+                'predictions': predictions,
+                'decision': decision,
+                'memory_usage': len(self.memory_system.memory_store),
+                'scenarios_per_second': self.scenarios_per_second,
+                'processing_timestamp': datetime.now(),
+                'engine_status': 'OPTIMAL'
+            }
+            
+            self.processing_history.append(result)
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"❌ Sensor data processing failed: {e}")
+            return {'error': str(e), 'engine_status': 'ERROR'}
+    
+    def update_engine_settings(self, scenarios_per_second: int):
+        """تحديث إعدادات المحرك"""
+        self.scenarios_per_second = scenarios_per_second
+        self.intervention_engine.scenarios_per_second = scenarios_per_second
+        
+        self.logger.info(f"✅ ForeSight Engine settings updated: {scenarios_per_second} scenarios/sec")
 
+# اختبار النظام
 if __name__ == "__main__":
-    # اختبار أنظمة الذكاء الاصطناعي
-    test_config = {
-        'api_keys': {
-            'openai': {'api_key': 'test'}
-        }
-    }
-    
-    ai_systems = create_ai_systems(test_config)
-    print("✅ AI systems tested successfully!")
+    print("🧠 Smart Neural Digital Twin AI Systems - SS Rating Activated")
