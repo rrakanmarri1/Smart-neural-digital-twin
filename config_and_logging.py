@@ -1,21 +1,34 @@
 import logging
 import json
 import os
-import streamlit as st
-import numpy as np
-from datetime import datetime
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass
-from enum import Enum
-import RPi.GPIO as GPIO
 import sys
+import inspect
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass, asdict
+from enum import Enum
+import threading
+from pathlib import Path
+import time
 
 class LogLevel(Enum):
     DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING" 
+    INFO = "INFO" 
+    WARNING = "WARNING"
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
+
+@dataclass
+class LogEntry:
+    """هيكل مدخل السجل"""
+    timestamp: datetime
+    level: str
+    logger: str
+    message: str
+    file: str
+    line: int
+    function: str
+    thread: str
 
 @dataclass
 class SmartTheme:
@@ -29,167 +42,253 @@ class SmartTheme:
     success: str = "#38a169"
     warning: str = "#d69e2e"
     danger: str = "#e53e3e"
+    info: str = "#4299e1"
     
-    def apply_theme(self):
-        """تطبيق الثيم المتقدم على Streamlit"""
-        st.markdown(f"""
-        <style>
-        .main {{
-            background: linear-gradient(135deg, {self.background}, #1e293b);
-            color: {self.text};
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }}
+    def to_dict(self) -> Dict[str, str]:
+        """تحويل الثيم إلى قاموس"""
+        return asdict(self)
+
+class AdvancedLogHandler(logging.Handler):
+    """معالج سجل متقدم مع إدارة الذاكرة"""
+    
+    def __init__(self, max_entries: int = 10000):
+        super().__init__()
+        self.max_entries = max_entries
+        self.log_entries: List[LogEntry] = []
+        self.lock = threading.RLock()
         
-        .stSidebar {{
-            background: linear-gradient(180deg, {self.secondary}, {self.primary});
-        }}
-        
-        .stAlert {{
-            background: rgba(30, 41, 59, 0.95) !important;
-            backdrop-filter: blur(10px);
-            border-left: 4px solid {self.accent};
-            border-radius: 10px;
-            padding: 1rem;
-        }}
-        
-        .metric-card {{
-            background: linear-gradient(135deg, {self.card}, {self.secondary});
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin: 0.5rem 0;
-            border: 1px solid {self.accent}40;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }}
-        
-        .metric-card:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
-        }}
-        
-        .emergency-glowing {{
-            animation: emergency-pulse 1.5s infinite;
-            border: 2px solid #ef4444;
-            background: linear-gradient(45deg, rgba(239, 68, 68, 0.1), transparent);
-        }}
-        
-        @keyframes emergency-pulse {{
-            0% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }}
-            70% {{ box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }}
-            100% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }}
-        }}
-        
-        .section-header {{
-            background: linear-gradient(90deg, {self.primary}, {self.accent});
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            color: white;
-            font-weight: bold;
-        }}
-        
-        .smart-recommendation {{
-            background: rgba(56, 161, 105, 0.1);
-            border-left: 4px solid {self.success};
-            padding: 1rem;
-            margin: 0.5rem 0;
-            border-radius: 5px;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
+    def emit(self, record):
+        """تسجيل المدخلات مع معلومات متقدمة"""
+        try:
+            # استخراج معلومات الإطار
+            frame = inspect.currentframe()
+            for _ in range(6):  # البحث في 6 إطارات للخلف
+                if frame is None:
+                    break
+                if frame.f_code.co_name == self.emit.__name__:
+                    frame = frame.f_back
+                    continue
+                break
+            
+            file_name = record.filename if frame is None else frame.f_code.co_filename
+            line_no = record.lineno if frame is None else frame.f_lineno
+            function_name = record.funcName if frame is None else frame.f_code.co_name
+            
+            log_entry = LogEntry(
+                timestamp=datetime.fromtimestamp(record.created),
+                level=record.levelname,
+                logger=record.name,
+                message=self.format(record),
+                file=file_name,
+                line=line_no,
+                function=function_name,
+                thread=record.threadName
+            )
+            
+            with self.lock:
+                self.log_entries.append(log_entry)
+                # إدارة الذاكرة - الاحتفاظ بأحدث المدخلات فقط
+                if len(self.log_entries) > self.max_entries:
+                    self.log_entries = self.log_entries[-self.max_entries:]
+                    
+        except Exception as e:
+            print(f"Logging error: {e}", file=sys.stderr)
 
 class SmartConfig:
-    """نظام إعدادات Smart Neural Digital Twin المتقدم"""
+    """نظام إعدادات Smart Neural Digital Twin المتقدم - SS Rating"""
+    
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls, config_path: str = "config/smart_neural_config.json"):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(SmartConfig, cls).__new__(cls)
+            return cls._instance
     
     def __init__(self, config_path: str = "config/smart_neural_config.json"):
-        self.config_path = config_path
-        self.logger = self.setup_advanced_logging()
-        self.config = self.load_advanced_config()
-        self.theme = SmartTheme()
-        
-        # إعداد GPIO للـ Raspberry Pi
-        self.setup_raspberry_pi()
-        
-        self.logger.info("🎯 Smart Neural Digital Twin Config Initialized")
+        if not hasattr(self, '_initialized'):
+            self.config_path = Path(config_path)
+            self._config = {}
+            self._last_modified = 0
+            self._theme = SmartTheme()
+            self._log_handler = None
+            self._system_logger = None
+            
+            # إنشاء الهيكل الأساسي للمجلدات
+            self._create_directory_structure()
+            
+            # إعداد التسجيل أولاً
+            self._setup_advanced_logging()
+            
+            # ثم تحميل الإعدادات
+            self._load_advanced_config()
+            
+            # إعداد النظام
+            self._setup_system_components()
+            
+            self._initialized = True
+            self.get_logger().info("🎯 Smart Neural Digital Twin Config Initialized - SS Rating")
     
-    def setup_advanced_logging(self) -> logging.Logger:
-        """إعداد نظام تسجيل متقدم"""
-        # إنشاء مجلدات النظام
-        os.makedirs('logs', exist_ok=True)
-        os.makedirs('models', exist_ok=True)
-        os.makedirs('data', exist_ok=True)
+    def _create_directory_structure(self):
+        """إنشاء هيكل المجلدات المتقدم"""
+        directories = [
+            'logs/system',
+            'logs/performance',
+            'logs/security',
+            'models/ai',
+            'models/anomaly',
+            'models/prediction',
+            'data/real_time',
+            'data/historical',
+            'data/backup',
+            'config/backups',
+            'reports/daily',
+            'reports/incidents',
+            'cache/temp'
+        ]
         
-        # تنسيق متقدم للـLogs
-        formatter = logging.Formatter(
-            '%(asctime)s | %(name)-25s | %(levelname)-8s | %(filename)s:%(lineno)d | %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        
-        # معالجات متعددة
-        file_handler = logging.FileHandler('logs/smart_neural_system.log', encoding='utf-8')
-        file_handler.setFormatter(formatter)
-        
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        
-        # إنشاء اللوجر الرئيسي
-        logger = logging.getLogger('SmartNeuralTwin')
-        logger.setLevel(logging.INFO)
-        
-        # إزالة المعالجات القديمة
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-        
-        # إضافة المعالجات الجديدة
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-        
-        # إعداد لوجرات فرعية
-        self.setup_subsystem_loggers()
-        
-        return logger
+        for directory in directories:
+            Path(directory).mkdir(parents=True, exist_ok=True)
     
-    def setup_subsystem_loggers(self):
-        """إعداد لوجرات الأنظمة الفرعية"""
-        subsystems = ['AI', 'Sensors', 'Hardware', 'Prediction', 'Anomaly', 'Memory']
-        for subsystem in subsystems:
-            logger = logging.getLogger(f'SmartNeural.{subsystem}')
-            logger.setLevel(logging.INFO)
-    
-    def setup_raspberry_pi(self):
-        """إعداد Raspberry Pi مع GPIO"""
+    def _setup_advanced_logging(self):
+        """إعداد نظام تسجيل متقدم مع تعدد المسارات"""
         try:
-            if self.config['system']['raspberry_pi']['active']:
-                GPIO.setmode(GPIO.BCM)
-                GPIO.setwarnings(False)
-                
-                # إعداد أطراف الـ Relay
-                relay_pins = self.config['system']['raspberry_pi']['relay_pins']
-                for pin_name, pin_number in relay_pins.items():
-                    GPIO.setup(pin_number, GPIO.OUT)
-                    GPIO.output(pin_number, GPIO.LOW)  # إيقاف افتراضي
-                
-                self.logger.info("✅ Raspberry Pi GPIO initialized successfully")
-            else:
-                self.logger.info("🔄 Raspberry Pi simulation mode activated")
-                
+            # تنسيق متقدم للـLogs
+            detailed_formatter = logging.Formatter(
+                '%(asctime)s | %(name)-30s | %(levelname)-8s | %(filename)s:%(lineno)d | %(funcName)s | %(threadName)s | %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            
+            simple_formatter = logging.Formatter(
+                '%(asctime)s | %(levelname)-8s | %(message)s',
+                datefmt='%H:%M:%S'
+            )
+            
+            # معالجات متعددة للمسارات المختلفة
+            handlers = [
+                # السجل الرئيسي
+                logging.FileHandler('logs/system/main.log', encoding='utf-8', delay=True),
+                # سجل الأداء
+                logging.FileHandler('logs/performance/performance.log', encoding='utf-8', delay=True),
+                # سجل الأخطاء
+                logging.FileHandler('logs/system/errors.log', encoding='utf-8', delay=True),
+                # وحدة التحكم
+                logging.StreamHandler(sys.stdout)
+            ]
+            
+            # تكوين المعالجات
+            handlers[0].setFormatter(detailed_formatter)
+            handlers[0].setLevel(logging.INFO)
+            
+            handlers[1].setFormatter(simple_formatter)
+            handlers[1].setLevel(logging.INFO)
+            handlers[1].addFilter(lambda record: record.levelno >= logging.INFO)
+            
+            handlers[2].setFormatter(detailed_formatter)
+            handlers[2].setLevel(logging.ERROR)
+            
+            handlers[3].setFormatter(simple_formatter)
+            handlers[3].setLevel(logging.INFO)
+            
+            # إنشاء اللوجر الرئيسي
+            self._system_logger = logging.getLogger('SmartNeuralTwin')
+            self._system_logger.setLevel(logging.INFO)
+            
+            # إزالة المعالجات القديمة
+            for handler in self._system_logger.handlers[:]:
+                self._system_logger.removeHandler(handler)
+            
+            # إضافة المعالجات الجديدة
+            for handler in handlers:
+                self._system_logger.addHandler(handler)
+            
+            # معالج مخصص للذاكرة
+            self._log_handler = AdvancedLogHandler()
+            self._log_handler.setFormatter(detailed_formatter)
+            self._log_handler.setLevel(logging.INFO)
+            self._system_logger.addHandler(self._log_handler)
+            
+            # إعداد لوجرات الأنظمة الفرعية
+            self._setup_subsystem_loggers()
+            
+            # منع انتشار الـLogs إلى الـroot logger
+            self._system_logger.propagate = False
+            
+            self._system_logger.info("✅ Advanced logging system initialized")
+            
         except Exception as e:
-            self.logger.error(f"❌ Raspberry Pi setup failed: {e}")
-            self.logger.info("🔧 Continuing in simulation mode")
+            print(f"❌ Critical logging setup failed: {e}", file=sys.stderr)
+            sys.exit(1)
     
-    def load_advanced_config(self) -> Dict[str, Any]:
-        """تحميل إعدادات متقدمة"""
-        default_config = {
+    def _setup_subsystem_loggers(self):
+        """إعداد لوجرات الأنظمة الفرعية المتخصصة"""
+        subsystems = {
+            'AI': logging.INFO,
+            'Sensors': logging.INFO,
+            'Hardware': logging.INFO,
+            'Prediction': logging.DEBUG,
+            'Anomaly': logging.INFO,
+            'Memory': logging.INFO,
+            'UI': logging.INFO,
+            'Security': logging.WARNING,
+            'Performance': logging.INFO
+        }
+        
+        for subsystem, level in subsystems.items():
+            logger = logging.getLogger(f'SmartNeural.{subsystem}')
+            logger.setLevel(level)
+            # منع الانتشار لتجنب التكرار
+            logger.propagate = False
+    
+    def _load_advanced_config(self):
+        """تحميل الإعدادات المتقدمة مع التحقق من الصحة"""
+        default_config = self._get_default_config()
+        
+        try:
+            if self.config_path.exists():
+                file_mtime = self.config_path.stat().st_mtime
+                if file_mtime > self._last_modified:
+                    with open(self.config_path, 'r', encoding='utf-8') as f:
+                        user_config = json.load(f)
+                    
+                    self._config = self._deep_merge(default_config, user_config)
+                    self._last_modified = file_mtime
+                    
+                    if self._validate_config():
+                        self.get_logger().info(f"✅ Configuration loaded from {self.config_path}")
+                    else:
+                        self.get_logger().warning("⚠️ Configuration loaded with validation warnings")
+                else:
+                    self._config = default_config
+            else:
+                self._create_default_config(default_config)
+                self._config = default_config
+                self.get_logger().info("✅ Default configuration created and loaded")
+                
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"❌ Config JSON error: {e}")
+            self._config = default_config
+        except Exception as e:
+            self.get_logger().error(f"❌ Config loading failed: {e}")
+            self._config = default_config
+    
+    def _get_default_config(self) -> Dict[str, Any]:
+        """الحصول على الإعدادات الافتراضية المتقدمة"""
+        return {
             "system": {
                 "name": "Smart Neural Digital Twin - SS Rating",
-                "version": "2.0.0",
-                "description": "Advanced Oil Field Disaster Prevention System with AI",
-                "update_interval": 2,
+                "version": "3.0.0",
+                "description": "Advanced Oil Field Disaster Prevention System with AI - SS Rating",
+                "update_interval": 2.0,
                 "max_memory_usage": "2GB",
-                "data_retention_days": 30
+                "data_retention_days": 30,
+                "performance_mode": "SS_RATING",
+                "timezone": "Asia/Riyadh",
+                "language": "ar"
             },
             "raspberry_pi": {
-                "active": True,
+                "active": False,
                 "gpio_mode": "BCM",
                 "relay_pins": {
                     "emergency_cooling": 17,
@@ -204,7 +303,8 @@ class SmartConfig:
                     "pressure": 3,
                     "methane": 4,
                     "vibration": 5
-                }
+                },
+                "simulation_mode": True
             },
             "foresight_engine": {
                 "scenarios_per_second": {
@@ -222,7 +322,8 @@ class SmartConfig:
                     "medium": 0.7,
                     "low": 0.5
                 },
-                "monte_carlo_simulations": 1000
+                "monte_carlo_simulations": 1000,
+                "adaptive_learning": True
             },
             "ai_models": {
                 "isolation_forest": {
@@ -239,21 +340,23 @@ class SmartConfig:
                 "anomaly_detection": {
                     "sensitivity": 0.85,
                     "window_size": 100,
-                    "retrain_interval": 3600
+                    "retrain_interval": 3600,
+                    "ensemble_weights": [0.4, 0.3, 0.3]
                 },
                 "autoencoder": {
                     "encoding_dim": 32,
                     "epochs": 100,
-                    "batch_size": 32
+                    "batch_size": 32,
+                    "learning_rate": 0.001
                 }
             },
             "sensors": {
-                "pressure": {"min": 0, "max": 200, "critical": 150, "unit": "bar", "pin": 2},
-                "temperature": {"min": -50, "max": 300, "critical": 200, "unit": "°C", "pin": 3},
-                "methane": {"min": 0, "max": 5000, "critical": 1000, "unit": "ppm", "pin": 4},
-                "hydrogen_sulfide": {"min": 0, "max": 500, "critical": 50, "unit": "ppm", "pin": 5},
-                "vibration": {"min": 0, "max": 20, "critical": 8, "unit": "m/s²", "pin": 6},
-                "flow": {"min": 0, "max": 500, "critical": 400, "unit": "L/min", "pin": 7}
+                "pressure": {"min": 0, "max": 200, "critical": 150, "unit": "bar", "weight": 0.25},
+                "temperature": {"min": -50, "max": 300, "critical": 200, "unit": "°C", "weight": 0.20},
+                "methane": {"min": 0, "max": 5000, "critical": 1000, "unit": "ppm", "weight": 0.25},
+                "hydrogen_sulfide": {"min": 0, "max": 500, "critical": 50, "unit": "ppm", "weight": 0.15},
+                "vibration": {"min": 0, "max": 20, "critical": 8, "unit": "m/s²", "weight": 0.10},
+                "flow": {"min": 0, "max": 500, "critical": 400, "unit": "L/min", "weight": 0.05}
             },
             "emergency_protocols": {
                 "auto_response": True,
@@ -263,166 +366,318 @@ class SmartConfig:
                     "level_1": ["alert_team", "increase_monitoring"],
                     "level_2": ["activate_safety", "reduce_pressure"],
                     "level_3": ["emergency_shutdown", "notify_authorities"]
-                }
+                },
+                "confirmation_required": True
             },
             "data_processing": {
                 "preprocessing": {
                     "normalization": True,
                     "outlier_detection": True,
                     "feature_scaling": "standard",
-                    "window_size": 50
+                    "window_size": 50,
+                    "sequence_length": 50
                 },
                 "storage": {
                     "real_time_buffer": 1000,
                     "historical_days": 30,
-                    "compression": True
+                    "compression": True,
+                    "backup_interval": 3600
                 }
+            },
+            "performance": {
+                "target_processing_time": 0.1,
+                "max_memory_usage": "2GB",
+                "cpu_utilization_limit": 0.8,
+                "gpu_acceleration": True,
+                "cache_size": "500MB"
+            },
+            "security": {
+                "encryption_enabled": True,
+                "access_logging": True,
+                "max_login_attempts": 3,
+                "session_timeout": 3600
             }
         }
-        
-        try:
-            if os.path.exists(self.config_path):
-                with open(self.config_path, 'r', encoding='utf-8') as f:
-                    user_config = json.load(f)
-                return self.deep_merge(default_config, user_config)
-            else:
-                self.create_default_config(default_config)
-                return default_config
-                
-        except Exception as e:
-            self.logger.error(f"❌ Config loading failed: {e}")
-            return default_config
     
-    def deep_merge(self, default: Dict, user: Dict) -> Dict:
-        """دمج متعمق للإعدادات"""
+    def _deep_merge(self, default: Dict, user: Dict) -> Dict:
+        """دمج متعمق وآمن للإعدادات"""
         result = default.copy()
         
         for key, value in user.items():
             if isinstance(value, dict) and key in result and isinstance(result[key], dict):
-                result[key] = self.deep_merge(result[key], value)
+                result[key] = self._deep_merge(result[key], value)
             else:
+                # التحقق من أنواع البيانات الأساسية
+                if key in result and type(result[key]) != type(value) and value is not None:
+                    self.get_logger().warning(f"⚠️ Type mismatch for key '{key}': {type(result[key])} vs {type(value)}")
+                    try:
+                        # محاولة التحويل للنوع الأصلي
+                        if isinstance(result[key], bool):
+                            value = str(value).lower() in ('true', '1', 'yes')
+                        elif isinstance(result[key], int):
+                            value = int(value)
+                        elif isinstance(result[key], float):
+                            value = float(value)
+                        elif isinstance(result[key], str):
+                            value = str(value)
+                    except (ValueError, TypeError):
+                        self.get_logger().error(f"❌ Cannot convert value for key '{key}', using default")
+                        continue
+                
                 result[key] = value
         
         return result
     
-    def create_default_config(self, config: Dict):
-        """إنشاء ملف الإعدادات الافتراضي"""
-        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-        with open(self.config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-        self.logger.info(f"✅ Default config created at {self.config_path}")
-    
-    def save_config(self, config: Dict):
-        """حفظ الإعدادات"""
+    def _create_default_config(self, config: Dict):
+        """إنشاء ملف الإعدادات الافتراضي مع النسخ الاحتياطي"""
         try:
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # حفظ النسخة الافتراضية
             with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
-            self.logger.info("✅ Configuration saved successfully")
-        except Exception as e:
-            self.logger.error(f"❌ Config save failed: {e}")
-
-class RelayController:
-    """متحكم متقدم في الريلايات للـ Raspberry Pi"""
-    
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.logger = logging.getLogger('SmartNeural.Hardware')
-        self.relay_states = {}
-        self.relay_history = []
-        self.setup_relays()
-    
-    def setup_relays(self):
-        """إعداد الريلايات مع تحكم متقدم"""
-        try:
-            relay_pins = self.config['raspberry_pi']['relay_pins']
+                json.dump(config, f, indent=4, ensure_ascii=False, default=str)
             
-            for relay_name, pin in relay_pins.items():
-                GPIO.setup(pin, GPIO.OUT)
-                GPIO.output(pin, GPIO.LOW)
-                self.relay_states[relay_name] = {
-                    'state': False,
-                    'pin': pin,
-                    'last_activated': None,
-                    'activation_count': 0
-                }
+            # إنشاء نسخة احتياطية مؤرخة
+            backup_path = self.config_path.parent / 'backups' / f"config_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False, default=str)
             
-            self.logger.info(f"✅ {len(relay_pins)} relays initialized")
+            self.get_logger().info(f"✅ Default config created at {self.config_path}")
             
         except Exception as e:
-            self.logger.error(f"❌ Relay setup failed: {e}")
-            # وضع المحاكاة
-            relay_pins = self.config['raspberry_pi']['relay_pins']
-            for relay_name in relay_pins.keys():
-                self.relay_states[relay_name] = {
-                    'state': False,
-                    'pin': None,
-                    'last_activated': None,
-                    'activation_count': 0,
-                    'simulated': True
-                }
+            self.get_logger().error(f"❌ Failed to create default config: {e}")
+            raise
     
-    def control_relay(self, relay_name: str, state: bool, reason: str = "Manual control"):
-        """التحكم المتقدم في الريلاي"""
+    def _validate_config(self) -> bool:
+        """التحقق من صحة الإعدادات بشكل شامل"""
         try:
-            if relay_name not in self.relay_states:
-                self.logger.error(f"❌ Relay {relay_name} not found")
+            required_sections = ['system', 'raspberry_pi', 'foresight_engine', 'ai_models', 'sensors']
+            for section in required_sections:
+                if section not in self._config:
+                    self.get_logger().error(f"❌ Missing config section: {section}")
+                    return False
+            
+            # التحقق من المستشعرات
+            required_sensors = ['pressure', 'temperature', 'methane', 'hydrogen_sulfide', 'vibration', 'flow']
+            sensor_config = self._config.get('sensors', {})
+            for sensor in required_sensors:
+                if sensor not in sensor_config:
+                    self.get_logger().error(f"❌ Missing sensor config: {sensor}")
+                    return False
+                
+                sensor_params = sensor_config[sensor]
+                required_params = ['min', 'max', 'critical', 'unit', 'weight']
+                for param in required_params:
+                    if param not in sensor_params:
+                        self.get_logger().error(f"❌ Missing parameter '{param}' for sensor '{sensor}'")
+                        return False
+            
+            # التحقق من القيم العددية
+            system_config = self._config.get('system', {})
+            if system_config.get('update_interval', 0) <= 0:
+                self.get_logger().error("❌ Invalid update interval")
                 return False
             
-            relay_info = self.relay_states[relay_name]
+            # التحقق من إعدادات الأداء
+            performance_config = self._config.get('performance', {})
+            if performance_config.get('cpu_utilization_limit', 0) <= 0 or performance_config.get('cpu_utilization_limit', 0) > 1:
+                self.get_logger().error("❌ Invalid CPU utilization limit")
+                return False
             
-            if not relay_info.get('simulated', False):
-                # تحكم حقيقي
-                GPIO.output(relay_info['pin'], GPIO.HIGH if state else GPIO.LOW)
-            
-            # تحديث الحالة
-            old_state = relay_info['state']
-            relay_info['state'] = state
-            
-            if state and not old_state:  # عند التنشيط
-                relay_info['last_activated'] = datetime.now()
-                relay_info['activation_count'] += 1
-            
-            # تسجيل في السجل
-            log_entry = {
-                'timestamp': datetime.now(),
-                'relay': relay_name,
-                'state': state,
-                'reason': reason,
-                'simulated': relay_info.get('simulated', False)
-            }
-            self.relay_history.append(log_entry)
-            
-            action = "activated" if state else "deactivated"
-            self.logger.info(f"✅ Relay {relay_name} {action} - {reason}")
-            
+            self.get_logger().info("✅ Configuration validation passed")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Relay control failed for {relay_name}: {e}")
+            self.get_logger().error(f"❌ Config validation failed: {e}")
             return False
     
-    def emergency_shutdown(self):
-        """إيقاف طوارئ لجميع الريلايات"""
-        self.logger.critical("🚨 EMERGENCY SHUTDOWN INITIATED")
-        
-        for relay_name in self.relay_states.keys():
-            self.control_relay(relay_name, False, "Emergency shutdown")
-        
-        self.logger.info("✅ All relays deactivated for emergency shutdown")
+    def _setup_system_components(self):
+        """إعداد مكونات النظام المتقدمة"""
+        try:
+            # إعداد Raspberry Pi إذا كان مفعلاً
+            if self._config.get('raspberry_pi', {}).get('active', False):
+                self._setup_raspberry_pi()
+            else:
+                self.get_logger().info("🔧 Raspberry Pi simulation mode activated")
+                
+            # إعداد مراقبة الأداء
+            self._setup_performance_monitoring()
+            
+        except Exception as e:
+            self.get_logger().error(f"❌ System components setup failed: {e}")
     
-    def get_relay_status(self) -> Dict[str, Any]:
-        """الحصول على حالة الريلايات"""
-        status = {}
-        for relay_name, info in self.relay_states.items():
-            status[relay_name] = {
-                'state': info['state'],
-                'last_activated': info['last_activated'],
-                'activation_count': info['activation_count'],
-                'simulated': info.get('simulated', False)
-            }
-        return status
+    def _setup_raspberry_pi(self):
+        """إعداد Raspberry Pi مع GPIO - إصدار آمن ومتطور"""
+        try:
+            # التحقق من وجود RPi.GPIO بشكل آمن
+            try:
+                import RPi.GPIO as GPIO
+                self._gpio_available = True
+                
+                # استخدام الإعدادات من التكوين
+                gpio_mode = self._config['raspberry_pi']['gpio_mode']
+                if gpio_mode.upper() == 'BCM':
+                    GPIO.setmode(GPIO.BCM)
+                else:
+                    GPIO.setmode(GPIO.BOARD)
+                
+                GPIO.setwarnings(False)
+                
+                # إعداد أطراف الـ Relay
+                relay_pins = self._config['raspberry_pi']['relay_pins']
+                for pin_name, pin_number in relay_pins.items():
+                    GPIO.setup(pin_number, GPIO.OUT)
+                    GPIO.output(pin_number, GPIO.LOW)  # إيقاف افتراضي آمن
+                
+                self.get_logger().info("✅ Raspberry Pi GPIO initialized successfully")
+                
+            except (ImportError, RuntimeError) as e:
+                self._gpio_available = False
+                self._config['raspberry_pi']['simulation_mode'] = True
+                self.get_logger().info(f"🔧 Raspberry Pi GPIO not available: {e}")
+                
+        except Exception as e:
+            self.get_logger().error(f"❌ Raspberry Pi setup failed: {e}")
+            self._gpio_available = False
+            self._config['raspberry_pi']['simulation_mode'] = True
+    
+    def _setup_performance_monitoring(self):
+        """إعداد مراقبة الأداء"""
+        self._performance_stats = {
+            'start_time': datetime.now(),
+            'config_reloads': 0,
+            'errors_count': 0,
+            'warnings_count': 0
+        }
+    
+    def get_logger(self, name: str = 'SmartNeuralTwin') -> logging.Logger:
+        """الحصول على logger للنظام"""
+        if name == 'SmartNeuralTwin':
+            return self._system_logger
+        return logging.getLogger(name)
+    
+    def get_config(self, key: str = None, default: Any = None) -> Any:
+        """الحصول على الإعدادات بشكل آمن"""
+        try:
+            if key is None:
+                return self._config.copy()
+            
+            keys = key.split('.')
+            value = self._config
+            for k in keys:
+                if isinstance(value, dict) and k in value:
+                    value = value[k]
+                else:
+                    return default
+            
+            return value
+            
+        except Exception as e:
+            self.get_logger().warning(f"⚠️ Config access error for key '{key}': {e}")
+            return default
+    
+    def update_config(self, updates: Dict[str, Any], save: bool = True) -> bool:
+        """تحديث الإعدادات ديناميكياً"""
+        try:
+            with threading.Lock():
+                # دمج التحديثات
+                self._config = self._deep_merge(self._config, updates)
+                
+                # التحقق من الصحة
+                if not self._validate_config():
+                    self.get_logger().error("❌ Config update validation failed")
+                    return False
+                
+                # الحفظ إذا مطلوب
+                if save:
+                    self.save_config()
+                
+                self.get_logger().info("✅ Configuration updated successfully")
+                return True
+                
+        except Exception as e:
+            self.get_logger().error(f"❌ Config update failed: {e}")
+            return False
+    
+    def save_config(self) -> bool:
+        """حفظ الإعدادات الحالية"""
+        try:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self._config, f, indent=4, ensure_ascii=False, default=str)
+            
+            self._last_modified = self.config_path.stat().st_mtime
+            self.get_logger().info("✅ Configuration saved successfully")
+            return True
+            
+        except Exception as e:
+            self.get_logger().error(f"❌ Config save failed: {e}")
+            return False
+    
+    def reload_config(self) -> bool:
+        """إعادة تحميل الإعدادات من الملف"""
+        try:
+            self._load_advanced_config()
+            self._performance_stats['config_reloads'] += 1
+            return True
+        except Exception as e:
+            self.get_logger().error(f"❌ Config reload failed: {e}")
+            return False
+    
+    def get_theme(self) -> SmartTheme:
+        """الحصول على الثيم الحالي"""
+        return self._theme
+    
+    def get_log_entries(self, level: str = None, limit: int = 100) -> List[LogEntry]:
+        """الحصول على مدخلات السجل"""
+        if self._log_handler is None:
+            return []
+        
+        with self._log_handler.lock:
+            entries = self._log_handler.log_entries.copy()
+        
+        if level:
+            entries = [entry for entry in entries if entry.level == level.upper()]
+        
+        return entries[-limit:] if limit else entries
+    
+    def get_system_info(self) -> Dict[str, Any]:
+        """الحصول على معلومات النظام"""
+        return {
+            'config_path': str(self.config_path),
+            'last_modified': datetime.fromtimestamp(self._last_modified) if self._last_modified else None,
+            'performance_stats': self._performance_stats.copy(),
+            'gpio_available': getattr(self, '_gpio_available', False),
+            'system_uptime': datetime.now() - self._performance_stats['start_time'],
+            'log_entries_count': len(self._log_handler.log_entries) if self._log_handler else 0
+        }
 
-# اختبار النظام
+# اختبار النظام المحسن
 if __name__ == "__main__":
-    config_system = SmartConfig()
-    print("✅ Smart Neural Digital Twin Config System Ready")
+    try:
+        # اختبار نظام الإعدادات
+        config_system = SmartConfig()
+        
+        # اختبار الوظائف الأساسية
+        logger = config_system.get_logger()
+        logger.info("🧪 Testing configuration system...")
+        
+        # اختبار الحصول على الإعدادات
+        system_name = config_system.get_config('system.name')
+        logger.info(f"System Name: {system_name}")
+        
+        # اختبار تحديث الإعدادات
+        test_update = {'system': {'update_interval': 3.0}}
+        if config_system.update_config(test_update, save=False):
+            logger.info("✅ Config update test passed")
+        
+        # عرض معلومات النظام
+        system_info = config_system.get_system_info()
+        logger.info(f"System Uptime: {system_info['system_uptime']}")
+        logger.info(f"Config Reloads: {system_info['performance_stats']['config_reloads']}")
+        
+        logger.info("🎯 Smart Neural Digital Twin Config System Ready - SS Rating")
+        
+    except Exception as e:
+        print(f"❌ System test failed: {e}")
+        sys.exit(1)
