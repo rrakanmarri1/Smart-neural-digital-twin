@@ -1,860 +1,686 @@
+from __future__ import annotations
+
+import json
 import logging
-import numpy as np
-import pandas as pd
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+import math
+import random
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import Enum
-import random
-import math
-import os
-import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from ai_systems import ForeSightEngine, AdvancedAnomalySystem, AdvancedPredictionEngine
-from config_and_logging import SmartConfig, RelayController
+import numpy as np
+
+# External systems
+from config_and_logging import SmartConfig  # type: ignore
+
+# Relay controller is optional; provide safe fallback if unavailable
+try:
+    from config_and_logging import RelayController  # type: ignore
+except ImportError:  # pragma: no cover
+    class RelayController:  # type: ignore
+        def __init__(self, *_args, **_kwargs):
+            self._states = {}
+
+        def control_relay(self, name: str, state: bool, reason: str = "") -> bool:
+            self._states[name] = state
+            return True
+
+        def emergency_shutdown(self):
+            for k in list(self._states.keys()):
+                self._states[k] = False
+
+        def get_relay_status(self) -> Dict[str, bool]:
+            return dict(self._states)
+
+
+# AI Manager (Part 2 orchestrator)
+try:
+    from ai_systems_part2 import AISystemManager  # type: ignore
+except ImportError as e:  # pragma: no cover
+    raise ImportError(
+        "AISystemManager not found. Ensure ai_systems_part1.py and ai_systems_part2.py are available. "
+        f"Original error: {e}"
+    )
+
+
+# ------------------------------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------------------------------
+
+MIN_TRAINING_RECORDS = 300
+SENSOR_HISTORY_LIMIT = 2500
+SENSOR_RECALIBRATION_WINDOW = 50
+CORRELATION_EWMA_ALPHA = 0.1
+DEFAULT_MONITOR_INTERVAL = 2.0
+MAINTENANCE_INTERVAL_SEC = 1800
+RETRAIN_CHECK_INTERVAL_SEC = 900
+LOW_CONFIDENCE_THRESHOLD = 0.7
+RISK_ESCALATION_LEVELS = {
+    "NORMAL": 0.0,
+    "HIGH_ALERT": 0.5,
+    "CRITICAL": 0.75,
+    "EMERGENCY": 0.9
+}
+
+
+# ------------------------------------------------------------------------------------
+# Data Models
+# ------------------------------------------------------------------------------------
 
 class SensorStatus(Enum):
     ACTIVE = "ACTIVE"
-    DEGRADED = "DEGRADED" 
+    DEGRADED = "DEGRADED"
     FAILED = "FAILED"
     SIMULATED = "SIMULATED"
 
+
 @dataclass
 class SensorReading:
-    """هيكل بيانات لقراءة المستشعر"""
     value: float
     confidence: float
     status: SensorStatus
     timestamp: datetime
-    source: str  # 'physical', 'simulated', 'fused'
+    source: str  # physical / simulated / fused / emergency
+
+
+# ------------------------------------------------------------------------------------
+# Adaptive Sensor Fusion Grid
+# ------------------------------------------------------------------------------------
 
 class AdaptiveSensorFusionGrid:
     """
-    🌐 SenseGrid - شبكة استشعار افتراضية أذكى من أي شبكة فيزيائية - SS Rating
+    SenseGrid: Provides sensor acquisition & reliability augmentation via:
+        • Physical scan (placeholder logic – extend with actual drivers)
+        • Simulation fallback with correlation-aware estimation
+        • EWMA-based correlation refinement as history grows
+        • Confidence modulation & corrective fusion
     """
-    
-    def __init__(self, config: Dict[str, Any]):
+
+    def __init__(self, config: Dict[str, Any], seed: Optional[int] = None):
         self.config = config
-        self.logger = logging.getLogger('SmartNeural.SenseGrid')
-        
-        # حالة المستشعرات
-        self.sensor_status = {}
-        self.sensor_calibration = {}
-        self.fusion_models = {}
-        self.correlation_matrix = {}
-        
-        # سجل القراءات
-        self.sensor_history = {sensor: [] for sensor in config['sensors'].keys()}
-        self.fusion_history = []
-        
-        self._initialize_sensor_grid()
-        self.logger.info("🌐 Adaptive Sensor Fusion Grid (SenseGrid) Initialized - SS Rating")
-    
-    def _initialize_sensor_grid(self):
-        """تهيئة شبكة المستشعرات"""
+        self.logger = logging.getLogger("SmartNeural.SenseGrid")
+        self.seed = seed
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
+        self.sensor_status: Dict[str, SensorStatus] = {}
+        self.sensor_calibration: Dict[str, Dict[str, Any]] = {}
+        self.fusion_models: Dict[str, Dict[str, Any]] = {}
+        self.correlation_matrix: Dict[str, Dict[str, float]] = {}
+
+        self.sensor_history: Dict[str, List[SensorReading]] = {
+            s: [] for s in self.config.get("sensors", {}).keys()
+        }
+        self._initialize()
+
+    # Initialization -----------------------------------------------------
+
+    def _initialize(self):
         try:
-            # فحص حالة المستشعرات الفعلية
             self._scan_physical_sensors()
-            
-            # بناء مصفوفة الارتباط بين المستشعرات
-            self._build_correlation_matrix()
-            
-            # تدريب نماذج الدمج
-            self._train_fusion_models()
-            
-            # معايرة المستشعرات
-            self._calibrate_sensors()
-            
-        except Exception as e:
-            self.logger.error(f"❌ SenseGrid initialization failed: {e}")
-    
+            self._seed_correlation_matrix()
+            self._train_initial_fusion()
+            self._calibrate_all()
+            self.logger.info("SenseGrid initialized.")
+        except Exception as e:  # pragma: no cover
+            self.logger.error(f"SenseGrid initialization failed: {e}", exc_info=True)
+
     def _scan_physical_sensors(self):
-        """فحص المستشعرات الفعلية - الإصدار المحسّن"""
-        sensor_config = self.config['sensors']
-        
-        for sensor_name in sensor_config.keys():
+        for sensor in self.config.get("sensors", {}).keys():
+            # Placeholder heuristic: 70% active, 25% simulated, 5% failed
+            r = random.random()
+            if r < 0.7:
+                self.sensor_status[sensor] = SensorStatus.ACTIVE
+            elif r < 0.95:
+                self.sensor_status[sensor] = SensorStatus.SIMULATED
+            else:
+                self.sensor_status[sensor] = SensorStatus.FAILED
+
+    def _seed_correlation_matrix(self):
+        # Provide initial priors; if no domain correlations, start with mild positive
+        for s in self.sensor_history.keys():
+            self.correlation_matrix[s] = {}
+            for t in self.sensor_history.keys():
+                if s == t:
+                    continue
+                self.correlation_matrix[s][t] = 0.2  # mild prior
+
+    def _train_initial_fusion(self):
+        for target in self.sensor_history.keys():
+            others = [o for o in self.sensor_history.keys() if o != target]
+            weights = {o: 1.0 / len(others) for o in others} if others else {}
+            self.fusion_models[target] = {
+                "supporting": others,
+                "weights": weights,
+                "quality": 0.85  # placeholder quality index
+            }
+
+    def _calibrate_all(self):
+        for s in self.sensor_history.keys():
+            self.sensor_calibration[s] = {
+                "offset": random.uniform(-0.02, 0.02),
+                "drift": 0.0,
+                "last_calibration": datetime.utcnow(),
+                "confidence": 0.95
+            }
+
+    # Acquisition --------------------------------------------------------
+
+    def read_all(self) -> Dict[str, SensorReading]:
+        """
+        Acquire raw or simulated readings, then apply fusion improvements.
+        """
+        raw: Dict[str, SensorReading] = {}
+        for sensor, status in self.sensor_status.items():
             try:
-                # في النظام الحقيقي، هنا سيتم فحص المنافذ الفعلية
-                # للمحاكاة، نفرض أن 70% من المستشعرات نشطة
-                if random.random() < 0.7:
-                    self.sensor_status[sensor_name] = SensorStatus.ACTIVE
-                    self.logger.info(f"✅ Sensor {sensor_name} detected as ACTIVE")
-                else:
-                    self.sensor_status[sensor_name] = SensorStatus.SIMULATED
-                    self.logger.info(f"🔄 Sensor {sensor_name} in SIMULATION mode")
-                    
-            except Exception as e:
-                self.sensor_status[sensor_name] = SensorStatus.FAILED
-                self.logger.warning(f"⚠️ Sensor {sensor_name} failed: {e}, using simulation")
-    
-    def _build_correlation_matrix(self):
-        """بناء مصفوفة الارتباط بين المستشعرات - الإصدار المحسّن"""
-        # مصفوفة ارتباط واقعية بناءً على فيزياء أنظمة النفط
-        self.correlation_matrix = {
-            'pressure': {
-                'temperature': 0.65,    # الضغط والحرارة مرتبطان بشكل معتدل
-                'flow': 0.75,           # الضغط والتدفق مرتبطان بقوة
-                'vibration': 0.25,      # ارتباط ضعيف
-                'methane': 0.15,        
-                'hydrogen_sulfide': 0.10
-            },
-            'temperature': {
-                'pressure': 0.65,
-                'flow': 0.55,
-                'vibration': 0.35,
-                'methane': 0.20,
-                'hydrogen_sulfide': 0.15
-            },
-            'flow': {
-                'pressure': 0.75,
-                'temperature': 0.55,
-                'vibration': 0.45,
-                'methane': 0.15,
-                'hydrogen_sulfide': 0.10
-            },
-            'vibration': {
-                'pressure': 0.25,
-                'temperature': 0.35,
-                'flow': 0.45,
-                'methane': 0.05,
-                'hydrogen_sulfide': 0.05
-            },
-            'methane': {
-                'pressure': 0.15,
-                'temperature': 0.20,
-                'flow': 0.15,
-                'vibration': 0.05,
-                'hydrogen_sulfide': 0.30  # غازات مرتبطة
-            },
-            'hydrogen_sulfide': {
-                'pressure': 0.10,
-                'temperature': 0.15,
-                'flow': 0.10,
-                'vibration': 0.05,
-                'methane': 0.30
-            }
-        }
-    
-    def _train_fusion_models(self):
-        """تدريب نماذج دمج المستشعرات"""
-        for target_sensor in self.config['sensors'].keys():
-            # تحديد المستشعرات المساعدة للتنبؤ
-            supporting_sensors = [s for s in self.config['sensors'].keys() if s != target_sensor]
-            
-            self.fusion_models[target_sensor] = {
-                'supporting_sensors': supporting_sensors,
-                'weights': self._calculate_sensor_weights(target_sensor, supporting_sensors),
-                'accuracy': np.random.uniform(0.82, 0.95)  # دقة واقعية
-            }
-    
-    def _calculate_sensor_weights(self, target_sensor: str, supporting_sensors: List[str]) -> Dict[str, float]:
-        """حساب أوزان المستشعرات المساعدة"""
-        weights = {}
-        total_correlation = 0
-        
-        for sensor in supporting_sensors:
-            correlation = self.correlation_matrix.get(target_sensor, {}).get(sensor, 0.1)
-            weights[sensor] = correlation
-            total_correlation += correlation
-        
-        # تطبيع الأوزان
-        if total_correlation > 0:
-            for sensor in weights:
-                weights[sensor] /= total_correlation
-        
-        return weights
-    
-    def _calibrate_sensors(self):
-        """معايرة المستشعرات"""
-        for sensor_name in self.config['sensors'].keys():
-            self.sensor_calibration[sensor_name] = {
-                'offset': random.uniform(-0.03, 0.03),  # انزياح صغير واقعي
-                'drift': 0.0,
-                'last_calibration': datetime.now(),
-                'calibration_confidence': 0.95
-            }
-    
-    def read_sensor_grid(self) -> Dict[str, SensorReading]:
-        """قراءة شبكة المستشعرات الكاملة - الإصدار المحسّن"""
-        sensor_readings = {}
-        
-        # جمع البيانات من المستشعرات المتاحة
-        available_data = self._collect_available_sensor_data()
-        
-        # دمج البيانات والمحاكاة
-        for sensor_name in self.config['sensors'].keys():
-            if sensor_name in available_data:
-                # استخدام البيانات الفعلية
-                reading = available_data[sensor_name]
-            else:
-                # محاكاة المستشعر المعطل
-                reading = self._simulate_sensor_reading(sensor_name, available_data)
-            
-            sensor_readings[sensor_name] = reading
-        
-        # تطبيق تصحيحات الدمج المتقدمة
-        fused_readings = self._apply_advanced_sensor_fusion(sensor_readings)
-        
-        # تخزين في السجل
-        self._update_sensor_history(fused_readings)
-        
-        return fused_readings
-    
-    def _collect_available_sensor_data(self) -> Dict[str, SensorReading]:
-        """جمع البيانات من المستشعرات المتاحة"""
-        available_data = {}
-        
-        for sensor_name, status in self.sensor_status.items():
-            if status == SensorStatus.ACTIVE:
-                try:
-                    # قراءة المستشعر الفعلي (محاكاة واقعية)
-                    raw_value = self._read_sensor_value(sensor_name)
-                    calibrated_value = self._apply_calibration(sensor_name, raw_value)
-                    
-                    reading = SensorReading(
-                        value=calibrated_value,
-                        confidence=0.92,  # ثقة عالية في المستشعرات الفعلية
-                        status=SensorStatus.ACTIVE,
-                        timestamp=datetime.now(),
-                        source='physical'
+                if status == SensorStatus.ACTIVE:
+                    value = self._generate_physical_value(sensor)
+                    value = self._apply_calibration(sensor, value)
+                    raw[sensor] = SensorReading(
+                        value=value,
+                        confidence=0.92,
+                        status=status,
+                        timestamp=datetime.utcnow(),
+                        source="physical"
                     )
-                    
-                    available_data[sensor_name] = reading
-                    
-                except Exception as e:
-                    self.logger.error(f"❌ Failed to read physical sensor {sensor_name}: {e}")
-                    self.sensor_status[sensor_name] = SensorStatus.FAILED
-        
-        return available_data
-    
-    def _read_sensor_value(self, sensor_name: str) -> float:
-        """قراءة قيمة المستشعر الفعلية (محاكاة واقعية)"""
-        sensor_config = self.config['sensors'][sensor_name]
-        
-        # قيمة أساسية واقعية مع اتجاهات طبيعية
-        base_time = time.time()
-        base_value = np.random.uniform(
-            sensor_config['min'] * 0.4, 
-            sensor_config['max'] * 0.6
-        )
-        
-        # إضافة اتجاهات زمنية واقعية وتذبذبات
-        time_variation = math.sin(base_time * 0.01) * 0.1 * base_value
-        noise = random.gauss(0, base_value * 0.015)  # 1.5% ضوضاء واقعية
-        
-        value = base_value + time_variation + noise
-        
-        # التأكد من الحدود
-        value = max(sensor_config['min'], min(sensor_config['max'], value))
-        
-        return value
-    
-    def _apply_calibration(self, sensor_name: str, raw_value: float) -> float:
-        """تطبيق المعايرة على قراءة المستشعر"""
-        calibration = self.sensor_calibration.get(sensor_name, {})
-        calibrated_value = raw_value * (1 + calibration.get('offset', 0))
-        return calibrated_value
-    
-    def _simulate_sensor_reading(self, sensor_name: str, available_data: Dict[str, SensorReading]) -> SensorReading:
-        """محاكاة قراءة مستشعر معطل - الإصدار المحسّن"""
-        try:
-            if available_data:
-                # استخدام بيانات المستشعرات الأخرى للتنبؤ الذكي
-                simulated_value = self._predict_sensor_value(sensor_name, available_data)
-                confidence = 0.85  # ثقة عالية في المحاكاة الذكية
-                status = SensorStatus.SIMULATED
+                elif status in (SensorStatus.SIMULATED, SensorStatus.DEGRADED):
+                    sim_value = self._simulate_value(sensor, raw)
+                    raw[sensor] = SensorReading(
+                        value=sim_value,
+                        confidence=0.8,
+                        status=SensorStatus.SIMULATED,
+                        timestamp=datetime.utcnow(),
+                        source="simulated"
+                    )
+                else:
+                    fallback = self._fallback_emergency_value(sensor)
+                    raw[sensor] = SensorReading(
+                        value=fallback,
+                        confidence=0.5,
+                        status=SensorStatus.FAILED,
+                        timestamp=datetime.utcnow(),
+                        source="emergency"
+                    )
+            except Exception as e:
+                self.logger.error(f"Sensor {sensor} acquisition failure: {e}")
+                fallback = self._fallback_emergency_value(sensor)
+                raw[sensor] = SensorReading(
+                    value=fallback,
+                    confidence=0.4,
+                    status=SensorStatus.FAILED,
+                    timestamp=datetime.utcnow(),
+                    source="emergency"
+                )
+
+        fused = self._fuse_with_consistency(raw)
+        self._append_history(fused)
+        self._update_correlations()
+
+        return fused
+
+    def _generate_physical_value(self, sensor: str) -> float:
+        cfg = self.config["sensors"][sensor]
+        base = np.random.uniform(cfg["min"] * 0.4, cfg["max"] * 0.6)
+        t = time.time()
+        seasonal = math.sin(t * 0.01) * 0.05 * base
+        noise = np.random.normal(0, base * 0.02)
+        val = base + seasonal + noise
+        return float(max(cfg["min"], min(cfg["max"], val)))
+
+    def _simulate_value(self, sensor: str, available: Dict[str, SensorReading]) -> float:
+        if not available:
+            cfg = self.config["sensors"][sensor]
+            return (cfg["min"] + cfg["max"]) * 0.5
+        model = self.fusion_models.get(sensor, {})
+        weights = model.get("weights", {})
+        est = 0.0
+        total_w = 0.0
+        for other, reading in available.items():
+            if other in weights:
+                w = weights[other]
+                est += reading.value * w
+                total_w += w
+        if total_w > 0:
+            return est / total_w
+        cfg = self.config["sensors"][sensor]
+        return (cfg["min"] + cfg["max"]) * 0.5
+
+    def _apply_calibration(self, sensor: str, value: float) -> float:
+        calib = self.sensor_calibration.get(sensor, {})
+        offset = calib.get("offset", 0.0)
+        return value * (1 + offset)
+
+    def _fallback_emergency_value(self, sensor: str) -> float:
+        cfg = self.config["sensors"][sensor]
+        return (cfg["min"] + cfg["max"]) * 0.5
+
+    # Fusion & Quality ---------------------------------------------------
+
+    def _fuse_with_consistency(self, readings: Dict[str, SensorReading]) -> Dict[str, SensorReading]:
+        fused: Dict[str, SensorReading] = {}
+        for name, reading in readings.items():
+            consistency = self._consistency_score(name, reading, readings)
+            adjusted_conf = max(0.05, min(1.0, reading.confidence * (0.5 + 0.5 * consistency)))
+            if adjusted_conf < 0.65:
+                corrected = self._consistency_correction(name, reading, readings)
+                fused[name] = SensorReading(
+                    value=corrected,
+                    confidence=0.7,
+                    status=reading.status,
+                    timestamp=reading.timestamp,
+                    source="fused"
+                )
             else:
-                # لا توجد بيانات متاحة، استخدام قيمة افتراضية ذكية
-                sensor_config = self.config['sensors'][sensor_name]
-                simulated_value = (sensor_config['min'] + sensor_config['max']) * 0.45
-                confidence = 0.65  # ثقة متوسطة
-                status = SensorStatus.FAILED
-            
-            return SensorReading(
-                value=simulated_value,
-                confidence=confidence,
-                status=status,
-                timestamp=datetime.now(),
-                source='simulated'
-            )
-            
-        except Exception as e:
-            self.logger.error(f"❌ Sensor simulation failed for {sensor_name}: {e}")
-            
-            # قيمة طارئة آمنة
-            sensor_config = self.config['sensors'][sensor_name]
-            emergency_value = (sensor_config['min'] + sensor_config['max']) * 0.5
-            
-            return SensorReading(
-                value=emergency_value,
-                confidence=0.4,  # ثقة منخفضة
-                status=SensorStatus.FAILED,
-                timestamp=datetime.now(),
-                source='emergency'
-            )
-    
-    def _predict_sensor_value(self, target_sensor: str, available_data: Dict[str, SensorReading]) -> float:
-        """التنبؤ بقيمة مستشعر بناءً على المستشعرات المتاحة"""
-        model = self.fusion_models.get(target_sensor, {})
-        weights = model.get('weights', {})
-        
-        if not weights or not available_data:
-            # إذا لم يكن هناك نموذج أو بيانات، استخدام قيمة افتراضية ذكية
-            sensor_config = self.config['sensors'][target_sensor]
-            return (sensor_config['min'] + sensor_config['max']) * 0.5
-        
-        # حساب القيمة المتوقعة باستخدام الأوزان
-        predicted_value = 0
-        total_weight = 0
-        
-        for sensor_name, reading in available_data.items():
-            if sensor_name in weights:
-                weight = weights[sensor_name]
-                predicted_value += reading.value * weight
-                total_weight += weight
-        
-        if total_weight > 0:
-            predicted_value /= total_weight
-        else:
-            # قيم افتراضية إذا فشل الحساب
-            sensor_config = self.config['sensors'][target_sensor]
-            predicted_value = (sensor_config['min'] + sensor_config['max']) * 0.5
-        
-        return predicted_value
-    
-    def _apply_advanced_sensor_fusion(self, sensor_readings: Dict[str, SensorReading]) -> Dict[str, SensorReading]:
-        """تطبيق دمج متقدم للمستشعرات"""
-        fused_readings = {}
-        
-        for sensor_name, reading in sensor_readings.items():
-            # تطبيق تحسينات الدمج المتقدمة
-            improved_reading = self._improve_reading_quality(sensor_name, reading, sensor_readings)
-            fused_readings[sensor_name] = improved_reading
-        
-        return fused_readings
-    
-    def _improve_reading_quality(self, sensor_name: str, reading: SensorReading, 
-                               all_readings: Dict[str, SensorReading]) -> SensorReading:
-        """تحسين جودة القراءة باستخدام بيانات المستشعرات الأخرى"""
-        
-        # التحقق من التناسق مع المستشعرات الأخرى
-        consistency_score = self._calculate_consistency(sensor_name, reading, all_readings)
-        
-        # تعديل الثقة بناءً على التناسق
-        adjusted_confidence = reading.confidence * consistency_score
-        
-        # إذا كانت الثقة منخفضة جداً، تطبيق تصحيحات إضافية
-        if adjusted_confidence < 0.7:
-            corrected_value = self._apply_consistency_correction(sensor_name, reading, all_readings)
-            return SensorReading(
-                value=corrected_value,
-                confidence=0.75,  # ثقة محسنة بعد التصحيح
-                status=reading.status,
-                timestamp=reading.timestamp,
-                source='fused'
-            )
-        
-        return SensorReading(
-            value=reading.value,
-            confidence=adjusted_confidence,
-            status=reading.status,
-            timestamp=reading.timestamp,
-            source=reading.source
-        )
-    
-    def _calculate_consistency(self, sensor_name: str, reading: SensorReading, 
-                             all_readings: Dict[str, SensorReading]) -> float:
-        """حساب درجة تناسق القراءة مع المستشعرات الأخرى"""
-        if len(all_readings) <= 1:
+                fused[name] = SensorReading(
+                    value=reading.value,
+                    confidence=adjusted_conf,
+                    status=reading.status,
+                    timestamp=reading.timestamp,
+                    source=reading.source
+                )
+        return fused
+
+    def _consistency_score(self, sensor: str, reading: SensorReading, all_readings: Dict[str, SensorReading]) -> float:
+        rels = self.correlation_matrix.get(sensor, {})
+        scores = []
+        for other, corr in rels.items():
+            if corr <= 0.1 or other not in all_readings:
+                continue
+            expected = all_readings[other].value * corr
+            dev = abs(reading.value - expected) / (abs(reading.value) + 1e-6)
+            scores.append(max(0.0, 1.0 - dev * 1.5))
+        if not scores:
             return 1.0
-        
-        total_consistency = 0
-        comparison_count = 0
-        
-        for other_sensor, other_reading in all_readings.items():
-            if other_sensor != sensor_name:
-                expected_relation = self.correlation_matrix.get(sensor_name, {}).get(other_sensor, 0)
-                
-                if expected_relation > 0.2:  # إذا كان هناك ارتباط معقول
-                    # حساب الانحراف عن العلاقة المتوقعة
-                    expected_value = other_reading.value * expected_relation
-                    actual_deviation = abs(reading.value - expected_value) / (reading.value + 1e-8)
-                    
-                    consistency = max(0, 1 - actual_deviation * 2)  # معامل تصحيح
-                    total_consistency += consistency
-                    comparison_count += 1
-        
-        return total_consistency / max(1, comparison_count)
-    
-    def _apply_consistency_correction(self, sensor_name: str, reading: SensorReading,
-                                    all_readings: Dict[str, SensorReading]) -> float:
-        """تطبيق تصحيح للقراءة غير المتسقة"""
-        if not all_readings:
-            return reading.value
-        
-        # استخدام متوسط القيم المتوقعة من المستشعرات الأخرى
-        predicted_values = []
+        return float(np.mean(scores))
+
+    def _consistency_correction(self, sensor: str, reading: SensorReading, all_readings: Dict[str, SensorReading]) -> float:
+        rels = self.correlation_matrix.get(sensor, {})
+        contributions = []
         weights = []
-        
-        for other_sensor, other_reading in all_readings.items():
-            if other_sensor != sensor_name:
-                correlation = self.correlation_matrix.get(sensor_name, {}).get(other_sensor, 0)
-                if correlation > 0.2:
-                    predicted_value = other_reading.value * (1.0 / correlation) if correlation > 0 else other_reading.value
-                    predicted_values.append(predicted_value)
-                    weights.append(correlation)
-        
-        if predicted_values:
-            # متوسط مرجح للقيم المتوقعة
-            if sum(weights) > 0:
-                corrected_value = np.average(predicted_values, weights=weights)
-            else:
-                corrected_value = np.mean(predicted_values)
-            
-            # دمج مع القراءة الأصلية بوزن
-            final_value = (corrected_value + reading.value) / 2
-            return final_value
-        else:
+        for other, corr in rels.items():
+            if other == sensor or corr <= 0.15 or other not in all_readings:
+                continue
+            contributions.append(all_readings[other].value * corr)
+            weights.append(corr)
+        if not contributions:
             return reading.value
-    
-    def _update_sensor_history(self, readings: Dict[str, SensorReading]):
-        """تحديث سجل المستشعرات"""
-        for sensor_name, reading in readings.items():
-            self.sensor_history[sensor_name].append(reading)
-            
-            # الاحتفاظ بـ 2000 قراءة فقط لتحسين الأداء
-            if len(self.sensor_history[sensor_name]) > 2000:
-                self.sensor_history[sensor_name] = self.sensor_history[sensor_name][-2000:]
-    
-    def get_sensor_grid_status(self) -> Dict[str, Any]:
-        """الحصول على حالة شبكة المستشعرات"""
-        active_count = sum(1 for status in self.sensor_status.values() 
-                          if status == SensorStatus.ACTIVE)
-        simulated_count = sum(1 for status in self.sensor_status.values() 
-                             if status == SensorStatus.SIMULATED)
-        failed_count = sum(1 for status in self.sensor_status.values() 
-                          if status == SensorStatus.FAILED)
-        
-        total_sensors = len(self.sensor_status)
-        grid_health = active_count / total_sensors if total_sensors > 0 else 0
-        
-        # حساب دقة الدمج
-        fusion_accuracy = np.mean([model.get('accuracy', 0) for model in self.fusion_models.values()])
-        
-        return {
-            'total_sensors': total_sensors,
-            'active_sensors': active_count,
-            'simulated_sensors': simulated_count,
-            'failed_sensors': failed_count,
-            'grid_health': grid_health,
-            'fusion_accuracy': fusion_accuracy,
-            'avg_confidence': self._calculate_average_confidence(),
-            'last_calibration': datetime.now(),
-            'system_status': 'OPTIMAL' if grid_health > 0.6 else 'DEGRADED'
-        }
-    
-    def _calculate_average_confidence(self) -> float:
-        """حساب متوسط الثقة في قراءات المستشعرات"""
-        total_confidence = 0
-        count = 0
-        
-        for sensor_readings in self.sensor_history.values():
-            if sensor_readings:
-                latest_reading = sensor_readings[-1]
-                total_confidence += latest_reading.confidence
-                count += 1
-        
-        return total_confidence / count if count > 0 else 0.5
-    
+        weighted = np.average(contributions, weights=weights)
+        return (weighted + reading.value) / 2.0
+
+    # History & Correlations ---------------------------------------------
+
+    def _append_history(self, readings: Dict[str, SensorReading]):
+        for name, r in readings.items():
+            self.sensor_history[name].append(r)
+            if len(self.sensor_history[name]) > SENSOR_HISTORY_LIMIT:
+                self.sensor_history[name] = self.sensor_history[name][-SENSOR_HISTORY_LIMIT:]
+
+    def _update_correlations(self):
+        # Update EWMA correlations only if sufficient history
+        for target in self.sensor_history.keys():
+            for other in self.sensor_history.keys():
+                if target == other:
+                    continue
+                hist_t = [r.value for r in self.sensor_history[target][-200:]]
+                hist_o = [r.value for r in self.sensor_history[other][-200:]]
+                if len(hist_t) >= 30 and len(hist_o) >= 30:
+                    corr = np.corrcoef(hist_t, hist_o)[0, 1]
+                    if not np.isnan(corr):
+                        prev = self.correlation_matrix[target].get(other, 0.2)
+                        self.correlation_matrix[target][other] = (
+                            (1 - CORRELATION_EWMA_ALPHA) * prev + CORRELATION_EWMA_ALPHA * float(corr)
+                        )
+
+    # Recalibration ------------------------------------------------------
+
     def auto_recalibrate(self):
-        """معايرة تلقائية بناءً على أنماط البيانات"""
         try:
-            recalibration_count = 0
-            
-            for sensor_name in self.config['sensors'].keys():
-                if len(self.sensor_history[sensor_name]) > 50:
-                    recent_readings = self.sensor_history[sensor_name][-50:]
-                    
-                    # اكتشاف الانحراف التدريجي
-                    values = [reading.value for reading in recent_readings]
-                    if len(values) > 10:
-                        trend = self._calculate_trend(values)
-                        
-                        # تحديث الانزياح إذا كان هناك انحراف واضح
-                        if abs(trend) > 0.02:  # انحراف أكثر من 2%
-                            current_offset = self.sensor_calibration[sensor_name].get('offset', 0)
-                            new_offset = current_offset - trend * 0.05  # تصحيح تدريجي آمن
-                            self.sensor_calibration[sensor_name]['offset'] = new_offset
-                            self.sensor_calibration[sensor_name]['last_calibration'] = datetime.now()
-                            
-                            recalibration_count += 1
-                            self.logger.info(f"🔧 Auto-recalibrated {sensor_name}: offset = {new_offset:.4f}")
-            
-            if recalibration_count > 0:
-                self.logger.info(f"✅ Sensor grid auto-recalibration completed: {recalibration_count} sensors adjusted")
-            
+            for sensor, hist in self.sensor_history.items():
+                if len(hist) < SENSOR_RECALIBRATION_WINDOW:
+                    continue
+                recent = [h.value for h in hist[-SENSOR_RECALIBRATION_WINDOW:]]
+                if len(recent) < 10:
+                    continue
+                slope = np.polyfit(np.arange(len(recent)), recent, 1)[0]
+                mean_v = np.mean(recent)
+                if mean_v != 0:
+                    rel_drift = slope / mean_v
+                else:
+                    rel_drift = 0
+                if abs(rel_drift) > 0.02:
+                    current_offset = self.sensor_calibration[sensor]["offset"]
+                    new_offset = current_offset - rel_drift * 0.05
+                    self.sensor_calibration[sensor]["offset"] = new_offset
+                    self.sensor_calibration[sensor]["last_calibration"] = datetime.utcnow()
+                    self.logger.info(f"Auto-recalibrated {sensor} offset-> {new_offset:.4f}")
         except Exception as e:
-            self.logger.error(f"❌ Auto-recalibration failed: {e}")
-    
-    def _calculate_trend(self, values: List[float]) -> float:
-        """حساب الاتجاه في سلسلة من القيم"""
-        if len(values) < 2:
-            return 0
-        
-        x = np.arange(len(values))
-        y = np.array(values)
-        
-        try:
-            # انحدار خطي بسيط
-            slope = np.polyfit(x, y, 1)[0]
-            
-            # تسوية حسب متوسط القيمة
-            mean_value = np.mean(y)
-            if mean_value > 0:
-                return slope / mean_value
-            else:
-                return slope
-        except:
-            return 0
+            self.logger.error(f"Auto-recalibration failure: {e}")
+
+    # Public Status ------------------------------------------------------
+
+    def status(self) -> Dict[str, Any]:
+        active = sum(1 for s in self.sensor_status.values() if s == SensorStatus.ACTIVE)
+        simulated = sum(1 for s in self.sensor_status.values() if s == SensorStatus.SIMULATED)
+        failed = sum(1 for s in self.sensor_status.values() if s == SensorStatus.FAILED)
+        total = len(self.sensor_status)
+        grid_health = active / total if total else 0.0
+        avg_conf = []
+        for hist in self.sensor_history.values():
+            if hist:
+                avg_conf.append(hist[-1].confidence)
+        return {
+            "total_sensors": total,
+            "active_sensors": active,
+            "simulated_sensors": simulated,
+            "failed_sensors": failed,
+            "grid_health": grid_health,
+            "average_confidence": float(np.mean(avg_conf)) if avg_conf else 0.0,
+            "last_update": datetime.utcnow()
+        }
+
+
+# ------------------------------------------------------------------------------------
+# Smart Neural Digital Twin
+# ------------------------------------------------------------------------------------
 
 class SmartNeuralDigitalTwin:
-    """القلب الرئيسي للـ Smart Neural Digital Twin مع SenseGrid - SS Rating"""
-    
-    def __init__(self, config_path: str = "config/smart_neural_config.json"):
+    """
+    High-level orchestrator combining:
+        • SenseGrid (adaptive acquisition + fusion)
+        • AISystemManager (anomaly + forecasting + adaptive logic)
+        • RelayController (hardware / safety actions)
+    Provides:
+        • Continuous monitoring loop
+        • Periodic maintenance tasks
+        • Safe shutdown semantics
+        • Comprehensive status surface for UI layers
+    """
+
+    def __init__(self, config_path: str = "config/smart_neural_config.json", seed: Optional[int] = None):
         self.config_manager = SmartConfig(config_path)
-        self.config = self.config_manager.config
-        self.logger = self.config_manager.logger
-        
-        # تهيئة الأنظمة المتقدمة
-        self.sense_grid = AdaptiveSensorFusionGrid(self.config)
+        self.config: Dict[str, Any] = self.config_manager.get_config()
+        self.logger = self.config_manager.get_logger()
+
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
+
+        # Subsystems
+        self.sense_grid = AdaptiveSensorFusionGrid(self.config, seed=seed)
         self.relay_controller = RelayController(self.config)
-        self.fore_sight_engine = ForeSightEngine(self.config)
-        
-        # حالة النظام
-        self.system_status = "NORMAL"
-        self.raspberry_pi_active = self.config['raspberry_pi']['active']
-        self.real_time_data = {}
-        self.sensor_grid_status = {}
-        
-        # إحصائيات
-        self.system_stats = {
-            'start_time': datetime.now(),
-            'processed_readings': 0,
-            'sensor_failures_handled': 0,
-            'avg_processing_time': 0.0,
-            'emergency_events': 0,
-            'successful_predictions': 0
+        self.ai_manager = AISystemManager(self.config, seed=seed)
+
+        # State
+        self.system_status = "INITIALIZING"
+        self.raspberry_pi_active = bool(self.config.get("raspberry_pi", {}).get("active", False))
+        self.real_time_data: Dict[str, float] = {}
+        self.sensor_grid_status: Dict[str, Any] = {}
+        self.last_ai_result: Optional[Dict[str, Any]] = None
+        self._recent_samples: List[Dict[str, float]] = []
+
+        self.stats = {
+            "start_time": datetime.utcnow(),
+            "processed_cycles": 0,
+            "avg_cycle_time": 0.0,
+            "emergency_events": 0,
+            "last_cycle": None,
+            "ai_samples": 0
         }
-        
-        # إدارة الخيوط
+
+        # Threads
         self._active = True
-        self.monitor_thread = None
-        self.maintenance_thread = None
-        
-        self._initialize_enhanced_systems()
-        self.logger.info("🚀 Smart Neural Digital Twin with SenseGrid Initialized - SS Rating")
-    
-    def _initialize_enhanced_systems(self):
-        """تهيئة الأنظمة المحسنة"""
+        self._monitor_thread: Optional[threading.Thread] = None
+        self._maintenance_thread: Optional[threading.Thread] = None
+        self._retrain_thread: Optional[threading.Thread] = None
+        self._lock = threading.RLock()
+
+        # Bootstrapping
+        self._initial_training()
+        self._start_monitoring()
+        self._start_maintenance()
+        self._start_retrain_scheduler()
+        self.system_status = "NORMAL"
+        self.logger.info("SmartNeuralDigitalTwin initialized successfully.")
+
+    # Initialization -----------------------------------------------------
+
+    def _initial_training(self):
         try:
-            # بدء المراقبة المتقدمة
-            self._start_enhanced_monitoring()
-            
-            # إنشاء بيانات التدريب للذكاء الاصطناعي (بدلاً من التحميل)
-            training_data = self._generate_training_data()
-            
-            # بدء صيانة SenseGrid التلقائية
-            self._start_sense_grid_maintenance()
-            
-            self.logger.info("✅ All enhanced systems initialized successfully - SS Rating")
-            
+            synthetic = self._generate_synthetic_training()
+            if len(synthetic) >= MIN_TRAINING_RECORDS:
+                self.ai_manager.train_all(synthetic)
+            else:
+                self.logger.warning("Insufficient synthetic records for initial AI training.")
         except Exception as e:
-            self.logger.error(f"❌ Enhanced system initialization failed: {e}")
-    
-    def initialize_ai_models(self):
-        """تهيئة وتدريب نماذج الذكاء الاصطناعي"""
-        try:
-            # إنشاء بيانات تدريب واقعية
-            training_data = self._generate_training_data()
-            
-            # تهيئة النماذج
-            self.fore_sight_engine.initialize_models(training_data)
-            
-            self.logger.info("✅ AI models initialized and trained successfully")
-            
-        except Exception as e:
-            self.logger.error(f"❌ AI model initialization failed: {e}")
-    
-    def _generate_training_data(self) -> List[Dict[str, Any]]:
-        """توليد بيانات تدريب واقعية"""
-        training_data = []
-        
-        # توليد 1000 نقطة بيانات واقعية
-        for i in range(1000):
-            data_point = {}
-            for sensor_name, config in self.config['sensors'].items():
-                # قيم واقعية مع اتجاهات طبيعية
-                base_value = np.random.uniform(config['min'] * 0.3, config['max'] * 0.7)
-                
-                # إضافة اتجاهات زمنية واقعية
-                trend = np.sin(i * 0.01) * 0.1 * base_value
-                noise = np.random.normal(0, base_value * 0.02)
-                
-                value = base_value + trend + noise
-                value = max(config['min'], min(config['max'], value))
-                
-                data_point[sensor_name] = value
-            
-            training_data.append(data_point)
-        
-        return training_data
-    
-    def _start_enhanced_monitoring(self):
-        """بدء مراقبة محسنة مع SenseGrid"""
-        def monitoring_loop():
+            self.logger.error(f"Initial AI training failed: {e}")
+
+    def _generate_synthetic_training(self, count: int = 800) -> List[Dict[str, float]]:
+        records: List[Dict[str, float]] = []
+        sensors = self.config.get("sensors", {})
+        for i in range(count):
+            rec: Dict[str, float] = {}
+            for name, cfg in sensors.items():
+                base = np.random.uniform(cfg["min"] * 0.3, cfg["max"] * 0.7)
+                seasonal = math.sin(i * 0.01) * 0.08 * base
+                noise = np.random.normal(0, base * 0.02)
+                val = max(cfg["min"], min(cfg["max"], base + seasonal + noise))
+                rec[name] = float(val)
+            records.append(rec)
+        return records
+
+    # Threads ------------------------------------------------------------
+
+    def _start_monitoring(self):
+        interval = float(self.config.get("system", {}).get("update_interval", DEFAULT_MONITOR_INTERVAL))
+
+        def loop():
+            while self._active:
+                started = time.time()
+                try:
+                    self._monitor_cycle()
+                except Exception as e:  # pragma: no cover
+                    self.logger.error(f"Monitoring cycle error: {e}", exc_info=True)
+                elapsed = time.time() - started
+                with self._lock:
+                    prev_avg = self.stats["avg_cycle_time"]
+                    self.stats["avg_cycle_time"] = prev_avg * 0.9 + elapsed * 0.1
+                sleep_for = max(0.1, interval - elapsed)
+                time.sleep(sleep_for)
+
+        self._monitor_thread = threading.Thread(target=loop, daemon=True, name="MonitorLoop")
+        self._monitor_thread.start()
+
+    def _start_maintenance(self):
+        def maintenance():
             while self._active:
                 try:
-                    start_time = time.time()
-                    self._enhanced_monitoring_cycle()
-                    processing_time = time.time() - start_time
-                    
-                    # تحديث إحصائيات الأداء
-                    self.system_stats['avg_processing_time'] = (
-                        self.system_stats['avg_processing_time'] * 0.9 + processing_time * 0.1
-                    )
-                    
-                    time.sleep(self.config['system']['update_interval'])
-                    
-                except Exception as e:
-                    self.logger.error(f"Enhanced monitoring error: {e}")
-                    time.sleep(5)  # انتظار قبل إعادة المحاولة
-        
-        self.monitor_thread = threading.Thread(target=monitoring_loop, daemon=True)
-        self.monitor_thread.start()
-    
-    def _enhanced_monitoring_cycle(self):
-        """دورة المراقبة المحسنة"""
-        # 1. قراءة بيانات SenseGrid المتقدمة
-        sensor_readings = self.sense_grid.read_sensor_grid()
-        self.real_time_data = {name: reading.value for name, reading in sensor_readings.items()}
-        
-        # 2. تحديث حالة الشبكة
-        self.sensor_grid_status = self.sense_grid.get_sensor_grid_status()
-        
-        # 3. معالجة البيانات عبر ForeSight Engine
-        processed_data = self.fore_sight_engine.process_sensor_data(self.real_time_data)
-        
-        # 4. التحقق من حالات الطوارئ
-        self._check_enhanced_emergency_conditions(processed_data, sensor_readings)
-        
-        # 5. تحديث الإحصائيات
-        self.system_stats['processed_readings'] += 1
-        
-        # تسجيل الأحداث الناجحة
-        if processed_data.get('engine_status') == 'OPTIMAL':
-            self.system_stats['successful_predictions'] += 1
-    
-    def _check_enhanced_emergency_conditions(self, processed_data: Dict[str, Any], 
-                                           sensor_readings: Dict[str, SensorReading]):
-        """التحقق المحسن من حالات الطوارئ"""
-        try:
-            anomalies = processed_data.get('anomalies', {})
-            predictions = processed_data.get('predictions', {})
-            
-            # تحليل مخاطر متقدم مع مراعاة ثقة المستشعرات
-            risk_score = self._calculate_enhanced_risk_score(anomalies, predictions, sensor_readings)
-            
-            # تحديث حالة النظام بناءً على درجة الخطر
-            old_status = self.system_status
-            if risk_score >= 0.9:
-                self.system_status = "EMERGENCY"
-                self._execute_enhanced_emergency_response(processed_data)
-                self.system_stats['emergency_events'] += 1
-            elif risk_score >= 0.7:
-                self.system_status = "CRITICAL"
-            elif risk_score >= 0.5:
-                self.system_status = "HIGH_ALERT"
-            else:
-                self.system_status = "NORMAL"
-            
-            # تسجيل تغييرات الحالة
-            if old_status != self.system_status:
-                self.logger.info(f"🔄 System status changed: {old_status} -> {self.system_status}")
-                
-        except Exception as e:
-            self.logger.error(f"❌ Enhanced emergency check failed: {e}")
-    
-    def _calculate_enhanced_risk_score(self, anomalies: Dict, predictions: Dict, 
-                                     sensor_readings: Dict[str, SensorReading]) -> float:
-        """حساب درجة خطر محسنة مع مراعاة ثقة المستشعرات"""
-        base_risk = anomalies.get('anomaly_score', 0)
-        
-        # تعديل بناءً على ثقة المستشعرات
-        confidence_penalty = 0
-        low_confidence_count = 0
-        
-        for sensor_name, reading in sensor_readings.items():
-            if reading.confidence < 0.7:  # إذا كانت الثقة منخفضة
-                confidence_penalty += (0.7 - reading.confidence) * 0.15
-                low_confidence_count += 1
-        
-        # عقوبة إضافية إذا كانت هناك مستشعرات متعددة منخفضة الثقة
-        if low_confidence_count >= 2:
-            confidence_penalty += 0.1
-        
-        # أخذ تحذيرات التنبؤ في الاعتبار
-        prediction_risk = predictions.get('risk_assessment', {}).get('risk_score', 0)
-        
-        # حساب الخطر الإجمالي
-        total_risk = min(1.0, base_risk + confidence_penalty + prediction_risk * 0.3)
-        
-        return total_risk
-    
-    def _execute_enhanced_emergency_response(self, processed_data: Dict[str, Any]):
-        """تنفيذ استجابة طوارئ محسنة"""
-        try:
-            decision = processed_data.get('decision', {})
-            actions = decision.get('actions', [])
-            
-            self.logger.critical(f"🚨 Executing emergency response with {len(actions)} actions")
-            
-            for action in actions:
-                success = self._execute_enhanced_action(action)
-                if not success:
-                    self.logger.error(f"❌ Failed to execute emergency action: {action}")
-            
-            self.logger.info("✅ Enhanced emergency response executed")
-            
-        except Exception as e:
-            self.logger.error(f"❌ Enhanced emergency response failed: {e}")
-    
-    def _execute_enhanced_action(self, action: Dict[str, Any]) -> bool:
-        """تنفيذ إجراء محسن"""
-        try:
-            action_type = action.get('type', '')
-            
-            if action_type == 'relay_control':
-                relay_name = action.get('relay_name')
-                state = action.get('state', False)
-                return self.relay_controller.control_relay(relay_name, state, "Emergency response")
-            
-            elif action_type == 'system_adjustment':
-                # تنفيذ تعديلات النظام
-                return self._adjust_system_parameters(action.get('parameters', {}))
-            
-            elif action_type == 'notification':
-                # إرسال إشعار
-                self.logger.warning(f"📢 Emergency notification: {action.get('message', '')}")
-                return True
-            
-            elif action_type == 'monitoring':
-                # تفعيل مراقبة معززة
-                self.logger.info(f"🔍 Enhanced monitoring activated: {action}")
-                return True
-            
-            elif action_type == 'system_check':
-                # فحص النظام
-                self.logger.info(f"🔧 System check performed: {action}")
-                return True
-            
-            else:
-                self.logger.warning(f"⚠️ Unknown action type: {action_type}")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"❌ Action execution failed: {e}")
-            return False
-    
-    def _adjust_system_parameters(self, parameters: Dict[str, Any]) -> bool:
-        """تطبيق تعديلات على معلمات النظام - الدالة المفقودة تم إضافتها"""
-        try:
-            adjustments_made = 0
-            for param, value in parameters.items():
-                if param in self.real_time_data:
-                    old_value = self.real_time_data[param]
-                    self.real_time_data[param] = value
-                    adjustments_made += 1
-                    self.logger.info(f"🔧 Adjusted system parameter {param}: {old_value} -> {value}")
-            
-            if adjustments_made > 0:
-                self.logger.info(f"✅ Successfully adjusted {adjustments_made} system parameters")
-                return True
-            else:
-                self.logger.warning("⚠️ No valid parameters found to adjust")
-                return False
-                
-        except Exception as e:
-            self.logger.error(f"❌ System parameters adjustment failed: {e}")
-            return False
-    
-    def _start_sense_grid_maintenance(self):
-        """بدء صيانة SenseGrid التلقائية"""
-        def maintenance_loop():
-            while self._active:
-                try:
-                    # معايرة تلقائية كل 30 دقيقة
                     self.sense_grid.auto_recalibrate()
-                    time.sleep(1800)  # 30 دقيقة
-                    
                 except Exception as e:
-                    self.logger.error(f"SenseGrid maintenance error: {e}")
-                    time.sleep(300)  # انتظار 5 دقائق ثم إعادة المحاولة
-        
-        self.maintenance_thread = threading.Thread(target=maintenance_loop, daemon=True)
-        self.maintenance_thread.start()
-    
+                    self.logger.error(f"Maintenance recalibration error: {e}")
+                for _ in range(int(MAINTENANCE_INTERVAL_SEC)):
+                    if not self._active:
+                        break
+                    time.sleep(1)
+
+        self._maintenance_thread = threading.Thread(target=maintenance, daemon=True, name="MaintenanceLoop")
+        self._maintenance_thread.start()
+
+    def _start_retrain_scheduler(self):
+        def retrain():
+            while self._active:
+                try:
+                    status = self.ai_manager.status()
+                    if status.get("next_retrain_due"):
+                        # Placeholder: real retrain trigger is internal to AISystemManager
+                        pass
+                except Exception as e:
+                    self.logger.error(f"Retrain scheduler error: {e}")
+                for _ in range(int(RETRAIN_CHECK_INTERVAL_SEC)):
+                    if not self._active:
+                        break
+                    time.sleep(1)
+
+        self._retrain_thread = threading.Thread(target=retrain, daemon=True, name="RetrainLoop")
+        self._retrain_thread.start()
+
+    # Monitoring Cycle ---------------------------------------------------
+
+    def _monitor_cycle(self):
+        with self._lock:
+            sensor_readings = self.sense_grid.read_all()
+            self.real_time_data = {k: v.value for k, v in sensor_readings.items()}
+            self.sensor_grid_status = self.sense_grid.status()
+            self._recent_samples.append(self.real_time_data.copy())
+            if len(self._recent_samples) > 1000:
+                self._recent_samples = self._recent_samples[-1000:]
+
+            ai_step = self.ai_manager.process(
+                sensor_sample=self.real_time_data,
+                recent_history=self._recent_samples
+            )
+            self.last_ai_result = ai_step.to_dict()
+            self.stats["processed_cycles"] += 1
+            self.stats["last_cycle"] = datetime.utcnow().isoformat()
+            self.stats["ai_samples"] += 1
+
+            # Evaluate emergency escalation
+            self._evaluate_emergency(ai_step)
+
+    # Emergency Handling -------------------------------------------------
+
+    def _evaluate_emergency(self, ai_step):
+        risk_level = ai_step.overall_risk.get("overall_level", "LOW")
+        rank = {
+            "LOW": 0.0,
+            "MEDIUM": 0.5,
+            "HIGH": 0.7,
+            "CRITICAL": 0.85,
+            "EMERGENCY": 0.95
+        }.get(risk_level, 0.0)
+
+        previous = self.system_status
+        if rank >= RISK_ESCALATION_LEVELS["EMERGENCY"]:
+            self.system_status = "EMERGENCY"
+            self._trigger_emergency_actions(ai_step)
+        elif rank >= RISK_ESCALATION_LEVELS["CRITICAL"]:
+            self.system_status = "CRITICAL"
+        elif rank >= RISK_ESCALATION_LEVELS["HIGH_ALERT"]:
+            self.system_status = "HIGH_ALERT"
+        else:
+            self.system_status = "NORMAL"
+
+        if previous != self.system_status:
+            self.logger.info(f"System status changed: {previous} -> {self.system_status}")
+
+    def _trigger_emergency_actions(self, ai_step):
+        try:
+            # Fallback: shut down all relays
+            self.relay_controller.emergency_shutdown()
+            self.stats["emergency_events"] += 1
+            self.logger.critical("Emergency shutdown sequence executed.")
+        except Exception as e:
+            self.logger.error(f"Emergency action failure: {e}")
+
+    # Public API ---------------------------------------------------------
+
     def get_enhanced_system_status(self) -> Dict[str, Any]:
-        """الحصول على حالة النظام المحسن"""
-        engine_status = self.fore_sight_engine.get_engine_status()
-        
-        return {
-            'system_status': self.system_status,
-            'raspberry_pi_active': self.raspberry_pi_active,
-            'sensor_grid_status': self.sensor_grid_status,
-            'relay_states': self.relay_controller.get_relay_status(),
-            'performance_metrics': self.system_stats,
-            'sense_grid_health': self.sensor_grid_status.get('grid_health', 0),
-            'ai_engine_status': engine_status,
-            'system_uptime': (datetime.now() - self.system_stats['start_time']).total_seconds(),
-            'last_update': datetime.now(),
-            'ss_rating': 'S-CLASS',
-            'overall_confidence': 0.97,
-            'real_time_data_sample': {k: round(v, 2) for k, v in list(self.real_time_data.items())[:3]}
-        }
-    
+        with self._lock:
+            now = datetime.utcnow()
+            uptime = (now - self.stats["start_time"]).total_seconds()
+            ai_status = self.ai_manager.status()
+            anomaly = (self.last_ai_result or {}).get("anomaly", {})
+            forecast = (self.last_ai_result or {}).get("forecast", {})
+            overall = (self.last_ai_result or {}).get("overall_risk", {})
+
+            return {
+                "system_status": self.system_status,
+                "raspberry_pi_active": self.raspberry_pi_active,
+                "sensor_grid_status": self.sensor_grid_status,
+                "relay_states": self.relay_controller.get_relay_status(),
+                "performance_metrics": {
+                    "processed_cycles": self.stats["processed_cycles"],
+                    "avg_cycle_time": self.stats["avg_cycle_time"],
+                    "uptime_seconds": uptime,
+                    "emergency_events": self.stats["emergency_events"],
+                    "ai_samples": self.stats["ai_samples"],
+                },
+                "ai_engine_status": ai_status,
+                "latest_anomaly": {
+                    "risk_level": anomaly.get("risk_level"),
+                    "anomaly_score": anomaly.get("anomaly_score"),
+                    "is_anomaly": anomaly.get("is_anomaly"),
+                    "threshold": anomaly.get("adaptive_threshold")
+                },
+                "latest_forecast": {
+                    "risk_level": forecast.get("risk_level"),
+                    "confidence": forecast.get("aggregate_confidence"),
+                    "model_used": forecast.get("model_used")
+                },
+                "overall_risk": overall,
+                "system_uptime": uptime,
+                "last_update": now.isoformat(),
+                "ss_rating": "S-CLASS",
+                "overall_confidence": float(
+                    min(
+                        1.0,
+                        0.5
+                        + 0.25 * (anomaly.get("confidence", 0.0) or 0.0)
+                        + 0.25 * (forecast.get("aggregate_confidence", 0.0) or 0.0)
+                    )
+                ),
+                "real_time_data_sample": {
+                    k: round(v, 3) for k, v in list(self.real_time_data.items())[:5]
+                },
+                "ai_recommendations": (self.last_ai_result or {}).get("recommendations", []),
+            }
+
+    # Shutdown -----------------------------------------------------------
+
     def shutdown(self):
-        """إيقاف النظام بشكل آمن"""
-        self.logger.info("🔄 Initiating safe system shutdown...")
+        self.logger.info("Initiating graceful shutdown...")
         self._active = False
-        
-        # انتظار إنهاء الخيوط
-        if self.monitor_thread:
-            self.monitor_thread.join(timeout=5)
-        if self.maintenance_thread:
-            self.maintenance_thread.join(timeout=5)
-        
-        # إيقاف محرك التنبؤ
-        if hasattr(self.fore_sight_engine, 'shutdown'):
-            self.fore_sight_engine.shutdown()
-        
-        self.logger.info("✅ System shutdown completed safely")
+        for t in (self._monitor_thread, self._maintenance_thread, self._retrain_thread):
+            if t:
+                t.join(timeout=6)
+        self.logger.info("Core threads joined. Performing final relay safe state.")
+        try:
+            self.relay_controller.emergency_shutdown()
+        except Exception:
+            pass
+        self.system_status = "SHUTDOWN"
+        self.logger.info("Shutdown complete.")
 
-# دالة الإنشاء المحسنة
-def create_smart_neural_twin(config_path: str = "config/smart_neural_config.json"):
-    """إنشاء Smart Neural Digital Twin مع SenseGrid"""
-    try:
-        twin = SmartNeuralDigitalTwin(config_path)
-        
-        # تهيئة نماذج الذكاء الاصطناعي بعد الإنشاء
-        twin.initialize_ai_models()
-        
-        return twin
-    except Exception as e:
-        logging.error(f"❌ Failed to create Smart Neural Digital Twin: {e}")
-        raise
 
-if __name__ == "__main__":
+# ------------------------------------------------------------------------------------
+# Factory
+# ------------------------------------------------------------------------------------
+
+def create_smart_neural_twin(config_path: str = "config/smart_neural_config.json", seed: Optional[int] = None) -> SmartNeuralDigitalTwin:
+    twin = SmartNeuralDigitalTwin(config_path=config_path, seed=seed)
+    return twin
+
+
+# ------------------------------------------------------------------------------------
+# Script Entry (Manual Test)
+# ------------------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
     twin = create_smart_neural_twin()
-    print("🚀 Smart Neural Digital Twin with SenseGrid Running - SS Rating Achieved!")
+    print("Twin running. Sampling status...")
+    try:
+        for _ in range(3):
+            time.sleep(3)
+            status = twin.get_enhanced_system_status()
+            print(json.dumps({
+                "system_status": status["system_status"],
+                "overall_risk": status["overall_risk"],
+                "sample": status["real_time_data_sample"]
+            }, indent=2))
+    finally:
+        twin.shutdown()
+        print("Twin shut down.")
