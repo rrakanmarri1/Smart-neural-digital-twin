@@ -852,8 +852,9 @@ class AdvancedAnomalySystem:
             'last_training': datetime.now() if self.is_trained else None,
             'system_confidence': 0.95 if self.is_trained else 0.1
         }
-        class AdvancedPredictionEngine:
-    """محرك تنبؤ متقدم باستخدام الشبكات العصبية العميقة - SS Rating"""
+        
+class AdvancedPredictionEngine:
+    """محرك تنبؤ متقدم باستخدام الشبكات العصبية العميقة"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
