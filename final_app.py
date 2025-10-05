@@ -32,10 +32,10 @@ try:
 except Exception as e:
     IMPORT_ERRORS.append(f"config_and_logging: {e}")
 
-APP_VERSION = "1.1.0-sclass"
+APP_VERSION = "2.0.0-ssclass"
 
 # --------------------------------------------------------------------------------------------------
-# Simulation fallback (emergency mode)
+# Simulation Fallback (Emergency Mode)
 # --------------------------------------------------------------------------------------------------
 
 class _EmergencySimulationTwin:
@@ -76,14 +76,14 @@ class _EmergencySimulationTwin:
         }
 
     @property
-    def sensor_grid_status(self):
+    def sensor_grid_status(self) -> Dict[str, Any]:
         return {
             "active_sensors": 6,
             "grid_health": 0.86
         }
 
     @property
-    def real_time_data(self):
+    def real_time_data(self) -> Dict[str, float]:
         return self._sample
 
 
@@ -92,6 +92,10 @@ class _EmergencySimulationTwin:
 # --------------------------------------------------------------------------------------------------
 
 class SmartNeuralApp:
+    """
+    Main application class for the Smart Neural Digital Twin.
+    Handles initialization, emergency fallback, and runtime execution.
+    """
     def __init__(self):
         self.config: Optional[SmartConfig] = None
         self.logger: Optional[logging.Logger] = None
@@ -106,6 +110,7 @@ class SmartNeuralApp:
     # ----------------------------------------------------------------------------------
 
     def _bootstrap(self):
+        """Bootstrap the application: initialize logging, load components, and handle errors."""
         self._configure_page()
         self._init_logging()
         if IMPORT_ERRORS:
@@ -123,6 +128,7 @@ class SmartNeuralApp:
             self._enter_emergency_mode(e)
 
     def _configure_page(self):
+        """Configure Streamlit page settings."""
         st.set_page_config(
             page_title="Smart Neural Digital Twin",
             page_icon="🧠",
@@ -139,6 +145,7 @@ class SmartNeuralApp:
         )
 
     def _init_logging(self):
+        """Initialize application logging."""
         try:
             self.config = SmartConfig()
             self.logger = self.config.get_logger("SmartNeural.App")
@@ -154,6 +161,7 @@ class SmartNeuralApp:
             self.logger.warning(f"Fallback logging active: {e}")
 
     def _render_loading_sequence(self):
+        """Render the loading sequence during application initialization."""
         st.markdown("""
         <style>
           .loading-box {
@@ -184,7 +192,7 @@ class SmartNeuralApp:
         placeholder = st.empty()
         progress = st.progress(0)
         steps = [
-            ("Loading Configuration", 12),
+            ("Loading Configuration", 10),
             ("Initializing Sensor Grid", 25),
             ("Bootstrapping AI Manager", 45),
             ("Warming Prediction Engines", 65),
@@ -201,22 +209,23 @@ class SmartNeuralApp:
             </div>
             """, unsafe_allow_html=True)
             progress.progress(pct / 100)
-            time.sleep(0.12 if pct < 90 else 0.05)
+            time.sleep(0.15 if pct < 90 else 0.05)
 
         progress.empty()
         placeholder.empty()
 
     def _create_twin(self) -> SmartNeuralDigitalTwin:
+        """Create the Smart Neural Digital Twin instance."""
         if not self.logger:
             raise RuntimeError("Logger unavailable during twin creation.")
         self.logger.info("Creating Smart Neural Digital Twin...")
         twin = create_smart_neural_twin()
         self.logger.info("Twin created.")
-        # Register shutdown
         atexit.register(self._safe_shutdown)
         return twin
 
     def _create_dashboard(self) -> AdvancedDashboard:
+        """Create the Advanced Dashboard instance."""
         if not self.smart_twin:
             raise RuntimeError("Cannot create dashboard without twin.")
         if not self.logger:
@@ -227,6 +236,7 @@ class SmartNeuralApp:
         return dash
 
     def _welcome_banner(self):
+        """Display a welcome banner when the application successfully initializes."""
         st.markdown(f"""
         <div style="text-align:center;padding:1.5rem 1rem;
              background:linear-gradient(135deg,#065f46,#047857);
@@ -245,6 +255,7 @@ class SmartNeuralApp:
     # ----------------------------------------------------------------------------------
 
     def _enter_emergency_mode(self, error: Exception):
+        """Switch to emergency simulation mode when initialization fails."""
         self._emergency_mode = True
         err_text = f"{type(error).__name__}: {error}"
         if self.logger:
@@ -260,6 +271,7 @@ class SmartNeuralApp:
         self._emergency_banner(err_text)
 
     def _emergency_banner(self, msg: str):
+        """Display an emergency banner in the UI."""
         st.markdown(f"""
         <div style="text-align:center;padding:1.75rem;
              background:linear-gradient(135deg,#7f1d1d,#b91c1c);
@@ -276,6 +288,7 @@ class SmartNeuralApp:
     # ----------------------------------------------------------------------------------
 
     def run(self):
+        """Run the application and render the dashboard."""
         if not self.dashboard:
             self._render_no_dashboard_state()
             return
@@ -288,9 +301,10 @@ class SmartNeuralApp:
         self._debug_sidebar()
 
     def _render_no_dashboard_state(self):
+        """Render a fallback state when the dashboard cannot be initialized."""
         st.error("Dashboard unavailable. Try restarting the application.")
         if st.button("🔄 Restart"):
-            st.rerun()
+            st.experimental_rerun()
         if self._emergency_mode:
             st.info("Emergency simulation active, but dashboard could not be initialized.")
 
@@ -299,6 +313,7 @@ class SmartNeuralApp:
     # ----------------------------------------------------------------------------------
 
     def _session_management(self):
+        """Manage session state and auto-refresh."""
         if "session_start" not in st.session_state:
             st.session_state.session_start = datetime.utcnow()
             st.session_state.activity_count = 0
@@ -306,7 +321,6 @@ class SmartNeuralApp:
         st.session_state.activity_count += 1
         elapsed = (datetime.utcnow() - st.session_state.session_start).total_seconds()
 
-        # Auto refresh toggle
         with st.sidebar.expander("⚙️ Session Control"):
             st.checkbox("Enable Auto Refresh (UI layer only)",
                         value=st.session_state.auto_refresh_enabled,
@@ -318,9 +332,10 @@ class SmartNeuralApp:
             st.info("🔄 Session auto-reset for stability.")
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
-            st.rerun()
+            st.experimental_rerun()
 
     def _debug_sidebar(self):
+        """Render advanced debug options in the sidebar."""
         with st.sidebar.expander("🔧 Advanced Debug", expanded=False):
             colA, colB = st.columns(2)
             with colA:
@@ -335,8 +350,9 @@ class SmartNeuralApp:
                         snapshot = self.config.dump_effective_config()
                         st.download_button("Download Config JSON",
                                            data=snapshot,
-                                           file_name=f"config_snapshot_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json",
+                                           file_name=f"config_snapshot_{datetime.utcnow().strftime('%Y%m%d_%H%M:%S')}.json",
                                            mime="application/json")
+
             if st.checkbox("Show System Status JSON", value=False):
                 try:
                     status = self.smart_twin.get_enhanced_system_status()  # type: ignore
@@ -359,6 +375,7 @@ class SmartNeuralApp:
     # ----------------------------------------------------------------------------------
 
     def _safe_shutdown(self):
+        """Perform safe application shutdown."""
         if getattr(self, "_shutdown_called", False):
             return
         setattr(self, "_shutdown_called", True)
@@ -377,6 +394,7 @@ class SmartNeuralApp:
 # --------------------------------------------------------------------------------------------------
 
 def main():
+    """Main entry point for the application."""
     try:
         app = SmartNeuralApp()
         app.run()
@@ -387,6 +405,7 @@ def main():
 
 
 def _render_global_emergency(exc: Exception):
+    """Render a global emergency fallback UI."""
     st.markdown("""
     <div style="text-align:center;padding:2.5rem;
          background:#7f1d1d;border-radius:14px;margin:1.5rem 0;
@@ -405,7 +424,7 @@ def _render_global_emergency(exc: Exception):
     c1, c2 = st.columns(2)
     with c1:
         if st.button("🔄 Restart"):
-            st.rerun()
+            st.experimental_rerun()
     with c2:
         report = {
             "timestamp": datetime.utcnow().isoformat(),
