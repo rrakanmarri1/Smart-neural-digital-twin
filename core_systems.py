@@ -10,12 +10,22 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 # External systems
 from config_and_logging import SmartConfig  # type: ignore
+
+# Raspberry Pi specific imports for physical sensor detection
+try:
+    import RPi.GPIO as GPIO
+    import smbus2 as smbus
+    import board
+    import busio
+    RASPBERRY_PI_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    RASPBERRY_PI_AVAILABLE = False
 
 # Relay controller is optional; provide safe fallback if unavailable
 try:
@@ -66,6 +76,28 @@ RISK_ESCALATION_LEVELS = {
     "EMERGENCY": 0.9
 }
 
+# Constants for physical sensor detection
+I2C_BUS_NUM = 1  # Default I2C bus on most Raspberry Pi models
+GPIO_SENSOR_PINS = [4, 5, 6, 13, 16, 17, 18, 19, 20, 21, 22, 23]  # Example GPIO pins to check
+SPI_DEVICES = [0, 1]  # SPI device numbers to check
+
+# Known I2C sensor addresses and their types
+KNOWN_I2C_SENSORS = {
+    0x76: {"type": "BME280", "name": "temperature_pressure_humidity", "min": -40, "max": 85},
+    0x77: {"type": "BME280", "name": "temperature_pressure_humidity_alt", "min": -40, "max": 85},
+    0x48: {"type": "ADS1115", "name": "analog_converter", "min": 0, "max": 5},
+    0x49: {"type": "ADS1115", "name": "analog_converter_alt", "min": 0, "max": 5}, 
+    0x68: {"type": "MPU6050", "name": "accelerometer", "min": -2, "max": 2},
+    0x23: {"type": "BH1750", "name": "light_sensor", "min": 0, "max": 65535},
+    0x5c: {"type": "AM2320", "name": "humidity_sensor", "min": 0, "max": 100},
+    0x44: {"type": "SHT31", "name": "temp_humidity", "min": -40, "max": 125},
+    0x40: {"type": "HTU21D", "name": "humidity", "min": 0, "max": 100},
+    0x29: {"type": "TSL2591", "name": "light", "min": 0, "max": 88000},
+    0x39: {"type": "TSL2561", "name": "luminosity", "min": 0, "max": 40000},
+    0x60: {"type": "MCP9808", "name": "precision_temp", "min": -40, "max": 125},
+    0x57: {"type": "MAX30102", "name": "pulse_oximeter", "min": 0, "max": 100}
+}
+
 
 # ------------------------------------------------------------------------------------
 # Data Models
@@ -85,6 +117,247 @@ class SensorReading:
     status: SensorStatus
     timestamp: datetime
     source: str  # physical / simulated / fused / emergency
+
+
+# ------------------------------------------------------------------------------------
+# Sensor Detection Utilities
+# ------------------------------------------------------------------------------------
+
+class PhysicalSensorDetector:
+    """
+    Detects physical sensors connected to Raspberry Pi
+    Supports I2C, GPIO, and SPI interfaces
+    """
+    
+    def __init__(self, logger):
+        self.logger = logger
+        self.i2c_available = False
+        self.gpio_available = False
+        self.spi_available = False
+        
+        # Initialize interfaces if Raspberry Pi is available
+        if RASPBERRY_PI_AVAILABLE:
+            try:
+                # Initialize I2C
+                self.i2c_bus = smbus.SMBus(I2C_BUS_NUM)
+                self.i2c_available = True
+            except Exception as e:
+                self.logger.warning(f"I2C initialization failed: {e}")
+            
+            try:
+                # Initialize GPIO
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setwarnings(False)
+                self.gpio_available = True
+            except Exception as e:
+                self.logger.warning(f"GPIO initialization failed: {e}")
+                
+            try:
+                # Initialize SPI via Adafruit's busio
+                self.spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
+                self.spi_available = True
+            except Exception as e:
+                self.logger.warning(f"SPI initialization failed: {e}")
+    
+    def detect_sensors(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Scan all available interfaces for connected sensors
+        Returns a dictionary of detected sensors with their configuration
+        """
+        detected_sensors = {}
+        
+        # Detect I2C sensors if available
+        if self.i2c_available:
+            i2c_sensors = self._scan_i2c_sensors()
+            detected_sensors.update(i2c_sensors)
+            
+        # Detect GPIO sensors if available
+        if self.gpio_available:
+            gpio_sensors = self._scan_gpio_sensors()
+            detected_sensors.update(gpio_sensors)
+            
+        # Detect SPI sensors if available (simplified)
+        if self.spi_available:
+            spi_sensors = self._scan_spi_sensors()
+            detected_sensors.update(spi_sensors)
+            
+        return detected_sensors
+    
+    def _scan_i2c_sensors(self) -> Dict[str, Dict[str, Any]]:
+        """Scan the I2C bus for known sensor addresses"""
+        detected = {}
+        if not self.i2c_available:
+            return detected
+            
+        for address in range(0x03, 0x77 + 1):
+            try:
+                self.i2c_bus.read_byte(address)
+                # Device exists at this address
+                if address in KNOWN_I2C_SENSORS:
+                    sensor_info = KNOWN_I2C_SENSORS[address].copy()
+                    sensor_name = f"{sensor_info['name']}_{address:02x}"
+                    detected[sensor_name] = {
+                        "type": sensor_info['type'],
+                        "interface": "I2C",
+                        "address": address,
+                        "min": sensor_info['min'],
+                        "max": sensor_info['max']
+                    }
+                    self.logger.info(f"Detected I2C sensor: {sensor_info['type']} at address 0x{address:02x}")
+                else:
+                    # Unknown sensor, add with generic parameters
+                    sensor_name = f"unknown_i2c_{address:02x}"
+                    detected[sensor_name] = {
+                        "type": "UNKNOWN",
+                        "interface": "I2C",
+                        "address": address,
+                        "min": 0,
+                        "max": 100
+                    }
+                    self.logger.info(f"Detected unknown I2C device at address 0x{address:02x}")
+            except Exception:
+                # No device at this address
+                pass
+                
+        return detected
+    
+    def _scan_gpio_sensors(self) -> Dict[str, Dict[str, Any]]:
+        """Set up GPIO pins for potential sensors"""
+        detected = {}
+        if not self.gpio_available:
+            return detected
+            
+        for pin in GPIO_SENSOR_PINS:
+            try:
+                # Configure as input
+                GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+                
+                # For demonstration, add as digital sensor
+                # In practice, you would need to identify specific sensor types
+                sensor_name = f"digital_sensor_gpio{pin}"
+                detected[sensor_name] = {
+                    "type": "DIGITAL",
+                    "interface": "GPIO",
+                    "pin": pin,
+                    "min": 0,
+                    "max": 1
+                }
+                self.logger.info(f"Set up GPIO sensor on pin {pin}")
+            except Exception as e:
+                self.logger.debug(f"GPIO pin {pin} setup failed: {e}")
+                
+        return detected
+    
+    def _scan_spi_sensors(self) -> Dict[str, Dict[str, Any]]:
+        """Detect SPI sensors (simplified implementation)"""
+        detected = {}
+        if not self.spi_available:
+            return detected
+            
+        # This is a placeholder - actual SPI device detection 
+        # would depend on specific sensor protocols
+        for device in SPI_DEVICES:
+            try:
+                # In a real implementation, you would try to communicate
+                # with the device using specific commands
+                sensor_name = f"spi_sensor_{device}"
+                detected[sensor_name] = {
+                    "type": "SPI_SENSOR",
+                    "interface": "SPI",
+                    "device": device,
+                    "min": 0,
+                    "max": 1023
+                }
+                self.logger.info(f"Detected SPI device on device {device}")
+            except Exception as e:
+                self.logger.debug(f"SPI device {device} detection failed: {e}")
+                
+        return detected
+
+    def read_sensor_value(self, sensor_config: Dict[str, Any]) -> Tuple[float, bool]:
+        """
+        Read the value from a physical sensor based on its configuration
+        Returns the value and success status
+        """
+        if not RASPBERRY_PI_AVAILABLE:
+            return 0.0, False
+            
+        try:
+            interface = sensor_config.get("interface")
+            
+            if interface == "I2C":
+                return self._read_i2c_sensor(sensor_config)
+            elif interface == "GPIO":
+                return self._read_gpio_sensor(sensor_config)
+            elif interface == "SPI":
+                return self._read_spi_sensor(sensor_config)
+            else:
+                return 0.0, False
+        except Exception as e:
+            self.logger.error(f"Error reading sensor {sensor_config}: {e}")
+            return 0.0, False
+    
+    def _read_i2c_sensor(self, sensor_config: Dict[str, Any]) -> Tuple[float, bool]:
+        """Read data from an I2C sensor"""
+        if not self.i2c_available:
+            return 0.0, False
+            
+        address = sensor_config.get("address")
+        sensor_type = sensor_config.get("type")
+        
+        try:
+            if sensor_type == "BME280":
+                # Simplified BME280 reading - in real implementation use proper BME280 library
+                temp_raw = self.i2c_bus.read_word_data(address, 0xFA)
+                return (temp_raw / 100.0), True
+                
+            elif sensor_type == "ADS1115":
+                # Simplified ADS1115 ADC reading
+                value = self.i2c_bus.read_word_data(address, 0x00)
+                return float(value), True
+                
+            elif sensor_type == "MPU6050":
+                # Simplified accelerometer reading
+                value = self.i2c_bus.read_word_data(address, 0x3B)
+                return float(value) / 16384.0, True
+                
+            else:
+                # Generic read for unknown sensors - read first register
+                value = self.i2c_bus.read_byte(address)
+                return float(value), True
+                
+        except Exception as e:
+            self.logger.error(f"Error reading I2C sensor at address 0x{address:02x}: {e}")
+            return 0.0, False
+    
+    def _read_gpio_sensor(self, sensor_config: Dict[str, Any]) -> Tuple[float, bool]:
+        """Read data from a GPIO sensor"""
+        if not self.gpio_available:
+            return 0.0, False
+            
+        pin = sensor_config.get("pin")
+        
+        try:
+            # For digital reading
+            value = GPIO.input(pin)
+            return float(value), True
+        except Exception as e:
+            self.logger.error(f"Error reading GPIO sensor on pin {pin}: {e}")
+            return 0.0, False
+    
+    def _read_spi_sensor(self, sensor_config: Dict[str, Any]) -> Tuple[float, bool]:
+        """Read data from an SPI sensor"""
+        if not self.spi_available:
+            return 0.0, False
+            
+        # Simplified SPI read - in real implementation, use proper SPI protocol for specific sensors
+        try:
+            # Placeholder for actual SPI reading code
+            # Would use spidev or similar to communicate with specific sensor
+            return random.uniform(sensor_config["min"], sensor_config["max"]), True
+        except Exception as e:
+            self.logger.error(f"Error reading SPI sensor {sensor_config.get('device')}: {e}")
+            return 0.0, False
 
 
 # ------------------------------------------------------------------------------------
@@ -112,11 +385,56 @@ class AdaptiveSensorFusionGrid:
         self.sensor_calibration: Dict[str, Dict[str, Any]] = {}
         self.fusion_models: Dict[str, Dict[str, Any]] = {}
         self.correlation_matrix: Dict[str, Dict[str, float]] = {}
-
+        
+        # Initialize physical sensor detector
+        self.physical_sensor_detector = PhysicalSensorDetector(self.logger)
+        
+        # Detect physical sensors and merge with configuration
+        self._detect_and_configure_sensors()
+        
+        # Initialize sensor history with the updated sensor list
         self.sensor_history: Dict[str, List[SensorReading]] = {
             s: [] for s in self.config.get("sensors", {}).keys()
         }
+        
         self._initialize()
+
+    # Sensor Detection and Configuration -----------------------------------
+    
+    def _detect_and_configure_sensors(self):
+        """
+        Detect physical sensors and update configuration accordingly
+        """
+        self.logger.info("Scanning for physical sensors...")
+        
+        # Get current config
+        current_sensors = self.config.get("sensors", {})
+        
+        # Detect physical sensors
+        detected_sensors = {}
+        try:
+            detected_sensors = self.physical_sensor_detector.detect_sensors()
+        except Exception as e:
+            self.logger.error(f"Sensor detection failed: {e}", exc_info=True)
+        
+        # Count detected sensors
+        detected_count = len(detected_sensors)
+        self.logger.info(f"Detected {detected_count} physical sensors")
+        
+        # Add detected sensors to configuration if not already present
+        updated_sensors = current_sensors.copy()
+        for name, config in detected_sensors.items():
+            if name not in updated_sensors:
+                updated_sensors[name] = config
+                self.logger.info(f"Added new sensor to config: {name}")
+        
+        # Update the configuration
+        self.config["sensors"] = updated_sensors
+        self.logger.info(f"Updated sensor configuration with {len(updated_sensors)} total sensors")
+        
+        # Log the sensor details
+        sensor_list = ", ".join(updated_sensors.keys())
+        self.logger.info(f"Active sensors: {sensor_list}")
 
     # Initialization -----------------------------------------------------
 
@@ -131,15 +449,32 @@ class AdaptiveSensorFusionGrid:
             self.logger.error(f"SenseGrid initialization failed: {e}", exc_info=True)
 
     def _scan_physical_sensors(self):
+        """
+        Determine the status of each configured sensor by attempting to read from it
+        """
         for sensor in self.config.get("sensors", {}).keys():
-            # Placeholder heuristic: 70% active, 25% simulated, 5% failed
-            r = random.random()
-            if r < 0.7:
-                self.sensor_status[sensor] = SensorStatus.ACTIVE
-            elif r < 0.95:
-                self.sensor_status[sensor] = SensorStatus.SIMULATED
+            # Get sensor config
+            sensor_config = self.config["sensors"][sensor]
+            
+            # If this is a physically detected sensor, try to read from it
+            if "interface" in sensor_config:
+                value, success = self.physical_sensor_detector.read_sensor_value(sensor_config)
+                
+                if success:
+                    self.sensor_status[sensor] = SensorStatus.ACTIVE
+                    self.logger.info(f"Physical sensor {sensor} is active")
+                else:
+                    self.sensor_status[sensor] = SensorStatus.FAILED
+                    self.logger.warning(f"Physical sensor {sensor} failed to read")
             else:
-                self.sensor_status[sensor] = SensorStatus.FAILED
+                # For non-physical/configuration-only sensors, use the previous behavior
+                r = random.random()
+                if r < 0.7:
+                    self.sensor_status[sensor] = SensorStatus.ACTIVE
+                elif r < 0.95:
+                    self.sensor_status[sensor] = SensorStatus.SIMULATED
+                else:
+                    self.sensor_status[sensor] = SensorStatus.FAILED
 
     def _seed_correlation_matrix(self):
         # Provide initial priors; if no domain correlations, start with mild positive
@@ -179,15 +514,42 @@ class AdaptiveSensorFusionGrid:
         for sensor, status in self.sensor_status.items():
             try:
                 if status == SensorStatus.ACTIVE:
-                    value = self._generate_physical_value(sensor)
-                    value = self._apply_calibration(sensor, value)
-                    raw[sensor] = SensorReading(
-                        value=value,
-                        confidence=0.92,
-                        status=status,
-                        timestamp=datetime.utcnow(),
-                        source="physical"
-                    )
+                    # Check if this is a physical sensor
+                    sensor_config = self.config["sensors"][sensor]
+                    if "interface" in sensor_config:
+                        # Read from physical sensor
+                        value, success = self.physical_sensor_detector.read_sensor_value(sensor_config)
+                        if success:
+                            value = self._apply_calibration(sensor, value)
+                            raw[sensor] = SensorReading(
+                                value=value,
+                                confidence=0.95,  # Higher confidence for physical readings
+                                status=status,
+                                timestamp=datetime.utcnow(),
+                                source="physical"
+                            )
+                        else:
+                            # Failed to read physical sensor - mark as degraded and use simulation
+                            self.sensor_status[sensor] = SensorStatus.DEGRADED
+                            sim_value = self._simulate_value(sensor, raw)
+                            raw[sensor] = SensorReading(
+                                value=sim_value,
+                                confidence=0.7,
+                                status=SensorStatus.DEGRADED,
+                                timestamp=datetime.utcnow(),
+                                source="simulated"
+                            )
+                    else:
+                        # Non-physical sensor, use previous logic
+                        value = self._generate_physical_value(sensor)
+                        value = self._apply_calibration(sensor, value)
+                        raw[sensor] = SensorReading(
+                            value=value,
+                            confidence=0.92,
+                            status=status,
+                            timestamp=datetime.utcnow(),
+                            source="physical"
+                        )
                 elif status in (SensorStatus.SIMULATED, SensorStatus.DEGRADED):
                     sim_value = self._simulate_value(sensor, raw)
                     raw[sensor] = SensorReading(
@@ -373,15 +735,53 @@ class AdaptiveSensorFusionGrid:
         for hist in self.sensor_history.values():
             if hist:
                 avg_conf.append(hist[-1].confidence)
+        
+        # Count physical sensors
+        physical_count = sum(1 for s, cfg in self.config.get("sensors", {}).items() if "interface" in cfg)
+        
         return {
             "total_sensors": total,
             "active_sensors": active,
             "simulated_sensors": simulated,
             "failed_sensors": failed,
+            "physical_sensors_detected": physical_count,
             "grid_health": grid_health,
             "average_confidence": float(np.mean(avg_conf)) if avg_conf else 0.0,
             "last_update": datetime.utcnow()
         }
+
+    # Dynamic sensor management -------------------------------------------
+    
+    def rescan_sensors(self) -> int:
+        """
+        Rescan for physical sensors and update configuration
+        Returns the number of newly detected sensors
+        """
+        # Get current sensor count
+        current_count = len(self.config.get("sensors", {}))
+        
+        # Update sensors
+        self._detect_and_configure_sensors()
+        
+        # Update sensor history for any new sensors
+        for s in self.config.get("sensors", {}).keys():
+            if s not in self.sensor_history:
+                self.sensor_history[s] = []
+                
+        # Update correlation matrix for new sensors
+        self._seed_correlation_matrix()
+        
+        # Update fusion models for new sensors
+        self._train_initial_fusion()
+        
+        # Update calibration for new sensors
+        self._calibrate_all()
+        
+        # Get new sensor count
+        new_count = len(self.config.get("sensors", {}))
+        
+        # Return the number of new sensors detected
+        return new_count - current_count
 
 
 # ------------------------------------------------------------------------------------
@@ -437,6 +837,7 @@ class SmartNeuralDigitalTwin:
         self._monitor_thread: Optional[threading.Thread] = None
         self._maintenance_thread: Optional[threading.Thread] = None
         self._retrain_thread: Optional[threading.Thread] = None
+        self._sensor_scan_thread: Optional[threading.Thread] = None
         self._lock = threading.RLock()
 
         # Bootstrapping
@@ -444,6 +845,7 @@ class SmartNeuralDigitalTwin:
         self._start_monitoring()
         self._start_maintenance()
         self._start_retrain_scheduler()
+        self._start_sensor_scanner()
         self.system_status = "NORMAL"
         self.logger.info("SmartNeuralDigitalTwin initialized successfully.")
 
@@ -527,6 +929,31 @@ class SmartNeuralDigitalTwin:
 
         self._retrain_thread = threading.Thread(target=retrain, daemon=True, name="RetrainLoop")
         self._retrain_thread.start()
+        
+    def _start_sensor_scanner(self):
+        """Start a thread that periodically rescans for new sensors"""
+        
+        def scan_loop():
+            # Initial delay to let the system stabilize
+            time.sleep(10)
+            
+            while self._active:
+                try:
+                    # Rescan sensors every 5 minutes
+                    new_sensors = self.sense_grid.rescan_sensors()
+                    if new_sensors > 0:
+                        self.logger.info(f"Sensor rescan found {new_sensors} new sensors")
+                except Exception as e:
+                    self.logger.error(f"Sensor scanner error: {e}")
+                
+                # Sleep for 5 minutes before rescanning
+                for _ in range(300):  # 5 minutes in seconds
+                    if not self._active:
+                        break
+                    time.sleep(1)
+                    
+        self._sensor_scan_thread = threading.Thread(target=scan_loop, daemon=True, name="SensorScanLoop")
+        self._sensor_scan_thread.start()
 
     # Monitoring Cycle ---------------------------------------------------
 
@@ -597,10 +1024,15 @@ class SmartNeuralDigitalTwin:
             forecast = (self.last_ai_result or {}).get("forecast", {})
             overall = (self.last_ai_result or {}).get("overall_risk", {})
 
+            # Get physical sensor count from sensor grid status
+            physical_sensors = self.sensor_grid_status.get("physical_sensors_detected", 0)
+
             return {
                 "system_status": self.system_status,
                 "raspberry_pi_active": self.raspberry_pi_active,
                 "sensor_grid_status": self.sensor_grid_status,
+                "physical_sensor_count": physical_sensors,  # Added physical sensor count
+                "total_sensor_count": len(self.config.get("sensors", {})),  # Total sensors including simulated
                 "relay_states": self.relay_controller.get_relay_status(),
                 "performance_metrics": {
                     "processed_cycles": self.stats["processed_cycles"],
@@ -644,7 +1076,7 @@ class SmartNeuralDigitalTwin:
     def shutdown(self):
         self.logger.info("Initiating graceful shutdown...")
         self._active = False
-        for t in (self._monitor_thread, self._maintenance_thread, self._retrain_thread):
+        for t in (self._monitor_thread, self._maintenance_thread, self._retrain_thread, self._sensor_scan_thread):
             if t:
                 t.join(timeout=6)
         self.logger.info("Core threads joined. Performing final relay safe state.")
@@ -679,7 +1111,9 @@ if __name__ == "__main__":  # pragma: no cover
             print(json.dumps({
                 "system_status": status["system_status"],
                 "overall_risk": status["overall_risk"],
-                "sample": status["real_time_data_sample"]
+                "sample": status["real_time_data_sample"],
+                "physical_sensors": status["physical_sensor_count"],  # Show physical sensor count
+                "total_sensors": status["total_sensor_count"]  # Show total sensor count
             }, indent=2))
     finally:
         twin.shutdown()
