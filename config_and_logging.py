@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 # -------------------------------------------------------------------------------------------------
 # Log Data Structures
@@ -52,6 +52,55 @@ class SmartTheme:
 
     def to_dict(self) -> Dict[str, str]:
         return asdict(self)
+
+
+# -------------------------------------------------------------------------------------------------
+# Sensor Configuration Types
+# -------------------------------------------------------------------------------------------------
+
+@dataclass
+class SensorConfig:
+    """Configuration for a single sensor"""
+    name: str
+    min: float
+    max: float
+    critical: float
+    unit: str
+    weight: float = 1.0
+    type: str = "UNKNOWN"
+    interface: Optional[str] = None
+    is_physical: bool = False
+    is_simulated: bool = True
+    pin: Optional[int] = None
+    i2c_address: Optional[str] = None
+    description: str = ""
+    added_at: Optional[str] = None
+    
+    @classmethod
+    def from_dict(cls, name: str, data: Dict[str, Any]) -> 'SensorConfig':
+        """Create a sensor configuration from a dictionary"""
+        return cls(
+            name=name,
+            min=data.get("min", 0.0),
+            max=data.get("max", 100.0),
+            critical=data.get("critical", data.get("max", 100.0) * 0.9),
+            unit=data.get("unit", ""),
+            weight=data.get("weight", 1.0),
+            type=data.get("type", "UNKNOWN"),
+            interface=data.get("interface"),
+            is_physical=data.get("is_physical", False),
+            is_simulated=data.get("is_simulated", True),
+            pin=data.get("pin"),
+            i2c_address=data.get("i2c_address"),
+            description=data.get("description", ""),
+            added_at=data.get("added_at")
+        )
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for config storage"""
+        result = asdict(self)
+        # Remove None values for cleaner config
+        return {k: v for k, v in result.items() if v is not None}
 
 
 # -------------------------------------------------------------------------------------------------
@@ -144,6 +193,7 @@ class SmartConfig:
         - Environment variable overrides
         - Structured & rotating logging handlers
         - Accessor & update APIs
+        - Dynamic sensor registration and management
     """
     _instance = None
     _class_lock = threading.Lock()
@@ -165,13 +215,19 @@ class SmartConfig:
         self._system_logger: Optional[logging.Logger] = None
         self._gpio_available = False
         self._cfg_lock = threading.RLock()
+        
+        # Dynamic sensor tracking
+        self._sensor_registry: Dict[str, SensorConfig] = {}
+        self._sensor_discovery_history: List[Dict[str, Any]] = []
+        self._last_sensor_scan = datetime.utcnow()
 
         # Performance stats counters
         self._performance_stats = {
             "start_time": datetime.utcnow(),
             "config_reloads": 0,
             "errors_count": 0,
-            "warnings_count": 0
+            "warnings_count": 0,
+            "sensor_discoveries": 0
         }
 
         self._create_directory_structure()
@@ -181,7 +237,7 @@ class SmartConfig:
         self._validate_config()
         self._setup_system_components()
         self._initialized = True
-        self.get_logger().info("🎯 SmartConfig initialized (S‑Class)")
+        self.get_logger().info("🎯 SmartConfig initialized (S‑Class with dynamic sensor support)")
 
     # ---------------------------------------------------------------------------------
     # Directory & Logging Setup
@@ -200,6 +256,7 @@ class SmartConfig:
             "data/historical",
             "data/backup",
             "config/backups",
+            "config/sensors",
             "reports/daily",
             "reports/incidents",
             "cache/temp"
@@ -348,6 +405,18 @@ class SmartConfig:
             self._create_default_config(default_cfg)
             self._config = default_cfg
             self.get_logger().info("✅ Default configuration created and loaded")
+            
+        # Initialize sensor registry from config
+        self._initialize_sensor_registry()
+
+    def _create_default_config(self, config: Dict[str, Any]) -> None:
+        """Create the default configuration file if it doesn't exist"""
+        try:
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.get_logger().error(f"❌ Default config creation failed: {e}")
 
     def _apply_env_overrides(self):
         """
@@ -393,26 +462,31 @@ class SmartConfig:
 
     def _get_default_config(self) -> Dict[str, Any]:
         return {
-            "schema_version": "1.0",
+            "schema_version": "1.1",  # Updated schema version for dynamic sensors
             "meta": {
-                "config_version": "3.1.0",
+                "config_version": "3.2.0",  # Updated for dynamic sensors
                 "build": "s-class",
                 "generated_at": datetime.utcnow().isoformat()
             },
             "system": {
                 "name": "Smart Neural Digital Twin - SS Rating",
-                "version": "3.0.0",
+                "version": "3.1.0",  # Updated for dynamic sensors
                 "description": "Advanced Oil Field Disaster Prevention System with AI - SS Rating",
                 "update_interval": 2.0,
                 "max_memory_usage": "2GB",
                 "data_retention_days": 30,
                 "performance_mode": "SS_RATING",
                 "timezone": "Asia/Riyadh",
-                "language": "ar"
+                "language": "ar",
+                "dynamic_sensors_enabled": True,  # Enable dynamic sensor detection
+                "sensor_scan_interval": 300  # Seconds between sensor scans
             },
             "raspberry_pi": {
                 "active": False,
                 "gpio_mode": "BCM",
+                "auto_detect_sensors": True,  # Auto-detect physical sensors
+                "i2c_enabled": True,  # Enable I2C bus scanning
+                "i2c_bus": 1,  # Default I2C bus number
                 "relay_pins": {
                     "emergency_cooling": 17,
                     "pressure_release": 18,
@@ -438,7 +512,8 @@ class SmartConfig:
                 },
                 "confidence_thresholds": {"high": 0.9, "medium": 0.7, "low": 0.5},
                 "monte_carlo_simulations": 1000,
-                "adaptive_learning": True
+                "adaptive_learning": True,
+                "dynamic_feature_adaptation": True  # Handle changing feature sets
             },
             "prediction": {
                 "sequence_length": 50,
@@ -448,7 +523,8 @@ class SmartConfig:
                     "patience": 12,
                     "val_split": 0.15,
                     "lr": 0.001,
-                    "retrain_hours": 12
+                    "retrain_hours": 12,
+                    "auto_retrain_on_new_sensors": True  # Auto-retrain when sensors change
                 }
             },
             "ai_models": {
@@ -467,7 +543,12 @@ class SmartConfig:
                     "sensitivity": 0.85,
                     "window_size": 100,
                     "retrain_interval": 3600,
-                    "ensemble_weights": [0.4, 0.3, 0.3]
+                    "ensemble_weights": [0.4, 0.3, 0.3],
+                    "dynamic_features": {
+                        "enabled": True,  # Enable dynamic feature handling
+                        "retraining_threshold": 0.25,  # Retrain if more than 25% of features changed
+                        "preserve_order": True  # Maintain feature order compatibility
+                    }
                 },
                 "autoencoder": {
                     "encoding_dim": 32,
@@ -477,12 +558,12 @@ class SmartConfig:
                 }
             },
             "sensors": {
-                "pressure": {"min": 0, "max": 200, "critical": 150, "unit": "bar", "weight": 0.25},
-                "temperature": {"min": -50, "max": 300, "critical": 200, "unit": "°C", "weight": 0.20},
-                "methane": {"min": 0, "max": 5000, "critical": 1000, "unit": "ppm", "weight": 0.25},
-                "hydrogen_sulfide": {"min": 0, "max": 500, "critical": 50, "unit": "ppm", "weight": 0.15},
-                "vibration": {"min": 0, "max": 20, "critical": 8, "unit": "m/s²", "weight": 0.10},
-                "flow": {"min": 0, "max": 500, "critical": 400, "unit": "L/min", "weight": 0.05}
+                "pressure": {"min": 0, "max": 200, "critical": 150, "unit": "bar", "weight": 0.25, "type": "ANALOG"},
+                "temperature": {"min": -50, "max": 300, "critical": 200, "unit": "°C", "weight": 0.20, "type": "DIGITAL"},
+                "methane": {"min": 0, "max": 5000, "critical": 1000, "unit": "ppm", "weight": 0.25, "type": "ANALOG"},
+                "hydrogen_sulfide": {"min": 0, "max": 500, "critical": 50, "unit": "ppm", "weight": 0.15, "type": "ANALOG"},
+                "vibration": {"min": 0, "max": 20, "critical": 8, "unit": "m/s²", "weight": 0.10, "type": "DIGITAL"},
+                "flow": {"min": 0, "max": 500, "critical": 400, "unit": "L/min", "weight": 0.05, "type": "ANALOG"}
             },
             "emergency_protocols": {
                 "auto_response": True,
@@ -522,6 +603,20 @@ class SmartConfig:
                 "access_logging": True,
                 "max_login_attempts": 3,
                 "session_timeout": 3600
+            },
+            # New section for sensor discovery settings
+            "sensor_discovery": {
+                "enabled": True,
+                "scan_interval_seconds": 300,  # 5 minutes between scans
+                "i2c_scan_addresses": [0x76, 0x77, 0x48, 0x68, 0x23, 0x40],  # Common I2C addresses
+                "gpio_scan_pins": [2, 3, 4, 5, 6, 13, 19, 26],  # GPIO pins to scan
+                "known_sensor_types": {
+                    "BME280": {"addresses": [0x76, 0x77], "description": "Temperature/Humidity/Pressure"},
+                    "ADS1115": {"addresses": [0x48], "description": "16-bit ADC"},
+                    "MPU6050": {"addresses": [0x68], "description": "Accelerometer/Gyroscope"},
+                    "BH1750": {"addresses": [0x23], "description": "Light Sensor"},
+                    "HTU21D": {"addresses": [0x40], "description": "Humidity Sensor"}
+                }
             }
         }
 
@@ -571,17 +666,32 @@ class SmartConfig:
                     self.get_logger().error(f"❌ Missing config section: {sec}")
                     return False
 
-            # Sensors
-            required_sensors = ["pressure", "temperature", "methane", "hydrogen_sulfide", "vibration", "flow"]
+            # Sensors - allow dynamic sensors, but ensure core sensors present
+            required_sensors = ["pressure", "temperature"]
             sensors_cfg = self._config["sensors"]
             for s in required_sensors:
                 if s not in sensors_cfg:
-                    self.get_logger().error(f"❌ Missing sensor: {s}")
+                    self.get_logger().error(f"❌ Missing core sensor: {s}")
                     return False
-                for p in ["min", "max", "critical", "unit", "weight"]:
-                    if p not in sensors_cfg[s]:
-                        self.get_logger().error(f"❌ Sensor {s} missing param {p}")
+                    
+            # Validate all sensors have required parameters
+            for sensor_name, sensor_cfg in sensors_cfg.items():
+                for p in ["min", "max"]:
+                    if p not in sensor_cfg:
+                        self.get_logger().error(f"❌ Sensor {sensor_name} missing required param {p}")
                         return False
+                
+                # Add critical if not defined (90% of max)
+                if "critical" not in sensor_cfg:
+                    sensor_cfg["critical"] = sensor_cfg["max"] * 0.9
+                    
+                # Add unit if missing
+                if "unit" not in sensor_cfg:
+                    sensor_cfg["unit"] = ""
+                    
+                # Add weight if missing
+                if "weight" not in sensor_cfg:
+                    sensor_cfg["weight"] = 1.0
 
             # Prediction section
             pred_cfg = self._config["prediction"]
@@ -649,6 +759,120 @@ class SmartConfig:
             self.get_logger().error(f"❌ GPIO setup failed: {e}")
 
     # ---------------------------------------------------------------------------------
+    # Dynamic Sensor Management
+    # ---------------------------------------------------------------------------------
+    
+    def _initialize_sensor_registry(self) -> None:
+        """Initialize the sensor registry from configuration"""
+        self._sensor_registry = {}
+        if "sensors" not in self._config:
+            return
+            
+        # Convert all sensors to SensorConfig objects
+        for sensor_name, sensor_data in self._config["sensors"].items():
+            # Skip empty or invalid sensors
+            if not isinstance(sensor_data, dict):
+                continue
+                
+            # Create sensor config
+            sensor = SensorConfig.from_dict(sensor_name, sensor_data)
+            self._sensor_registry[sensor_name] = sensor
+            
+        self.get_logger().info(f"✅ Initialized sensor registry with {len(self._sensor_registry)} sensors")
+        
+    def register_sensor(self, sensor_name: str, sensor_config: Dict[str, Any]) -> bool:
+        """
+        Register a new sensor in the configuration
+        Returns True if sensor was new or updated, False otherwise
+        """
+        try:
+            with self._cfg_lock:
+                # Add timestamp to config if not present
+                if "added_at" not in sensor_config:
+                    sensor_config["added_at"] = datetime.utcnow().isoformat()
+                    
+                is_new = sensor_name not in self._config["sensors"]
+                    
+                # Update sensors section
+                self._config["sensors"][sensor_name] = sensor_config
+                
+                # Update registry
+                sensor = SensorConfig.from_dict(sensor_name, sensor_config)
+                self._sensor_registry[sensor_name] = sensor
+                
+                # Record discovery
+                self._record_sensor_discovery(sensor_name, sensor_config, is_new)
+                
+                if is_new:
+                    self.get_logger().info(f"✅ Registered new sensor: {sensor_name}")
+                else:
+                    self.get_logger().info(f"✅ Updated existing sensor: {sensor_name}")
+                
+                # Save configuration if new sensor
+                if is_new:
+                    self.save_config()
+                    
+                return True
+        except Exception as e:
+            self.get_logger().error(f"❌ Failed to register sensor {sensor_name}: {e}")
+            return False
+            
+    def _record_sensor_discovery(self, sensor_name: str, config: Dict[str, Any], is_new: bool) -> None:
+        """Record sensor discovery in history"""
+        entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "sensor_name": sensor_name,
+            "is_new": is_new,
+            "is_physical": config.get("is_physical", False),
+            "type": config.get("type", "UNKNOWN")
+        }
+        self._sensor_discovery_history.append(entry)
+        self._performance_stats["sensor_discoveries"] += 1
+        
+        # Keep history bounded
+        if len(self._sensor_discovery_history) > 100:
+            self._sensor_discovery_history = self._sensor_discovery_history[-100:]
+            
+    def unregister_sensor(self, sensor_name: str) -> bool:
+        """Remove a sensor from the configuration"""
+        try:
+            with self._cfg_lock:
+                if sensor_name not in self._config["sensors"]:
+                    return False
+                    
+                # Remove from config and registry
+                del self._config["sensors"][sensor_name]
+                if sensor_name in self._sensor_registry:
+                    del self._sensor_registry[sensor_name]
+                    
+                self.get_logger().info(f"✅ Unregistered sensor: {sensor_name}")
+                self.save_config()
+                return True
+        except Exception as e:
+            self.get_logger().error(f"❌ Failed to unregister sensor {sensor_name}: {e}")
+            return False
+            
+    def get_sensor_registry(self) -> Dict[str, SensorConfig]:
+        """Get a copy of the sensor registry"""
+        return {k: v for k, v in self._sensor_registry.items()}
+        
+    def get_physical_sensors(self) -> Dict[str, SensorConfig]:
+        """Get only physical sensors from registry"""
+        return {k: v for k, v in self._sensor_registry.items() if v.is_physical}
+        
+    def get_simulated_sensors(self) -> Dict[str, SensorConfig]:
+        """Get only simulated sensors from registry"""
+        return {k: v for k, v in self._sensor_registry.items() if v.is_simulated}
+        
+    def get_sensor_discovery_history(self) -> List[Dict[str, Any]]:
+        """Get sensor discovery history"""
+        return self._sensor_discovery_history.copy()
+        
+    def get_sensor_config(self, sensor_name: str) -> Optional[SensorConfig]:
+        """Get configuration for a specific sensor"""
+        return self._sensor_registry.get(sensor_name)
+
+    # ---------------------------------------------------------------------------------
     # Public API
     # ---------------------------------------------------------------------------------
 
@@ -681,6 +905,11 @@ class SmartConfig:
                     self._config = old_config
                     self.get_logger().error("❌ Config update reverted due to validation failure")
                     return False
+                    
+                # Update sensor registry if sensors changed
+                if "sensors" in updates:
+                    self._initialize_sensor_registry()
+                    
                 if save:
                     self.save_config()
                 self.get_logger().info("✅ Configuration updated")
@@ -691,6 +920,15 @@ class SmartConfig:
 
     def save_config(self) -> bool:
         try:
+            # Create a backup before saving
+            if self.config_path.exists():
+                backup_path = Path("config/backups") / f"config_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(self.config_path, "r", encoding="utf-8") as src:
+                    with open(backup_path, "w", encoding="utf-8") as dst:
+                        dst.write(src.read())
+                        
+            # Save the current config
             with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=4, ensure_ascii=False, default=str)
             self._last_modified = self.config_path.stat().st_mtime
@@ -736,7 +974,11 @@ class SmartConfig:
             "system_uptime": (datetime.utcnow() - self._performance_stats["start_time"]).total_seconds(),
             "log_entries_count": len(self._log_handler.log_entries) if self._log_handler else 0,
             "schema_version": self._config.get("schema_version"),
-            "config_version": self._config.get("meta", {}).get("config_version")
+            "config_version": self._config.get("meta", {}).get("config_version"),
+            "sensor_count": len(self._sensor_registry),
+            "physical_sensor_count": len(self.get_physical_sensors()),
+            "simulated_sensor_count": len(self.get_simulated_sensors()),
+            "sensor_discoveries": self._performance_stats.get("sensor_discoveries", 0)
         }
 
     # ---------------------------------------------------------------------------------
@@ -749,6 +991,16 @@ class SmartConfig:
             "horizons": self.get_config("prediction.horizons"),
             "train": self.get_config("prediction.train")
         }
+        
+    def get_sensor_discovery_settings(self) -> Dict[str, Any]:
+        """Get sensor discovery settings"""
+        return {
+            "enabled": self.get_config("sensor_discovery.enabled", True),
+            "scan_interval_seconds": self.get_config("sensor_discovery.scan_interval_seconds", 300),
+            "i2c_scan_addresses": self.get_config("sensor_discovery.i2c_scan_addresses", []),
+            "gpio_scan_pins": self.get_config("sensor_discovery.gpio_scan_pins", []),
+            "known_sensor_types": self.get_config("sensor_discovery.known_sensor_types", {})
+        }
 
     def dump_effective_config(self, path: Optional[str] = None) -> str:
         """
@@ -756,7 +1008,9 @@ class SmartConfig:
         """
         snapshot = {
             "dumped_at": datetime.utcnow().isoformat(),
-            "config": self._config
+            "config": self._config,
+            "sensors": {name: sensor.to_dict() for name, sensor in self._sensor_registry.items()},
+            "system_info": self.get_system_info()
         }
         text = json.dumps(snapshot, indent=2, ensure_ascii=False)
         if path:
@@ -781,6 +1035,21 @@ class SmartConfig:
                 "access_logging": sec.get("access_logging")
             }
         return cfg
+    
+    def export_sensors_config(self, path: Optional[str] = None) -> str:
+        """Export the sensor configuration to JSON"""
+        sensors_data = {}
+        for name, sensor in self._sensor_registry.items():
+            sensors_data[name] = sensor.to_dict()
+            
+        text = json.dumps(sensors_data, indent=2, ensure_ascii=False)
+        if path:
+            p = Path(path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, encoding="utf-8")
+            self.get_logger().info(f"Sensors config exported to {p}")
+        return text
+
 
 # -------------------------------------------------------------------------------------------------
 # Self-Test (Manual)
@@ -790,10 +1059,35 @@ if __name__ == "__main__":
     try:
         cfg = SmartConfig()
         log = cfg.get_logger()
-        log.info("🧪 Running SmartConfig self-test...")
+        log.info("🧪 Running SmartConfig self-test with dynamic sensor support...")
 
         # Display prediction settings
         log.info(f"Prediction settings: {cfg.get_prediction_settings()}")
+        
+        # Test registering a new sensor
+        new_sensor = {
+            "name": "test_sensor",
+            "min": 0.0,
+            "max": 100.0, 
+            "critical": 80.0,
+            "unit": "test_units",
+            "weight": 1.0,
+            "type": "TEST",
+            "is_physical": True,
+            "interface": "I2C",
+            "i2c_address": "0x42"
+        }
+        
+        cfg.register_sensor("test_sensor", new_sensor)
+        
+        # Check if sensor was registered
+        test_sensor = cfg.get_sensor_config("test_sensor")
+        log.info(f"Test sensor registered: {test_sensor is not None}")
+        
+        # Get sensor registry summary
+        physical = len(cfg.get_physical_sensors())
+        simulated = len(cfg.get_simulated_sensors())
+        log.info(f"Sensor registry: {physical} physical, {simulated} simulated")
 
         # Test update with rollback scenario
         bad_update = {"system": {"update_interval": -5}}
@@ -807,6 +1101,9 @@ if __name__ == "__main__":
         # Dump snapshot
         cfg.dump_effective_config("config/backup_effective_config.json")
 
+        # Export sensors
+        cfg.export_sensors_config("config/sensors/exported_sensors.json")
+
         # Sanitize preview
         sanitized = cfg.sanitize_for_export()
         log.info(f"Sanitized keys: {list(sanitized.keys())}")
@@ -814,6 +1111,10 @@ if __name__ == "__main__":
         info = cfg.get_system_info()
         log.info(f"System uptime (s): {info['system_uptime']:.2f}")
         log.info("🎯 SmartConfig self-test complete.")
+        
+        # Clean up test sensor
+        cfg.unregister_sensor("test_sensor")
+        
     except Exception as e:
         print(f"❌ Self-test failed: {e}", file=sys.stderr)
         sys.exit(1)
