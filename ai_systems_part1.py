@@ -9,7 +9,7 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 import numpy as np
 import pandas as pd
@@ -113,6 +113,7 @@ class SensorFeatureMapper:
     """
     Maintains canonical ordering & importance weighting for sensor features.
     Supports safe evolution (adding new sensors won't reorder existing).
+    Enhanced to support dynamic feature sets with backward compatibility.
     """
 
     def __init__(self, ordered_features: List[str]):
@@ -121,12 +122,89 @@ class SensorFeatureMapper:
         self.feature_names: List[str] = list(ordered_features)
         self.feature_index: Dict[str, int] = {f: i for i, f in enumerate(self.feature_names)}
         self.importances: Dict[str, float] = {f: 1.0 for f in self.feature_names}
+        self._original_feature_set: Set[str] = set(ordered_features)
+        self._features_modified = False
 
     def ordered_vector(self, sensor_data: Dict[str, Any]) -> np.ndarray:
+        """
+        Convert sensor data dictionary to ordered feature vector
+        Works with any sensor data, handling missing or extra features safely
+        """
         return np.array([float(sensor_data.get(f, 0.0)) for f in self.feature_names], dtype=float)
 
+    def update_features(self, new_features: List[str]) -> bool:
+        """
+        Update feature list while preserving original ordering where possible
+        Returns True if features were modified
+        """
+        if not new_features:
+            return False
+            
+        # If identical, no change needed
+        if set(new_features) == set(self.feature_names):
+            return False
+            
+        # Check for new features
+        current_set = set(self.feature_names)
+        new_set = set(new_features)
+        
+        # Find truly new features (weren't in the original set)
+        added_features = new_set - current_set
+        
+        if not added_features:
+            return False
+            
+        # Preserve original ordering and append new features
+        updated_features = list(self.feature_names)
+        for feature in new_features:
+            if feature not in current_set:
+                updated_features.append(feature)
+                
+        # Update our internal state
+        self.feature_names = updated_features
+        self.feature_index = {f: i for i, f in enumerate(self.feature_names)}
+        
+        # Add default importance for new features
+        for f in added_features:
+            self.importances[f] = 1.0
+            
+        self._features_modified = True
+        logger.info(f"Feature set updated, added {len(added_features)} new features: {', '.join(added_features)}")
+        return True
+
+    def check_compatibility(self, feature_set: Set[str]) -> Tuple[bool, Set[str], Set[str]]:
+        """
+        Check compatibility between current feature set and provided feature set
+        Returns (is_compatible, missing_features, new_features)
+        """
+        current_set = set(self.feature_names)
+        missing_features = current_set - feature_set
+        new_features = feature_set - current_set
+        
+        # Simple heuristic: if missing > 25% of current, considered incompatible
+        is_compatible = len(missing_features) <= len(current_set) * 0.25
+        
+        return is_compatible, missing_features, new_features
+
+    def align_data_for_model(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process raw sensor data to align with the feature set expected by the model
+        Handles missing features by using 0.0 as default
+        """
+        # Only process if we need to - if the mapper has been modified
+        if not self._features_modified:
+            return sensor_data
+            
+        aligned_data = {}
+        
+        # Copy all features that the model expects
+        for feature in self.feature_names:
+            aligned_data[feature] = sensor_data.get(feature, 0.0)
+            
+        return aligned_data
+
     def apply_weighting(self, vector: np.ndarray) -> np.ndarray:
-        weights = np.array([self.importances[f] for f in self.feature_names], dtype=float)
+        weights = np.array([self.importances.get(f, 1.0) for f in self.feature_names], dtype=float)
         return vector * weights
 
     def update_importances(self, new_importances: Dict[str, float]):
@@ -136,6 +214,10 @@ class SensorFeatureMapper:
 
     def summary(self) -> Dict[str, float]:
         return dict(self.importances)
+        
+    def features_modified(self) -> bool:
+        """Check if features have been modified since initialization"""
+        return self._features_modified
 
 
 # -------------------------------------------------------------------------------------
@@ -148,6 +230,7 @@ class AdvancedPreprocessor:
         * Feature ordering
         * Multi-scaler fitting (standard, minmax, robust) for different downstream consumers
         * Statistical profiling for anomaly calibration & data quality
+        * Handling dynamic feature sets and sensor configurations
     """
 
     def __init__(self, config: Dict[str, Any], feature_order: Optional[List[str]] = None):
@@ -163,19 +246,56 @@ class AdvancedPreprocessor:
         self.stats: Dict[str, np.ndarray] = {}
         self.correlation_matrix: Optional[pd.DataFrame] = None
         self.random_seed: Optional[int] = None
+        self.needs_retraining: bool = False
+        self.last_feature_update: Optional[datetime] = None
 
     def set_seed(self, seed: int):
         self.random_seed = seed
         np.random.seed(seed)
         torch.manual_seed(seed)
 
+    def update_feature_set(self, sensor_data: Dict[str, Any]) -> bool:
+        """
+        Check if sensor data contains new features and update mapper if needed
+        Returns True if features were updated
+        """
+        current_features = set(self.mapper.feature_names)
+        new_features = set(sensor_data.keys())
+        
+        # Check for truly new features
+        added_features = new_features - current_features
+        
+        if not added_features:
+            return False
+            
+        # Update the feature mapper with all available features
+        updated = self.mapper.update_features(list(new_features))
+        
+        if updated:
+            self.needs_retraining = True
+            self.last_feature_update = datetime.utcnow()
+            logger.info(f"Feature set updated with {len(added_features)} new sensors, retraining recommended")
+            
+        return updated
+
     def fit(self, data_records: List[Dict[str, Any]]):
         if not data_records:
             raise ValueError("No data provided for preprocessor fitting.")
+            
+        # First check if we need to update our feature set based on the data
+        all_features = set()
+        for record in data_records:
+            all_features.update(record.keys())
+            
+        self.mapper.update_features(list(all_features))
+        
+        # Now process the data with our updated feature set
         matrix = np.vstack([self.mapper.ordered_vector(r) for r in data_records])
+        
         # Fit scalers
         for s in self.scalers.values():
             s.fit(matrix)
+            
         # Compute statistics
         self.stats = {
             "mean": matrix.mean(axis=0),
@@ -188,16 +308,31 @@ class AdvancedPreprocessor:
             "skew": stats.skew(matrix, axis=0),
             "kurtosis": stats.kurtosis(matrix, axis=0)
         }
+        
         # Correlations
         df = pd.DataFrame(matrix, columns=self.mapper.feature_names)
         self.correlation_matrix = df.corr()
         self.fitted = True
-        logger.info("Preprocessor fitted successfully on %d records.", matrix.shape[0])
+        self.needs_retraining = False
+        logger.info(f"Preprocessor fitted successfully on {matrix.shape[0]} records with {matrix.shape[1]} features.")
 
     def transform(self, sensor_data: Dict[str, Any], scaler: str = "minmax") -> np.ndarray:
+        """
+        Transform sensor data using specified scaler
+        Handles potential feature mismatches with dynamic sensor sets
+        """
         if scaler not in self.scalers:
             raise ValueError(f"Scaler '{scaler}' not available.")
-        vec = self.mapper.ordered_vector(sensor_data).reshape(1, -1)
+            
+        # Check for feature updates
+        self.update_feature_set(sensor_data)
+        
+        # Align data with the feature set expected by the mapper
+        aligned_data = self.mapper.align_data_for_model(sensor_data)
+        
+        # Get the feature vector
+        vec = self.mapper.ordered_vector(aligned_data).reshape(1, -1)
+        
         if not self.fitted:
             # Light fallback normalization (bounded scaling)
             max_ranges = np.array([
@@ -205,15 +340,43 @@ class AdvancedPreprocessor:
                 for f in self.mapper.feature_names
             ], dtype=float)
             return np.clip(vec / max_ranges, 0, 1)
+        
+        # Handle feature dimension mismatch with fitted scaler
+        expected_features = self.scalers[scaler].n_features_in_
+        if vec.shape[1] != expected_features:
+            logger.warning(f"Feature count mismatch: model expects {expected_features}, got {vec.shape[1]}")
+            if vec.shape[1] > expected_features:
+                # Truncate extra features
+                vec = vec[:, :expected_features]
+            else:
+                # Pad with zeros (this shouldn't happen with our feature alignment)
+                padding = np.zeros((1, expected_features - vec.shape[1]))
+                vec = np.hstack([vec, padding])
+        
+        # Apply the transformation
         return self.scalers[scaler].transform(vec)
 
     def detect_quality(self, sensor_data: Dict[str, Any]) -> DataQualityReport:
+        """
+        Detect quality issues in sensor data
+        Enhanced to handle dynamic feature sets
+        """
+        # Update feature set if needed
+        self.update_feature_set(sensor_data)
+        
+        # Align data with expected features
+        aligned_data = self.mapper.align_data_for_model(sensor_data)
+        
         issues: List[DataQualityIssue] = []
-        vector = self.mapper.ordered_vector(sensor_data)
+        vector = self.mapper.ordered_vector(aligned_data)
         outlier_count = 0
         invalid_range_count = 0
 
         for idx, feature in enumerate(self.mapper.feature_names):
+            # Only check features actually present in the data
+            if feature not in sensor_data:
+                continue
+                
             cfg = self.config["sensors"].get(feature, {})
             v = vector[idx]
             min_v = cfg.get("min", -np.inf)
@@ -232,7 +395,7 @@ class AdvancedPreprocessor:
                 )
 
             # Statistical (only if fitted)
-            if self.fitted:
+            if self.fitted and idx < len(self.stats["mean"]):
                 mu = self.stats["mean"][idx]
                 sigma = self.stats["std"][idx]
                 z = abs(v - mu) / sigma
@@ -249,7 +412,7 @@ class AdvancedPreprocessor:
 
         return DataQualityReport(
             issues=issues,
-            total_features=len(self.mapper.feature_names),
+            total_features=len([f for f in self.mapper.feature_names if f in sensor_data]),
             outlier_features=outlier_count,
             invalid_range_features=invalid_range_count
         )
@@ -291,6 +454,8 @@ class TabularAutoencoder(nn.Module):
             prev = h
         dec_layers.append(nn.Linear(prev, input_dim))
         self.decoder = nn.Sequential(*dec_layers)
+        
+        self.input_dim = input_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         z = self.encoder(x)
@@ -308,12 +473,14 @@ class EnsembleAnomalyDetector:
       * One-Class SVM
       * Local Outlier Factor (optional novelty scoring)
     Provides unified scoring interface. Each model returns binary anomaly decision.
+    Enhanced with graceful handling of feature dimension changes.
     """
 
     def __init__(self, random_state: int = 42, enable_lof: bool = True):
         self.random_state = random_state
         self.models: Dict[str, Any] = {}
         self.enable_lof = enable_lof
+        self.feature_dimensions = 0
         self._init_models()
 
     def _init_models(self):
@@ -337,16 +504,36 @@ class EnsembleAnomalyDetector:
             )
 
     def fit(self, X: np.ndarray):
+        """
+        Fit all models in the ensemble to the data
+        Store feature dimensions for future compatibility checks
+        """
+        self.feature_dimensions = X.shape[1]
         for name, model in self.models.items():
             model.fit(X)
 
     def predict(self, X: np.ndarray) -> Dict[str, Dict[str, Any]]:
         """
         Returns per-model dict:
-          { model_name: { 'decision': 0/1, 'raw_score': float } }
+          { model_name: { 'decision': 0/1, 'score': float } }
         decision: 1 = anomaly, 0 = normal
+        
+        Enhanced to handle feature dimension mismatches safely
         """
         results: Dict[str, Dict[str, Any]] = {}
+        
+        # Handle feature dimension mismatch
+        if self.feature_dimensions > 0 and X.shape[1] != self.feature_dimensions:
+            if X.shape[1] > self.feature_dimensions:
+                # Truncate extra features
+                X = X[:, :self.feature_dimensions]
+                logger.warning(f"Input features truncated from {X.shape[1]} to {self.feature_dimensions}")
+            else:
+                # Pad with zeros
+                padding = np.zeros((X.shape[0], self.feature_dimensions - X.shape[1]))
+                X = np.hstack([X, padding])
+                logger.warning(f"Input features padded from {X.shape[1] - padding.shape[1]} to {self.feature_dimensions}")
+        
         for name, model in self.models.items():
             try:
                 prediction = model.predict(X)  # -1 for anomaly in sklearn conventions
@@ -382,6 +569,7 @@ class AdvancedAnomalySystem:
         - Autoencoder reconstruction scoring
         - Confidence fusion + adaptive thresholding
         - Temporal pattern smoothing
+        - Dynamic sensor support & feature adaptation
     """
 
     def __init__(
@@ -407,9 +595,11 @@ class AdvancedAnomalySystem:
         feature_order = list(config.get("sensors", {}).keys())
         self.preprocessor = AdvancedPreprocessor(config, feature_order=feature_order)
         self.detectors = EnsembleAnomalyDetector(random_state=seed, enable_lof=enable_lof)
-
+        
+        # Create initial autoencoder (will be updated if feature set changes)
+        input_dim = len(feature_order)
         self.autoencoder = TabularAutoencoder(
-            input_dim=len(feature_order),
+            input_dim=input_dim,
             latent_dim=latent_dim
         )
 
@@ -428,16 +618,38 @@ class AdvancedAnomalySystem:
         self.is_trained: bool = False
         self.history: List[AnomalyDetectionResult] = []
         self.max_history: int = 1200
+        
+        # Dynamic sensor adaptation
+        self.needs_retraining: bool = False
+        self.last_feature_update: Optional[datetime] = None
+        self.original_feature_count: int = len(feature_order)
 
         # Calibration caches
         self._reconstruction_distribution: List[float] = []
-        self._version = "1.0.0"
+        self._version = "1.1.0"  # Updated for dynamic sensor support
 
-        logger.info("AdvancedAnomalySystem initialized (foundation layer).")
+        logger.info("AdvancedAnomalySystem initialized (foundation layer with dynamic sensor support).")
 
     # ------------------------------------------------------------------
     # Training & Calibration
     # ------------------------------------------------------------------
+    
+    def check_retraining_needed(self, sensor_data: Dict[str, Any]) -> bool:
+        """Check if model retraining is needed due to feature changes"""
+        # First, update feature set in preprocessor
+        updated = self.preprocessor.update_feature_set(sensor_data)
+        
+        # If features were updated, or we have a pending retraining flag
+        if updated or self.preprocessor.needs_retraining:
+            self.needs_retraining = True
+            return True
+            
+        # Check if our autoencoder's input dimension matches current feature set
+        if hasattr(self.autoencoder, "input_dim") and len(self.preprocessor.mapper.feature_names) != self.autoencoder.input_dim:
+            self.needs_retraining = True
+            return True
+            
+        return False
 
     def train(self, training_records: List[Dict[str, Any]]):
         if not training_records:
@@ -446,6 +658,16 @@ class AdvancedAnomalySystem:
         logger.info("Starting anomaly system training on %d records.", len(training_records))
         # Preprocess
         self.preprocessor.fit(training_records)
+        
+        # Update autoencoder if feature dimensions changed
+        feature_count = len(self.preprocessor.mapper.feature_names)
+        if not hasattr(self.autoencoder, "input_dim") or self.autoencoder.input_dim != feature_count:
+            logger.info(f"Recreating autoencoder for {feature_count} features (was: {getattr(self.autoencoder, 'input_dim', 0)})")
+            self.autoencoder = TabularAutoencoder(
+                input_dim=feature_count,
+                latent_dim=min(32, max(8, feature_count // 2))  # Adaptive latent dimension
+            )
+            
         X = np.vstack([self.preprocessor.mapper.ordered_vector(r) for r in training_records])
         X_scaled = self.preprocessor.scalers["minmax"].transform(X)
 
@@ -465,6 +687,8 @@ class AdvancedAnomalySystem:
         fallback = np.median(rec_errors) + 3 * (mad + 1e-8)
         self.threshold = max(perc95, fallback * 0.9)
         self.is_trained = True
+        self.needs_retraining = False
+        self.original_feature_count = feature_count
 
         logger.info("Anomaly system trained. Calibration threshold=%.5f (p95=%.5f, fallback=%.5f)",
                     self.threshold, perc95, fallback)
@@ -507,14 +731,26 @@ class AdvancedAnomalySystem:
     def detect(self, sensor_sample: Dict[str, Any]) -> AnomalyDetectionResult:
         if not self.is_trained:
             return self._untrained_response()
+            
+        # Check if we need retraining due to feature changes
+        if self.check_retraining_needed(sensor_sample):
+            # We still proceed, but adjust confidence and add recommendation
+            retraining_needed = True
+            confidence_penalty = 0.2
+            retrain_rec = "Retrain anomaly detection model to incorporate new sensors."
+        else:
+            retraining_needed = False
+            confidence_penalty = 0.0
+            retrain_rec = None
 
         try:
-            # Data quality
+            # Data quality - works with updated feature set
             quality_report = self.preprocessor.detect_quality(sensor_sample)
             quality_dict = quality_report.to_dict()
 
-            # Vectorization & scaling
-            raw_vec = self.preprocessor.mapper.ordered_vector(sensor_sample).reshape(1, -1)
+            # Get feature vector from sensor data
+            aligned_data = self.preprocessor.mapper.align_data_for_model(sensor_sample)
+            raw_vec = self.preprocessor.mapper.ordered_vector(aligned_data).reshape(1, -1)
             scaled_vec = self.preprocessor.transform(sensor_sample, scaler="minmax")
 
             # Ensemble predictions
@@ -522,6 +758,10 @@ class AdvancedAnomalySystem:
 
             # Autoencoder reconstruction
             ae_score, ae_conf = self._score_autoencoder(scaled_vec)
+            
+            # Apply confidence penalty if retraining needed
+            if retraining_needed:
+                ae_conf = max(0.0, ae_conf - confidence_penalty)
 
             fusion = self._fuse_scores(model_preds, ae_score, ae_conf)
 
@@ -530,6 +770,11 @@ class AdvancedAnomalySystem:
             risk_level = self._map_risk(fusion["fused_score"], criticals)
 
             recs = self._generate_recommendations(fusion["fused_score"], criticals)
+            
+            # Add retraining recommendation if needed
+            if retraining_needed and retrain_rec:
+                recs.insert(0, retrain_rec)
+            
             result = AnomalyDetectionResult(
                 is_anomaly=fusion["fused_score"] > self.threshold,
                 anomaly_score=float(fusion["fused_score"]),
@@ -539,13 +784,14 @@ class AdvancedAnomalySystem:
                     "per_model": model_preds,
                     "autoencoder_score": ae_score,
                     "autoencoder_confidence": ae_conf,
-                    "weights": self.fuse_weights
+                    "weights": self.fuse_weights,
+                    "retraining_needed": retraining_needed
                 },
                 data_quality=quality_dict,
                 critical_anomalies=criticals,
                 temporal_context=temporal,
                 recommendations=recs,
-                confidence=float(fusion["confidence"])
+                confidence=float(max(0.1, fusion["confidence"] - (confidence_penalty if retraining_needed else 0.0)))
             )
             self._update_history(result)
             self._adaptive_threshold_refine()
@@ -566,11 +812,26 @@ class AdvancedAnomalySystem:
             )
 
     def _score_autoencoder(self, scaled_vec: np.ndarray) -> Tuple[float, float]:
+        """
+        Score using autoencoder with safety checks for dimension mismatch
+        """
         self.autoencoder.eval()
         with torch.no_grad():
+            # Check dimensions
+            input_dim = getattr(self.autoencoder, "input_dim", 0)
+            if input_dim > 0 and scaled_vec.shape[1] != input_dim:
+                if scaled_vec.shape[1] > input_dim:
+                    # Truncate extra dimensions
+                    scaled_vec = scaled_vec[:, :input_dim]
+                else:
+                    # Pad with zeros
+                    padding = np.zeros((scaled_vec.shape[0], input_dim - scaled_vec.shape[1]))
+                    scaled_vec = np.hstack([scaled_vec, padding])
+            
             tens = torch.from_numpy(scaled_vec).float()
             recon = self.autoencoder(tens)
             mse = torch.mean((tens - recon) ** 2).item()
+            
         # Confidence heuristic: ratio relative to threshold
         conf = 1.0 - min(1.0, mse / (self.threshold + 1e-8))
         return mse, max(0.0, conf)
@@ -682,12 +943,18 @@ class AdvancedAnomalySystem:
             ])
         if not recs:
             recs.append("Continue routine monitoring.")
+            
         # Sensor-specific references
         for c in criticals:
             if c["severity"] == "CRITICAL":
                 recs.append(f"Immediate technical check: sensor '{c['sensor']}' exceeded critical threshold.")
             elif c["severity"] == "WARNING":
                 recs.append(f"Monitor sensor '{c['sensor']}' – nearing critical threshold.")
+                
+        # Add retraining recommendation if feature set changed
+        if self.needs_retraining:
+            recs.append("Retrain anomaly detection model to incorporate sensor changes.")
+            
         # Deduplicate preserving order
         seen = set()
         unique = []
@@ -749,6 +1016,8 @@ class AdvancedAnomalySystem:
                 }, f)
             # Autoencoder weights
             torch.save(self.autoencoder.state_dict(), self.model_dir / "autoencoder.pt")
+            # Save additional metadata about feature dimensions
+            meta["input_dimensions"] = getattr(self.autoencoder, "input_dim", len(self.preprocessor.mapper.feature_names))
             # Metadata
             with open(self.model_dir / "metadata.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
@@ -765,6 +1034,20 @@ class AdvancedAnomalySystem:
             self.preprocessor.scalers = obj["scalers"]
             self.preprocessor.stats = obj["stats"]
             self.preprocessor.fitted = True
+            
+            # Store original feature count
+            self.original_feature_count = len(obj["feature_names"])
+
+            # Load metadata
+            meta_path = self.model_dir / "metadata.json"
+            input_dim = self.original_feature_count
+            if meta_path.exists():
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                self.threshold = float(meta.get("threshold", self.threshold))
+                input_dim = meta.get("input_dimensions", self.original_feature_count)
+                logger.info("Loaded anomaly system metadata: version=%s threshold=%.5f",
+                            meta.get("version"), self.threshold)
 
             # Classical detectors
             for name in list(self.detectors.models.keys()):
@@ -772,24 +1055,24 @@ class AdvancedAnomalySystem:
                 if path.exists():
                     with open(path, "rb") as f:
                         self.detectors.models[name] = pickle.load(f)
+                        
+            # Store feature dimensions in detector for compatibility check
+            self.detectors.feature_dimensions = input_dim
 
-            # Autoencoder
+            # Recreate autoencoder with correct input dimension
+            self.autoencoder = TabularAutoencoder(
+                input_dim=input_dim,
+                latent_dim=min(32, max(8, input_dim // 2))
+            )
+            
+            # Load autoencoder weights
             ae_path = self.model_dir / "autoencoder.pt"
             if ae_path.exists():
                 self.autoencoder.load_state_dict(torch.load(ae_path, map_location="cpu"))
                 self.autoencoder.eval()
 
-            # Metadata
-            meta_path = self.model_dir / "metadata.json"
-            if meta_path.exists():
-                with open(meta_path, "r", encoding="utf-8") as f:
-                    meta = json.load(f)
-                self.threshold = float(meta.get("threshold", self.threshold))
-                logger.info("Loaded anomaly system metadata: version=%s threshold=%.5f",
-                            meta.get("version"), self.threshold)
-
             self.is_trained = True
-            logger.info("Anomaly system loaded from disk.")
+            logger.info(f"Anomaly system loaded from disk with {input_dim} feature dimensions.")
         except Exception as e:
             logger.error(f"Model load failed: {e}")
             self.is_trained = False
@@ -799,11 +1082,17 @@ class AdvancedAnomalySystem:
     # ------------------------------------------------------------------
 
     def status(self) -> Dict[str, Any]:
+        current_features = len(self.preprocessor.mapper.feature_names)
         return {
             "trained": self.is_trained,
             "threshold": self.threshold,
             "history_size": len(self.history),
             "feature_importances": self.preprocessor.mapper.summary(),
+            "original_feature_count": self.original_feature_count,
+            "current_feature_count": current_features,
+            "features_changed": current_features != self.original_feature_count,
+            "needs_retraining": self.needs_retraining,
+            "last_feature_update": self.last_feature_update.isoformat() if self.last_feature_update else None,
             "last_result": self.history[-1].to_dict() if self.history else None
         }
 
@@ -835,4 +1124,4 @@ __all__ = [
     "EnsembleAnomalyDetector",
     "AdvancedAnomalySystem",
     "create_anomaly_system"
-        ]
+            ]
