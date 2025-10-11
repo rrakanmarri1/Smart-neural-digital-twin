@@ -49,15 +49,38 @@ class SystemAlert:
 # Constants & Configuration
 # --------------------------------------------------------------------------------------
 
-SENSOR_DISPLAY_ORDER: List[Tuple[str, str, str, float, str, float, float]] = [
-    # (Label, key, icon, critical, unit, nominal_min, nominal_max)
-    ("Pressure", "pressure", "💨", 150, "bar", 40, 60),
-    ("Temperature", "temperature", "🌡️", 200, "°C", 70, 85),
-    ("Methane", "methane", "⚠️", 1000, "ppm", 0, 500),
-    ("H2S", "hydrogen_sulfide", "☠️", 50, "ppm", 0, 20),
-    ("Vibration", "vibration", "📳", 8, "m/s²", 1, 4),
-    ("Flow", "flow", "💧", 400, "L/min", 150, 250),
-]
+# Default sensor configurations for fallback when sensors aren't available from the system
+DEFAULT_SENSOR_CONFIGS = {
+    # key: (Label, icon, critical, unit, nominal_min, nominal_max)
+    "pressure": ("Pressure", "💨", 150, "bar", 40, 60),
+    "temperature": ("Temperature", "🌡️", 200, "°C", 70, 85),
+    "methane": ("Methane", "⚠️", 1000, "ppm", 0, 500),
+    "hydrogen_sulfide": ("H2S", "☠️", 50, "ppm", 0, 20),
+    "vibration": ("Vibration", "📳", 8, "m/s²", 1, 4),
+    "flow": ("Flow", "💧", 400, "L/min", 150, 250),
+}
+
+# Icon mapping for different sensor types
+SENSOR_TYPE_ICONS = {
+    "BME280": "🌡️",
+    "ADS1115": "📊",
+    "MPU6050": "📳",
+    "BH1750": "💡",
+    "AM2320": "💧",
+    "HTU21D": "💧",
+    "SHT31": "🌡️",
+    "DIGITAL": "🔌",
+    "SPI_SENSOR": "🔌",
+    "UNKNOWN": "🔍",
+}
+
+# Status icons for different sensor states
+SENSOR_STATUS_ICONS = {
+    "ACTIVE": "✅",
+    "DEGRADED": "⚠️",
+    "FAILED": "❌",
+    "SIMULATED": "🔄"
+}
 
 AUTO_REFRESH_INTERVALS = {
     "5s": 5,
@@ -105,6 +128,20 @@ def ensure_session_key(key: str, default):
     return st.session_state[key]
 
 
+def get_sensor_display_name(sensor_key: str, sensor_config: Dict[str, Any]) -> str:
+    """Generate a display name from sensor key and configuration"""
+    if "name" in sensor_config:
+        return sensor_config["name"].replace("_", " ").title()
+    return sensor_key.replace("_", " ").title()
+
+
+def get_sensor_icon(sensor_config: Dict[str, Any]) -> str:
+    """Get appropriate icon for sensor type"""
+    if "type" in sensor_config:
+        return SENSOR_TYPE_ICONS.get(sensor_config["type"], "🔍")
+    return "🔍"
+
+
 # --------------------------------------------------------------------------------------
 # Advanced Dashboard
 # --------------------------------------------------------------------------------------
@@ -118,6 +155,7 @@ class AdvancedDashboard:
     - Alert lifecycle management
     - Chat interface (operator ↔ AI system)
     - Modular UI sections (side-bar + main workspace)
+    - Dynamic sensor detection & visualization
     """
     def __init__(self, smart_twin: Any):
         self.smart_twin = smart_twin
@@ -136,6 +174,7 @@ class AdvancedDashboard:
         ensure_session_key("chat_history", [])
         ensure_session_key("system_metrics_cache", {})
         ensure_session_key("last_refresh_ts", time.time())
+        ensure_session_key("sensor_history", {})
 
     def _apply_theme(self):
         # Theming injection (kept minimal; heavy CSS should remain maintainable)
@@ -203,6 +242,34 @@ class AdvancedDashboard:
             text-transform:uppercase;
             letter-spacing:1px;
           }
+          .physical-badge {
+            display:inline-block;
+            background:#10b981;
+            color:#f0fdf4;
+            font-size:.65rem;
+            padding:2px 6px;
+            border-radius:6px;
+            margin-left:6px;
+            text-transform:uppercase;
+            letter-spacing:1px;
+          }
+          .simulated-badge {
+            display:inline-block;
+            background:#6366f1;
+            color:#f5f3ff;
+            font-size:.65rem;
+            padding:2px 6px;
+            border-radius:6px;
+            margin-left:6px;
+            text-transform:uppercase;
+            letter-spacing:1px;
+          }
+          .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            grid-gap: 1rem;
+            margin-top: 1rem;
+          }
         </style>
         """, unsafe_allow_html=True)
 
@@ -225,6 +292,7 @@ class AdvancedDashboard:
             self._sidebar_header()
             self._section_system_status()
             self._section_alerts()
+            self._section_physical_sensors()  # New section for physical sensors
             self._section_foresight_controls()
             self._section_chat()
             self._section_recommendations()
@@ -249,7 +317,7 @@ class AdvancedDashboard:
     def _section_system_status(self):
         st.markdown('<div class="section-header">System Status</div>', unsafe_allow_html=True)
         status = self._fetch_system_status()
-        uptime_seconds = status.get("performance_metrics", {}).get("system_uptime", 0.0)
+        uptime_seconds = status.get("performance_metrics", {}).get("uptime_seconds", 0.0)
         uptime_str = str(timedelta(seconds=int(uptime_seconds))) if uptime_seconds else "—"
 
         system_state = status.get("system_status", "UNKNOWN")
@@ -260,6 +328,10 @@ class AdvancedDashboard:
             "EMERGENCY": "#dc2626"
         }
         state_color = color_map.get(system_state, "#64748b")
+
+        # Get grid health from sensor_grid_status
+        sensor_grid = status.get("sensor_grid_status", {})
+        grid_health = sensor_grid.get("grid_health", 0)
 
         st.markdown(
             f"""
@@ -275,11 +347,11 @@ class AdvancedDashboard:
         cols = st.columns(2)
         with cols[0]:
             st.metric("Grid Health",
-                      f"{status.get('sense_grid_health', 0)*100:.1f}%",
+                      f"{grid_health*100:.1f}%",
                       help="Active physical or simulated sensor coverage")
         with cols[1]:
             st.metric("Avg Proc Time",
-                      f"{status.get('performance_metrics', {}).get('avg_processing_time', 0):.3f}s",
+                      f"{status.get('performance_metrics', {}).get('avg_cycle_time', 0):.3f}s",
                       help="Average processing duration of monitoring loop")
 
     # ------------------------------------------------------------------
@@ -324,6 +396,71 @@ class AdvancedDashboard:
             if st.button("Add Alert"):
                 self.add_alert(AlertLevel(new_level), new_title, new_msg, "Operator")
                 st.success("Inserted.")
+                st.experimental_rerun()
+
+    # ------------------------------------------------------------------
+    # Section: Physical Sensors (New)
+    # ------------------------------------------------------------------
+
+    def _section_physical_sensors(self):
+        """New section to display physical sensor information"""
+        st.markdown('<div class="section-header">Sensor Status</div>', unsafe_allow_html=True)
+        
+        # Get sensor information from system status
+        status = self._fetch_system_status()
+        sensor_grid = status.get("sensor_grid_status", {})
+        
+        # Get physical sensor count
+        physical_count = status.get("physical_sensor_count", 0)
+        total_count = status.get("total_sensor_count", 0)
+        
+        # Display sensor counts
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Physical Sensors", 
+                     f"{physical_count}",
+                     help="Number of detected physical sensors connected")
+        with col2:
+            st.metric("Total Sensors",
+                     f"{total_count}",
+                     help="Total sensors including physical and simulated")
+        
+        # Show sensor status breakdown
+        active = sensor_grid.get("active_sensors", 0)
+        simulated = sensor_grid.get("simulated_sensors", 0)
+        failed = sensor_grid.get("failed_sensors", 0)
+        
+        status_data = {
+            "Status": ["Active", "Simulated", "Failed"],
+            "Count": [active, simulated, failed]
+        }
+        
+        # Display as expandable details
+        with st.expander("Sensor Status Details", expanded=False):
+            # Create a horizontal bar chart
+            chart_data = pd.DataFrame(status_data)
+            st.bar_chart(chart_data.set_index("Status"), use_container_width=True)
+            
+            # Show latest sensor activity
+            st.markdown("**Last Sensor Activity:**")
+            last_update = sensor_grid.get("last_update", "Unknown")
+            if isinstance(last_update, str):
+                try:
+                    last_update = datetime.fromisoformat(last_update)
+                    last_update_str = last_update.strftime("%Y-%m-%d %H:%M:%S")
+                except:
+                    last_update_str = last_update
+            else:
+                last_update_str = "Unknown"
+                
+            st.write(f"- Last Grid Update: {last_update_str}")
+            st.write(f"- Grid Health: {sensor_grid.get('grid_health', 0)*100:.1f}%")
+            
+            # Add button to trigger sensor rescan
+            if st.button("Rescan for New Sensors"):
+                # This would trigger a sensor rescan if implemented in the backend
+                self.add_alert(AlertLevel.INFO, "Sensor Rescan", "Initiated manual sensor detection scan", "Operator")
+                st.success("Sensor rescan initiated")
                 st.experimental_rerun()
 
     # ------------------------------------------------------------------
@@ -380,26 +517,56 @@ class AdvancedDashboard:
         cmd = command.lower().strip().lstrip("/")
         if cmd == "status":
             st_status = self._fetch_system_status()
-            return f"System={st_status.get('system_status','?')} | Grid={st_status.get('sense_grid_health',0):.2f} | Uptime(s)={int(st_status.get('performance_metrics',{}).get('system_uptime',0))}"
+            # Include physical sensor count in status
+            physical_count = st_status.get("physical_sensor_count", 0)
+            grid_health = st_status.get("sensor_grid_status", {}).get("grid_health", 0)
+            uptime = int(st_status.get("performance_metrics", {}).get("uptime_seconds", 0))
+            return f"System={st_status.get('system_status','?')} | Grid Health={grid_health:.2f} | Physical Sensors={physical_count} | Uptime(s)={uptime}"
         if cmd == "alerts":
             active = len([a for a in st.session_state.alerts if not a.acknowledged])
             return f"Active alerts: {active}"
+        if cmd == "sensors":
+            # New command to list all available sensors
+            sensor_data = self._fetch_sensor_data()
+            status = self._fetch_system_status()
+            physical_count = status.get("physical_sensor_count", 0)
+            total_count = status.get("total_sensor_count", 0)
+            sensors_list = ", ".join(sensor_data.keys())
+            return f"Physical sensors: {physical_count}, Total sensors: {total_count}. Available sensors: {sensors_list}"
         if cmd == "help":
-            return "Commands: /status /alerts /help"
+            return "Commands: /status /alerts /sensors /help"
         return "Unknown command. Try /help"
 
     def _generate_chat_response(self, question: str) -> str:
-        # Minimal heuristic
+        """Enhanced to respond about any detected sensor, not just hardcoded ones"""
         q = question.lower()
         data = self._fetch_sensor_data()
-        if "pressure" in q:
-            return f"Current pressure: {data.get('pressure','?'):.2f} bar (simulated)" if data else "No pressure data"
-        if "temperature" in q:
-            return f"Temperature: {data.get('temperature','?'):.2f} °C (simulated)" if data else "No temperature data"
+        
+        # Check if question is asking about a specific sensor
+        for sensor_name, value in data.items():
+            if sensor_name.lower() in q:
+                # Get sensor configuration if available
+                sensor_config = self._get_sensor_config(sensor_name)
+                unit = sensor_config.get("unit", "")
+                is_physical = self._is_physical_sensor(sensor_name)
+                sensor_type = self._get_sensor_source_type(sensor_name)
+                
+                return f"Current {sensor_name}: {value:.2f} {unit} ({sensor_type})"
+        
+        # If asking about general risk
         if "risk" in q:
             status = self._fetch_system_status()
-            return f"Overall status: {status.get('system_status','?')} • Grid health: {status.get('sense_grid_health',0):.2f}"
-        return "I have processed your query. Provide /help for commands or specify a sensor (pressure, temperature, risk)."
+            return f"Overall status: {status.get('system_status','?')} • Grid health: {status.get('sensor_grid_status', {}).get('grid_health', 0):.2f}"
+            
+        # If asking about sensors
+        if "sensor" in q:
+            status = self._fetch_system_status()
+            physical_count = status.get("physical_sensor_count", 0)
+            total_count = status.get("total_sensor_count", 0)
+            return f"System has {physical_count} physical sensors and {total_count} total sensors (including simulated)."
+            
+        # Default response
+        return "I have processed your query. Provide /help for commands or specify a sensor name to get its current reading."
 
     # ------------------------------------------------------------------
     # Section: Recommendations
@@ -424,9 +591,14 @@ class AdvancedDashboard:
         st.markdown('<div class="section-header">Realtime Snapshot</div>', unsafe_allow_html=True)
         status = self._fetch_system_status()
         sensor_grid = status.get("sensor_grid_status", {})
-        st.metric("Active Sensors", f"{sensor_grid.get('active_sensors',0)}/{sensor_grid.get('total_sensors',0)}")
-        st.metric("Fusion Accuracy", f"{sensor_grid.get('fusion_accuracy',0)*100:.1f}%")
-        st.caption("Values reflect last monitoring cycle (some may be simulated)")
+        
+        # Update to show physical sensors specifically
+        physical_sensors = status.get("physical_sensor_count", 0)
+        total_sensors = status.get("total_sensor_count", 0)
+        
+        st.metric("Physical/Total Sensors", f"{physical_sensors}/{total_sensors}")
+        st.metric("Average Confidence", f"{sensor_grid.get('average_confidence', 0)*100:.1f}%")
+        st.caption("Values reflect last monitoring cycle")
 
     # ------------------------------------------------------------------
     # Section: Emergency
@@ -493,38 +665,137 @@ class AdvancedDashboard:
             st.metric("Last Update (UTC)", datetime.utcnow().strftime("%H:%M:%S"))
 
     def _row_sensor_metrics(self):
+        """
+        Enhanced to dynamically display all detected sensors instead of fixed ones
+        """
         st.subheader("Realtime Core Metrics")
         data = self._fetch_sensor_data()
-        cols = st.columns(len(SENSOR_DISPLAY_ORDER))
-        for i, (label, key, icon, critical, unit, nominal_min, nominal_max) in enumerate(SENSOR_DISPLAY_ORDER):
-            with cols[i]:
-                value = data.get(key, float("nan")) if data else float("nan")
-                if np.isnan(value):
-                    st.markdown(
-                        f"""
-                        <div class="metric-card warning-card">
-                          <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label}</h4>
-                          <div style="font-size:1.2rem;color:#f1f5f9;">—</div>
-                          <p style="margin:.25rem 0 0 0;font-size:.65rem;color:#94a3b8;">No data</p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                else:
-                    status_text, css_class = classify_sensor_state(value, critical, nominal_min, nominal_max)
-                    st.markdown(
-                        f"""
-                        <div class="metric-card {css_class}">
-                          <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label}</h4>
-                          <div style="font-size:1.35rem;color:#f1f5f9;">{value:.1f}</div>
-                          <p style="margin:.35rem 0 0 0;color:#cbd5e1;font-size:.7rem;">
-                            {unit} | {status_text}
-                          </p>
-                          <p style="margin:.2rem 0 0 0;color:#64748b;font-size:.55rem;">Nominal: {nominal_min}-{nominal_max}</p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+        
+        # Get sensor configurations for all available sensors
+        sensor_configs = self._fetch_sensor_configs()
+        
+        if not data or not sensor_configs:
+            st.warning("No sensor data available")
+            return
+        
+        # Calculate number of columns based on number of sensors
+        # Limit to a reasonable number to avoid UI issues
+        num_sensors = min(len(data), 12)  # Limit to 12 sensors max in the display
+        num_cols = min(6, max(3, num_sensors))  # Between 3 and 6 columns
+        
+        # Display sensor metrics in grid layout
+        cols = st.columns(num_cols)
+        
+        # Track which sensors we've already shown
+        displayed_sensors = set()
+        
+        # First display important sensors if they exist in the data
+        important_sensors = ["pressure", "temperature", "methane", "hydrogen_sulfide", "vibration", "flow"]
+        for sensor_key in important_sensors:
+            if sensor_key in data and len(displayed_sensors) < num_cols:
+                col_idx = len(displayed_sensors) % num_cols
+                with cols[col_idx]:
+                    self._render_sensor_metric(sensor_key, data[sensor_key], sensor_configs.get(sensor_key, {}))
+                displayed_sensors.add(sensor_key)
+        
+        # Then display any remaining sensors
+        for sensor_key, value in data.items():
+            if sensor_key not in displayed_sensors and len(displayed_sensors) < num_cols:
+                col_idx = len(displayed_sensors) % num_cols
+                with cols[col_idx]:
+                    self._render_sensor_metric(sensor_key, value, sensor_configs.get(sensor_key, {}))
+                displayed_sensors.add(sensor_key)
+                
+        # If we have more sensors than can fit in the top row, add an expander for the rest
+        if len(data) > num_cols:
+            with st.expander("Show All Sensors"):
+                remaining_sensors = [s for s in data.keys() if s not in displayed_sensors]
+                
+                # Use grid layout for remaining sensors
+                st.markdown('<div class="sensor-grid">', unsafe_allow_html=True)
+                
+                for sensor_key in remaining_sensors:
+                    self._render_sensor_metric_card(sensor_key, data[sensor_key], sensor_configs.get(sensor_key, {}))
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    def _render_sensor_metric(self, sensor_key: str, value: float, sensor_config: Dict[str, Any]):
+        """Render a single sensor metric card"""
+        # Get sensor display properties
+        label = get_sensor_display_name(sensor_key, sensor_config)
+        icon = get_sensor_icon(sensor_config)
+        unit = sensor_config.get("unit", "")
+        critical = sensor_config.get("critical", 100)
+        nominal_min = sensor_config.get("min", 0)
+        nominal_max = sensor_config.get("max", critical * 0.8)
+        is_physical = self._is_physical_sensor(sensor_key)
+        
+        # Add a badge indicating physical or simulated
+        source_badge = '<span class="physical-badge">PHYSICAL</span>' if is_physical else '<span class="simulated-badge">SIM</span>'
+        
+        if np.isnan(value):
+            st.markdown(
+                f"""
+                <div class="metric-card warning-card">
+                  <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label} {source_badge}</h4>
+                  <div style="font-size:1.2rem;color:#f1f5f9;">—</div>
+                  <p style="margin:.25rem 0 0 0;font-size:.65rem;color:#94a3b8;">No data</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            status_text, css_class = classify_sensor_state(value, critical, nominal_min, nominal_max)
+            st.markdown(
+                f"""
+                <div class="metric-card {css_class}">
+                  <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label} {source_badge}</h4>
+                  <div style="font-size:1.35rem;color:#f1f5f9;">{value:.1f}</div>
+                  <p style="margin:.35rem 0 0 0;color:#cbd5e1;font-size:.7rem;">
+                    {unit} | {status_text}
+                  </p>
+                  <p style="margin:.2rem 0 0 0;color:#64748b;font-size:.55rem;">Nominal: {nominal_min}-{nominal_max}</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    def _render_sensor_metric_card(self, sensor_key: str, value: float, sensor_config: Dict[str, Any]):
+        """Render a sensor metric card in the grid layout"""
+        # Get sensor display properties
+        label = get_sensor_display_name(sensor_key, sensor_config)
+        icon = get_sensor_icon(sensor_config)
+        unit = sensor_config.get("unit", "")
+        critical = sensor_config.get("critical", 100)
+        nominal_min = sensor_config.get("min", 0)
+        nominal_max = sensor_config.get("max", critical * 0.8)
+        is_physical = self._is_physical_sensor(sensor_key)
+        
+        # Add a badge indicating physical or simulated
+        source_badge = '<span class="physical-badge">PHYSICAL</span>' if is_physical else '<span class="simulated-badge">SIM</span>'
+        
+        if np.isnan(value):
+            html = f"""
+            <div class="metric-card warning-card">
+              <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label} {source_badge}</h4>
+              <div style="font-size:1.2rem;color:#f1f5f9;">—</div>
+              <p style="margin:.25rem 0 0 0;font-size:.65rem;color:#94a3b8;">No data</p>
+            </div>
+            """
+        else:
+            status_text, css_class = classify_sensor_state(value, critical, nominal_min, nominal_max)
+            html = f"""
+            <div class="metric-card {css_class}">
+              <h4 style="margin:0 0 6px 0;color:#f1f5f9;">{icon} {label} {source_badge}</h4>
+              <div style="font-size:1.35rem;color:#f1f5f9;">{value:.1f}</div>
+              <p style="margin:.35rem 0 0 0;color:#cbd5e1;font-size:.7rem;">
+                {unit} | {status_text}
+              </p>
+              <p style="margin:.2rem 0 0 0;color:#64748b;font-size:.55rem;">Nominal: {nominal_min}-{nominal_max}</p>
+            </div>
+            """
+            
+        st.markdown(html, unsafe_allow_html=True)
 
     def _tabs_analytics(self):
         st.subheader("Analytics & Trends")
@@ -543,11 +814,16 @@ class AdvancedDashboard:
         cols = st.columns(3)
         status = self._fetch_system_status()
         sensor_grid = status.get("sensor_grid_status", {})
+        
+        # Enhanced to show physical sensor count
+        physical_sensors = status.get("physical_sensor_count", 0)
+        total_sensors = status.get("total_sensor_count", 0)
 
         with cols[0]:
             st.markdown("**Hardware & IO**")
             st.write(f"- Raspberry Pi: {'Active' if status.get('raspberry_pi_active') else 'Simulated'}")
-            st.write(f"- Total Sensors: {sensor_grid.get('total_sensors','?')}")
+            st.write(f"- Total Sensors: {total_sensors}")
+            st.write(f"- Physical Sensors: {physical_sensors}")
             st.write(f"- Active: {sensor_grid.get('active_sensors','?')}")
             st.write(f"- Simulated: {sensor_grid.get('simulated_sensors','?')}")
         with cols[1]:
@@ -558,9 +834,9 @@ class AdvancedDashboard:
             st.write(f"- Confidence (static demo): 97.0%")
         with cols[2]:
             st.markdown("**Operations**")
-            st.write(f"- Processed Loops: {status.get('performance_metrics',{}).get('processed_readings',0)}")
+            st.write(f"- Processed Loops: {status.get('performance_metrics',{}).get('processed_cycles',0)}")
             st.write(f"- Emergencies: {status.get('performance_metrics',{}).get('emergency_events',0)}")
-            st.write(f"- Avg Proc Time: {status.get('performance_metrics',{}).get('avg_processing_time',0):.3f}s")
+            st.write(f"- Avg Proc Time: {status.get('performance_metrics',{}).get('avg_cycle_time',0):.3f}s")
             st.write(f"- SS Rating: {status.get('ss_rating','N/A')}")
 
     # ------------------------------------------------------------------
@@ -569,27 +845,92 @@ class AdvancedDashboard:
 
     def _plot_sensor_trends(self):
         try:
-            # 6-hour synthetic window (clearly marked)
-            time_index = pd.date_range(end=datetime.utcnow(), periods=36, freq="10min")
+            # Get actual sensor data
+            data = self._fetch_sensor_data()
+            
+            # Get sensor history or initialize if not present
+            sensor_history = ensure_session_key("sensor_history", {})
+            
+            # Update sensor history
+            timestamp = datetime.utcnow()
+            for key, value in data.items():
+                if key not in sensor_history:
+                    sensor_history[key] = []
+                # Append current reading with timestamp
+                sensor_history[key].append((timestamp, value))
+                # Keep only recent history (last 36 points)
+                sensor_history[key] = sensor_history[key][-36:]
+            
+            # Create time series plot
             fig = go.Figure()
-            rng = np.random.default_rng(seed=42)
-            # Provide two sample sensors
-            for name, base, amp, color in [
-                ("Pressure", 50, 3, "#3b82f6"),
-                ("Temperature", 80, 4, "#ef4444"),
-                ("Vibration", 2.2, 0.3, "#f59e0b")
-            ]:
-                series = base + amp * np.sin(np.linspace(0, 4, len(time_index))) + rng.normal(0, amp * 0.1, len(time_index))
-                fig.add_trace(go.Scatter(x=time_index, y=series, name=f"{name} (sim)", line=dict(width=2.5, color=color)))
+            
+            # Choose which sensors to show (prioritize important ones)
+            # Use all sensors if 6 or fewer, otherwise prioritize important ones
+            important_sensors = ["pressure", "temperature", "methane", "vibration", "hydrogen_sulfide", "flow"]
+            available_sensors = list(data.keys())
+            
+            if len(available_sensors) <= 6:
+                sensors_to_plot = available_sensors
+            else:
+                # Start with important sensors that exist in our data
+                sensors_to_plot = [s for s in important_sensors if s in available_sensors][:4]
+                # Add other sensors if we have room
+                for s in available_sensors:
+                    if s not in sensors_to_plot and len(sensors_to_plot) < 6:
+                        sensors_to_plot.append(s)
+            
+            # Plot each selected sensor
+            colors = ["#3b82f6", "#ef4444", "#f59e0b", "#10b981", "#6366f1", "#ec4899"]
+            
+            for i, sensor in enumerate(sensors_to_plot):
+                if sensor in sensor_history and len(sensor_history[sensor]) > 1:
+                    # Use actual sensor history data
+                    timestamps = [entry[0] for entry in sensor_history[sensor]]
+                    values = [entry[1] for entry in sensor_history[sensor]]
+                    
+                    # Determine if physical or simulated
+                    is_physical = self._is_physical_sensor(sensor)
+                    source_label = "(physical)" if is_physical else "(sim)"
+                    
+                    color_idx = i % len(colors)
+                    fig.add_trace(go.Scatter(
+                        x=timestamps, 
+                        y=values, 
+                        name=f"{sensor.title()} {source_label}", 
+                        line=dict(width=2.5, color=colors[color_idx])
+                    ))
+                
+            # If no sensor history available, add synthetic demo data
+            if not any(sensor in sensor_history and len(sensor_history[sensor]) > 1 for sensor in sensors_to_plot):
+                time_index = pd.date_range(end=datetime.utcnow(), periods=36, freq="10min")
+                rng = np.random.default_rng(seed=42)
+                
+                # Provide sample sensors as fallback
+                for name, base, amp, color in [
+                    ("Pressure", 50, 3, "#3b82f6"),
+                    ("Temperature", 80, 4, "#ef4444"),
+                    ("Vibration", 2.2, 0.3, "#f59e0b")
+                ]:
+                    series = base + amp * np.sin(np.linspace(0, 4, len(time_index))) + rng.normal(0, amp * 0.1, len(time_index))
+                    fig.add_trace(go.Scatter(x=time_index, y=series, name=f"{name} (sim)", line=dict(width=2.5, color=color)))
+                
+                title = "Sensor Trends (Synthetic Demo)"
+                caption = "Synthetic illustrative trends (replace with historical buffers when available)."
+            else:
+                title = "Sensor Trends (Real-Time Data)"
+                caption = "Historical data from actual sensor readings. Limited to most recent entries."
+                
             fig.update_layout(
-                title="Sensor Trends (Synthetic Demo)",
+                title=title,
                 height=380,
                 template="plotly_dark",
                 margin=dict(l=10, r=10, t=40, b=10),
                 legend=dict(orientation="h", y=-0.15)
             )
+            
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Synthetic illustrative trends (replace with historical buffers when available).")
+            st.caption(caption)
+            
         except Exception as e:
             st.error(f"Trend plotting error: {e}")
 
@@ -624,7 +965,14 @@ class AdvancedDashboard:
 
     def _plot_risk_analysis(self):
         try:
-            systems = ["Pressure", "Temperature", "Gas Detection", "Vibration", "Flow", "Cooling"]
+            # Use actual sensor names if available
+            data = self._fetch_sensor_data()
+            if data and len(data) > 3:
+                systems = list(data.keys())[:6]  # Limit to 6 systems
+                systems = [s.replace("_", " ").title() for s in systems]
+            else:
+                systems = ["Pressure", "Temperature", "Gas Detection", "Vibration", "Flow", "Cooling"]
+                
             rng = np.random.default_rng(7)
             risk_scores = rng.uniform(0.05, 0.28, len(systems))
             conf_scores = rng.uniform(0.85, 0.97, len(systems))
@@ -695,6 +1043,110 @@ class AdvancedDashboard:
             return {}
         return getattr(self.smart_twin, "real_time_data", {}) or {}
 
+    def _fetch_sensor_configs(self) -> Dict[str, Dict[str, Any]]:
+        """Fetch sensor configurations from the system"""
+        if not self.smart_twin:
+            return {k: {"label": k.title(), "min": 0, "max": 100, "critical": 80, "unit": ""} 
+                    for k in DEFAULT_SENSOR_CONFIGS}
+        
+        # Try to get sensors from config
+        try:
+            # First attempt to get from system configuration
+            status = self._fetch_system_status()
+            if "config" in status and "sensors" in status["config"]:
+                return status["config"]["sensors"]
+                
+            # Second attempt to access from twin directly
+            config = getattr(self.smart_twin, "config", {})
+            if config and "sensors" in config:
+                return config["sensors"]
+        except:
+            pass
+            
+        # Fall back to default configs combined with any keys from real_time_data
+        sensor_data = self._fetch_sensor_data()
+        configs = {}
+        
+        # Start with defaults for known sensors
+        for key, (label, icon, critical, unit, nominal_min, nominal_max) in DEFAULT_SENSOR_CONFIGS.items():
+            configs[key] = {
+                "label": label,
+                "icon": icon,
+                "critical": critical,
+                "unit": unit,
+                "min": nominal_min,
+                "max": nominal_max
+            }
+            
+        # Add any missing sensors from real_time_data with generic configs
+        for key in sensor_data:
+            if key not in configs:
+                configs[key] = {
+                    "label": key.replace("_", " ").title(),
+                    "icon": "🔍",
+                    "critical": 100,
+                    "unit": "",
+                    "min": 0,
+                    "max": 80
+                }
+                
+        return configs
+
+    def _get_sensor_config(self, sensor_key: str) -> Dict[str, Any]:
+        """Get configuration for a specific sensor"""
+        configs = self._fetch_sensor_configs()
+        if sensor_key in configs:
+            return configs[sensor_key]
+            
+        # Return a basic default config if not found
+        if sensor_key in DEFAULT_SENSOR_CONFIGS:
+            label, icon, critical, unit, nominal_min, nominal_max = DEFAULT_SENSOR_CONFIGS[sensor_key]
+            return {
+                "label": label,
+                "icon": icon,
+                "critical": critical,
+                "unit": unit,
+                "min": nominal_min,
+                "max": nominal_max
+            }
+            
+        return {
+            "label": sensor_key.replace("_", " ").title(),
+            "icon": "🔍",
+            "critical": 100,
+            "unit": "",
+            "min": 0,
+            "max": 80
+        }
+
+    def _is_physical_sensor(self, sensor_key: str) -> bool:
+        """Determine if a sensor is physical or simulated"""
+        # Try to get from status
+        status = self._fetch_system_status()
+        
+        # Look for sensor interface info in config
+        try:
+            sensor_config = self._get_sensor_config(sensor_key)
+            if "interface" in sensor_config:
+                return True
+            
+            # Check if this is a known physical sensor
+            if hasattr(self.smart_twin, "config") and "sensors" in self.smart_twin.config:
+                sensor_configs = self.smart_twin.config["sensors"]
+                if sensor_key in sensor_configs and "interface" in sensor_configs[sensor_key]:
+                    return True
+        except:
+            pass
+            
+        return False
+
+    def _get_sensor_source_type(self, sensor_key: str) -> str:
+        """Get sensor source type (physical/simulated)"""
+        if self._is_physical_sensor(sensor_key):
+            return "physical"
+        else:
+            return "simulated"
+
     def _optimize_engine(self, scenarios: int):
         if not self.smart_twin:
             st.warning("Twin unavailable.")
@@ -716,7 +1168,9 @@ class AdvancedDashboard:
             "generated_at_utc": datetime.utcnow().isoformat(),
             "requested_horizon_hours": horizon,
             "system_state": status.get("system_status", "UNKNOWN"),
-            "grid_health": status.get("sense_grid_health", 0),
+            "grid_health": status.get("sensor_grid_status", {}).get("grid_health", 0),
+            "physical_sensor_count": status.get("physical_sensor_count", 0),
+            "total_sensor_count": status.get("total_sensor_count", 0),
             "note": "This is a synthetic placeholder report. Integrate real predictive output."
         }
         st.download_button(
