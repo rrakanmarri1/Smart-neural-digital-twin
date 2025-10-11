@@ -9,7 +9,7 @@ import traceback
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,8 @@ try:
     from ai_systems_part1 import (
         AdvancedAnomalySystem,
         AnomalyDetectionResult,
-        create_anomaly_system
+        create_anomaly_system,
+        SensorFeatureMapper
     )
 except Exception as e:  # pragma: no cover
     raise ImportError(
@@ -50,6 +51,8 @@ class ForecastResult:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     model_used: str = ""
     recommendations: List[str] = field(default_factory=list)
+    features_missing: bool = False
+    retraining_recommended: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -61,7 +64,9 @@ class ForecastResult:
             "trends": self.trends,
             "timestamp": self.timestamp.isoformat(),
             "model_used": self.model_used,
-            "recommendations": self.recommendations
+            "recommendations": self.recommendations,
+            "features_missing": self.features_missing,
+            "retraining_recommended": self.retraining_recommended
         }
 
 
@@ -86,6 +91,8 @@ class AdaptiveLearningSummary:
     drift_report: DriftReport
     next_retrain_due: Optional[datetime]
     timestamp: datetime = field(default_factory=datetime.utcnow)
+    sensor_set_changed: bool = False
+    new_sensors: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -135,6 +142,70 @@ def safe_config_get(cfg: Dict[str, Any], path: str, default=None):
     return cur
 
 
+class DynamicFeatureManager:
+    """
+    Handles feature ordering, alignment, and sensor data transformations with
+    support for dynamic feature sets and model compatibility.
+    """
+    def __init__(self, feature_order: List[str]):
+        self.original_features = list(feature_order)
+        self.current_features = list(feature_order)
+        self.feature_index = {f: i for i, f in enumerate(self.current_features)}
+        self.needs_retraining = False
+        self.last_update_time = datetime.utcnow()
+
+    def update_feature_set(self, sensor_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Update feature set with new sensors from data
+        Returns (changed, new_features)
+        """
+        current_set = set(self.current_features)
+        data_features = set(sensor_data.keys())
+        
+        new_features = data_features - current_set
+        if not new_features:
+            return False, []
+            
+        # Add new features to the end of the list
+        self.current_features.extend(sorted(new_features))
+        self.feature_index = {f: i for i, f in enumerate(self.current_features)}
+        
+        self.needs_retraining = True
+        self.last_update_time = datetime.utcnow()
+        
+        logger.info(f"Feature set updated with {len(new_features)} new sensors: {', '.join(new_features)}")
+        return True, list(new_features)
+        
+    def align_data(self, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Fill in missing features with 0.0 to match expected structure
+        """
+        aligned = {}
+        for feature in self.current_features:
+            aligned[feature] = sensor_data.get(feature, 0.0)
+        return aligned
+        
+    def prepare_vector(self, sensor_data: Dict[str, Any]) -> np.ndarray:
+        """Convert sensor data to ordered feature vector"""
+        return np.array([float(sensor_data.get(f, 0.0)) for f in self.current_features], dtype=float)
+        
+    def check_compatibility(self, original_features: List[str]) -> Tuple[bool, Set[str], Set[str]]:
+        """
+        Check compatibility between current feature set and model's original feature set
+        Returns (compatible, missing_features, new_features)
+        """
+        current_set = set(self.current_features)
+        original_set = set(original_features)
+        
+        missing = original_set - current_set
+        new = current_set - original_set
+        
+        # If more than 25% of original features are missing, consider incompatible
+        compatible = len(missing) <= len(original_set) * 0.25
+        
+        return compatible, missing, new
+
+
 # =====================================================================================
 # Positional Encoding (Transformer)
 # =====================================================================================
@@ -163,6 +234,8 @@ class PositionalEncoding(nn.Module):
 class LSTMWithAttention(nn.Module):
     def __init__(self, input_size: int, hidden_size: int = 128, num_layers: int = 2, dropout: float = 0.2, output_size: int = 6):
         super().__init__()
+        self.input_size = input_size
+        self.output_size = output_size
         self.lstm = nn.LSTM(
             input_size,
             hidden_size,
@@ -195,6 +268,8 @@ class LSTMWithAttention(nn.Module):
 class TransformerForecast(nn.Module):
     def __init__(self, input_size: int, model_dim: int = 128, n_heads: int = 4, num_layers: int = 3, ff_dim: int = 256, dropout: float = 0.1, output_size: int = 6):
         super().__init__()
+        self.input_size = input_size
+        self.output_size = output_size
         self.input_proj = nn.Linear(input_size, model_dim)
         enc_layer = nn.TransformerEncoderLayer(
             d_model=model_dim,
@@ -234,6 +309,9 @@ class HybridFusionModel(nn.Module):
     """
     def __init__(self, input_size: int, hidden_lstm: int = 96, model_dim: int = 96, output_size: int = 6):
         super().__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        
         # LSTM branch
         self.lstm = nn.LSTM(
             input_size,
@@ -288,6 +366,7 @@ class PredictionEngine:
         - Early stopping (validation-based)
         - Multi-horizon forecasting via iterative refeeding
         - Confidence estimation based on residual scale & horizon distance
+        - Dynamic sensor adaptation
     """
 
     def __init__(
@@ -299,7 +378,7 @@ class PredictionEngine:
         device: Optional[str] = None
     ):
         self.config = config
-        self.feature_order = feature_order
+        self.feature_manager = DynamicFeatureManager(feature_order)
         self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.seed = seed
@@ -314,26 +393,58 @@ class PredictionEngine:
         self.scaler_std: np.ndarray = None
 
         input_dim = len(feature_order)
-        self.models: Dict[str, nn.Module] = {
-            "lstm_attn": LSTMWithAttention(input_dim=input_dim, output_size=input_dim),
-            "transformer": TransformerForecast(input_size=input_dim, output_size=input_dim),
-            "hybrid": HybridFusionModel(input_size=input_dim, output_size=input_dim)
-        }
+        self.models: Dict[str, nn.Module] = self._create_models(input_dim)
+        
         self.active_model_name: Optional[str] = None
         self.active_model: Optional[nn.Module] = None
         self.training_metrics: Dict[str, Any] = {}
         self.residual_history: List[float] = []
         self.max_residuals = 1000
         self.is_trained = False
+        
+        # Dynamic feature support
+        self.needs_retraining = False
+        self.model_input_dim = input_dim
+        self.model_output_dim = input_dim
+        self.last_feature_update = None
+        self.compatibility_info = {}
+
+        logger.info(f"Prediction Engine initialized with {input_dim} features")
+
+    def _create_models(self, input_dim: int) -> Dict[str, nn.Module]:
+        """Create prediction models with specified input dimension"""
+        return {
+            "lstm_attn": LSTMWithAttention(input_dim=input_dim, output_size=input_dim),
+            "transformer": TransformerForecast(input_size=input_dim, output_size=input_dim),
+            "hybrid": HybridFusionModel(input_size=input_dim, output_size=input_dim)
+        }
 
     # ------------------------------------------------------------------
     # Data Utilities
     # ------------------------------------------------------------------
 
     def _prepare_array(self, records: List[Dict[str, Any]]) -> np.ndarray:
+        """
+        Convert list of sensor records to numpy array
+        Updates feature manager if new features detected
+        """
+        # First check for new features across all records
+        all_features = set()
+        for record in records:
+            all_features.update(record.keys())
+        
+        feature_set_changed = False
+        if all_features - set(self.feature_manager.current_features):
+            for record in records:
+                changed, _ = self.feature_manager.update_feature_set(record)
+                feature_set_changed = feature_set_changed or changed
+        
+        # Now convert to matrix with aligned features
         mat = []
         for r in records:
-            mat.append([float(r.get(f, 0.0)) for f in self.feature_order])
+            aligned = self.feature_manager.align_data(r)
+            mat.append(self.feature_manager.prepare_vector(aligned))
+        
         return np.asarray(mat, dtype=float)
 
     def _build_sequences(self, matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -350,10 +461,74 @@ class PredictionEngine:
         self.scaler_std = array.std(axis=0) + 1e-8
 
     def _scale(self, array: np.ndarray) -> np.ndarray:
+        """
+        Scale array using fitted scaler with safety checks for dimension mismatch
+        """
+        if self.scaler_mean is None or self.scaler_std is None:
+            return array  # Can't scale without fitted scaler
+            
+        # Handle dimension mismatch
+        if array.shape[1] != len(self.scaler_mean):
+            logger.warning(f"Scale dimension mismatch: expected {len(self.scaler_mean)}, got {array.shape[1]}")
+            
+            if array.shape[1] > len(self.scaler_mean):
+                # More features than scaler knows about - truncate
+                array = array[:, :len(self.scaler_mean)]
+            else:
+                # Fewer features - use what we have and pad with zeros after scaling
+                result = np.zeros((array.shape[0], len(self.scaler_mean)))
+                # Scale what we can
+                scaled_part = (array - self.scaler_mean[:array.shape[1]]) / self.scaler_std[:array.shape[1]]
+                result[:, :array.shape[1]] = scaled_part
+                return result
+                
         return (array - self.scaler_mean) / self.scaler_std
 
     def _inverse_scale(self, array: np.ndarray) -> np.ndarray:
+        """Inverse scale with dimension safety"""
+        if self.scaler_mean is None or self.scaler_std is None:
+            return array
+            
+        # Handle dimension mismatch
+        if array.shape[1] != len(self.scaler_mean):
+            if array.shape[1] > len(self.scaler_mean):
+                # More features than scaler knows about - truncate
+                array = array[:, :len(self.scaler_mean)]
+            else:
+                # Fewer features - pad with zeros after inverse scaling
+                result = np.zeros((array.shape[0], len(self.scaler_mean)))
+                # Inverse scale what we can
+                inverse_scaled = array * self.scaler_std[:array.shape[1]] + self.scaler_mean[:array.shape[1]]
+                result[:, :array.shape[1]] = inverse_scaled
+                return result
+                
         return array * self.scaler_std + self.scaler_mean
+
+    def check_feature_compatibility(self) -> Dict[str, Any]:
+        """
+        Check if current feature set is compatible with trained models
+        """
+        if not hasattr(self.active_model, "input_size"):
+            return {"compatible": False, "reason": "Model does not expose input size"}
+            
+        model_input_size = getattr(self.active_model, "input_size")
+        model_output_size = getattr(self.active_model, "output_size")
+        current_feature_count = len(self.feature_manager.current_features)
+        
+        compatible = model_input_size == current_feature_count and model_output_size == current_feature_count
+        
+        info = {
+            "compatible": compatible,
+            "model_input_dim": model_input_size,
+            "model_output_dim": model_output_size,
+            "current_feature_count": current_feature_count,
+            "dimension_mismatch": not compatible,
+            "needs_retraining": self.feature_manager.needs_retraining
+        }
+        
+        # Store for later reference
+        self.compatibility_info = info
+        return info
 
     # ------------------------------------------------------------------
     # Training
@@ -363,8 +538,21 @@ class PredictionEngine:
         if len(records) < self.seq_len + 5:
             raise ValueError("Insufficient records for training.")
 
+        # Process data with dynamic feature detection
         matrix = self._prepare_array(records)
+        input_dim = matrix.shape[1]
+        
+        # If feature dimensions changed, recreate models
+        if input_dim != self.model_input_dim:
+            logger.info(f"Recreating models for new feature dimension: {input_dim} (was {self.model_input_dim})")
+            self.models = self._create_models(input_dim)
+            self.model_input_dim = input_dim
+            self.model_output_dim = input_dim
+        
+        # Fit scaler
         self._fit_standard_scaler(matrix)
+        
+        # Build and scale sequences
         seqs, targets = self._build_sequences(matrix)
         seqs_scaled = self._scale(seqs)
         targets_scaled = self._scale(targets)
@@ -459,6 +647,8 @@ class PredictionEngine:
         self.training_metrics = results
         self._persist_prediction_state()
         self.is_trained = True
+        self.needs_retraining = False
+        self.feature_manager.needs_retraining = False
         logger.info(f"Active forecast model selected: {best_name}")
 
     # ------------------------------------------------------------------
@@ -466,14 +656,54 @@ class PredictionEngine:
     # ------------------------------------------------------------------
 
     def forecast(self, recent_records: List[Dict[str, Any]]) -> ForecastResult:
+        """
+        Generate forecasts with support for dynamic sensor sets
+        """
         if not self.is_trained or self.active_model is None:
             return self._untrained_forecast_response()
 
         if len(recent_records) < self.seq_len:
             return self._insufficient_data_response()
-
+            
+        # Check if any records have new features
+        features_changed = False
+        new_features = []
+        for record in recent_records:
+            changed, new = self.feature_manager.update_feature_set(record)
+            features_changed = features_changed or changed
+            if new:
+                new_features.extend(new)
+                
+        # If features changed, set flag for retraining and reduce confidence
+        retraining_recommended = False
+        features_missing = False
+        if features_changed:
+            self.needs_retraining = True
+            retraining_recommended = True
+            
+            # Check compatibility with current model
+            compat_info = self.check_feature_compatibility()
+            features_missing = not compat_info["compatible"]
+        
+        # Get matrix of recent history aligned with feature ordering
         matrix = self._prepare_array(recent_records[-self.seq_len:])
         scaled_seq = self._scale(matrix)
+        
+        # Apply tensor dimension safeguards for model
+        if hasattr(self.active_model, "input_size"):
+            expected_dim = getattr(self.active_model, "input_size")
+            if scaled_seq.shape[1] != expected_dim:
+                # Handle dimension mismatch
+                if scaled_seq.shape[1] > expected_dim:
+                    # Too many features - truncate
+                    logger.warning(f"Truncating input features: {scaled_seq.shape[1]} to {expected_dim}")
+                    scaled_seq = scaled_seq[:, :expected_dim]
+                else:
+                    # Too few features - pad with zeros
+                    logger.warning(f"Padding input features: {scaled_seq.shape[1]} to {expected_dim}")
+                    padding = np.zeros((scaled_seq.shape[0], expected_dim - scaled_seq.shape[1]))
+                    scaled_seq = np.hstack([scaled_seq, padding])
+        
         seq_tensor = torch.from_numpy(scaled_seq).float().unsqueeze(0).to(self.device)
 
         self.active_model.eval()
@@ -494,25 +724,42 @@ class PredictionEngine:
 
                 preds_scaled_array = np.array(preds_scaled_accum)  # shape (steps, features)
                 preds_array = self._inverse_scale(preds_scaled_array)
-                horizon_outputs[horizon_name] = preds_array.tolist()
+                
+                # Map predictions back to feature names
+                preds_list = preds_array.tolist()
+                horizon_outputs[horizon_name] = preds_list
 
                 # Basic confidence: lower variance across iterative predictions => higher confidence
                 per_feature_var = preds_scaled_array.var(axis=0)
                 conf = 1.0 / (1.0 + per_feature_var)  # shrink
-                for i, f in enumerate(self.feature_order):
-                    if f not in per_feature_conf:
+                
+                # Map confidence to feature names
+                expected_output_dim = getattr(self.active_model, "output_size", len(self.feature_manager.current_features))
+                for i, f in enumerate(self.feature_manager.current_features[:expected_output_dim]):
+                    if f not in per_feature_conf and i < len(conf):
                         per_feature_conf[f] = 0.0
-                    per_feature_conf[f] += conf[i] / len(self.horizons)
+                    if i < len(conf):
+                        per_feature_conf[f] += conf[i] / len(self.horizons)
+                        
                 all_conf_factors.extend(conf.tolist())
 
+            # Calculate aggregate confidence
             agg_conf = float(np.mean(all_conf_factors)) if all_conf_factors else 0.0
+            
+            # Penalize confidence if features are missing or model needs retraining
+            if features_missing:
+                agg_conf *= 0.7  # 30% penalty
+            elif retraining_recommended:
+                agg_conf *= 0.9  # 10% penalty
 
-            # Risk assessment (basic – threshold against critical percentages)
+            # Risk assessment
             risk_level, risk_factors = self._forecast_risk_analysis(horizon_outputs)
-
             trends = self._extract_trends(horizon_outputs)
-
             recommendations = self._forecast_recommendations(risk_level, risk_factors, trends)
+            
+            # Add recommendation for retraining if needed
+            if retraining_recommended:
+                recommendations.insert(0, "Retrain prediction model to incorporate new sensors.")
 
             return ForecastResult(
                 horizons=horizon_outputs,
@@ -522,7 +769,9 @@ class PredictionEngine:
                 risk_factors=risk_factors,
                 trends=trends,
                 model_used=self.active_model_name or "unknown",
-                recommendations=recommendations
+                recommendations=recommendations,
+                features_missing=features_missing,
+                retraining_recommended=retraining_recommended
             )
 
     def _forecast_risk_analysis(self, horizon_outputs: Dict[str, List[List[float]]]) -> Tuple[str, List[str]]:
@@ -533,8 +782,14 @@ class PredictionEngine:
         # Choose the longest horizon key
         longest_key = max(horizon_outputs.keys(), key=lambda k: len(horizon_outputs[k]))
         final_step = horizon_outputs[longest_key][-1]
-        # Map features
-        final_map = {f: final_step[i] for i, f in enumerate(self.feature_order)}
+        
+        # Map features (only up to model's output dimension)
+        expected_output_dim = getattr(self.active_model, "output_size", len(self.feature_manager.current_features))
+        feature_count = min(len(final_step), expected_output_dim)
+        feature_subset = self.feature_manager.current_features[:feature_count]
+        
+        final_map = {f: final_step[i] for i, f in enumerate(feature_subset) if i < len(final_step)}
+        
         for f, val in final_map.items():
             cfg = self.config["sensors"].get(f, {})
             critical = cfg.get("critical")
@@ -543,6 +798,7 @@ class PredictionEngine:
                 factors.append(f"{f} near critical ({val:.2f} >= 0.9*{critical})")
             elif max_v and val >= 0.95 * max_v:
                 factors.append(f"{f} approaching max capacity")
+                
         if len(factors) >= 3:
             return "HIGH", factors
         if len(factors) >= 1:
@@ -555,15 +811,24 @@ class PredictionEngine:
         # Use short horizon
         short_key = min(horizon_outputs.keys(), key=lambda k: len(horizon_outputs[k]))
         arr = np.array(horizon_outputs[short_key])  # shape (steps, features)
+        
+        # Only calculate trends for features that model can output
+        expected_output_dim = getattr(self.active_model, "output_size", len(self.feature_manager.current_features))
+        feature_count = min(arr.shape[1], expected_output_dim)
+        feature_subset = self.feature_manager.current_features[:feature_count]
+        
         slopes = {}
-        for i, f in enumerate(self.feature_order):
-            series = arr[:, i]
-            if len(series) < 2:
-                slopes[f] = 0.0
-            else:
-                x = np.arange(len(series))
-                slope, _, _, _, _ = stats.linregress(x, series)
-                slopes[f] = float(slope)
+        for i, f in enumerate(feature_subset):
+            if i < arr.shape[1]:
+                series = arr[:, i]
+                if len(series) < 2:
+                    slopes[f] = 0.0
+                else:
+                    x = np.arange(len(series))
+                    slope, _, _, _, _ = stats.linregress(x, series)
+                    slopes[f] = float(slope)
+                    
+        # Get top 3 strongest trends
         dominant = sorted(slopes.items(), key=lambda kv: abs(kv[1]), reverse=True)[:3]
         return {"feature_slopes": slopes, "dominant": dominant}
 
@@ -583,6 +848,11 @@ class PredictionEngine:
         for f in factors:
             if "critical" in f:
                 recs.append("Pre-emptively validate safety interlocks for critical parameter.")
+                
+        # Add recommendation if dynamic sensors caused model issues
+        if self.needs_retraining:
+            recs.append("Retrain forecasting model to incorporate sensor changes.")
+            
         return list(dict.fromkeys(recs))[:10]
 
     # ------------------------------------------------------------------
@@ -598,7 +868,9 @@ class PredictionEngine:
             risk_factors=["Model not trained"],
             trends={},
             model_used="None",
-            recommendations=["Train prediction engine."]
+            recommendations=["Train prediction engine."],
+            features_missing=False,
+            retraining_recommended=False
         )
 
     def _insufficient_data_response(self) -> ForecastResult:
@@ -610,7 +882,9 @@ class PredictionEngine:
             risk_factors=["Insufficient sequence length"],
             trends={},
             model_used="None",
-            recommendations=["Accumulate more data for valid forecasting."]
+            recommendations=["Accumulate more data for valid forecasting."],
+            features_missing=False,
+            retraining_recommended=self.needs_retraining
         )
 
     # ------------------------------------------------------------------
@@ -623,11 +897,19 @@ class PredictionEngine:
                 "active_model": self.active_model_name,
                 "trained_at": datetime.utcnow().isoformat(),
                 "seq_len": self.seq_len,
-                "feature_order": self.feature_order
+                "feature_order": self.feature_manager.current_features,
+                "original_feature_order": self.feature_manager.original_features,
+                "input_dimension": self.model_input_dim,
+                "output_dimension": self.model_output_dim,
+                "version": "1.1.0"  # Updated version for dynamic sensor support
             }
             # Save scaler
             with open(self.model_dir / "scaler.pkl", "wb") as f:
-                pickle.dump({"mean": self.scaler_mean, "std": self.scaler_std}, f)
+                pickle.dump({
+                    "mean": self.scaler_mean, 
+                    "std": self.scaler_std,
+                    "feature_order": self.feature_manager.current_features
+                }, f)
             # Save each model state
             for name, model in self.models.items():
                 torch.save(model.state_dict(), self.model_dir / f"{name}.pt")
@@ -643,15 +925,35 @@ class PredictionEngine:
 
     def load(self):
         try:
+            # Load metadata first to get dimensions
+            with open(self.model_dir / "meta.json", "r", encoding="utf-8") as f:
+                meta = json.load(f)
+                
+            self.seq_len = meta.get("seq_len", self.seq_len)
+            self.active_model_name = meta.get("active_model")
+            
+            # Get feature information
+            loaded_features = meta.get("feature_order", [])
+            original_features = meta.get("original_feature_order", loaded_features)
+            
+            # Update feature manager with loaded features
+            if loaded_features:
+                self.feature_manager = DynamicFeatureManager(loaded_features)
+                self.feature_manager.original_features = original_features
+            
+            # Get model dimensions
+            self.model_input_dim = meta.get("input_dimension", len(loaded_features))
+            self.model_output_dim = meta.get("output_dimension", len(loaded_features))
+            
+            # Recreate models with correct dimensions
+            self.models = self._create_models(self.model_input_dim)
+            
+            # Load scaler
             with open(self.model_dir / "scaler.pkl", "rb") as f:
                 sc = pickle.load(f)
             self.scaler_mean = sc["mean"]
             self.scaler_std = sc["std"]
-
-            with open(self.model_dir / "meta.json", "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            self.seq_len = meta.get("seq_len", self.seq_len)
-            self.active_model_name = meta.get("active_model")
+            
             # Load training metrics if exist
             tm_file = self.model_dir / "training_metrics.json"
             if tm_file.exists():
@@ -664,15 +966,31 @@ class PredictionEngine:
                 if path.exists():
                     model.load_state_dict(torch.load(path, map_location=self.device))
                     model.to(self.device)
+                    
             self.active_model = self.models.get(self.active_model_name, None)
             if self.active_model:
                 self.is_trained = True
-                logger.info("Prediction engine loaded. Active model=%s", self.active_model_name)
+                logger.info(f"Prediction engine loaded. Active model={self.active_model_name}, Features={len(loaded_features)}")
             else:
                 logger.warning("Active model '%s' not found – forecasting disabled.", self.active_model_name)
         except Exception as e:
             logger.error(f"Prediction engine load failed: {e}")
             self.is_trained = False
+
+    def status(self) -> Dict[str, Any]:
+        """Return detailed status information about prediction engine"""
+        return {
+            "is_trained": self.is_trained,
+            "active_model": self.active_model_name,
+            "original_feature_count": len(self.feature_manager.original_features),
+            "current_feature_count": len(self.feature_manager.current_features), 
+            "needs_retraining": self.needs_retraining,
+            "model_input_dim": self.model_input_dim,
+            "model_output_dim": self.model_output_dim,
+            "feature_set_modified": len(self.feature_manager.current_features) != len(self.feature_manager.original_features),
+            "compatibility_info": self.compatibility_info,
+            "sequence_length": self.seq_len
+        }
 
 
 # =====================================================================================
@@ -685,6 +1003,8 @@ class DriftMonitor:
     to detect drift via:
         - Welch t-test for residual mean shifts
         - KS-test for feature distribution changes
+        
+    Enhanced to handle dynamic feature dimensions.
     """
 
     def __init__(self, residual_window: int = 200, feature_window: int = 400):
@@ -692,8 +1012,13 @@ class DriftMonitor:
         self.feature_window = feature_window
         self.residuals: List[float] = []
         self.feature_history: List[np.ndarray] = []
+        self.feature_dims: Optional[int] = None
 
     def update(self, residual_vector: np.ndarray, latest_features: np.ndarray):
+        """
+        Update drift monitoring with new observation
+        Handles changes in feature dimensions safely
+        """
         # residual_vector shape: (features,)
         # Use mean absolute residual as scalar
         mean_res = float(np.mean(np.abs(residual_vector)))
@@ -701,6 +1026,16 @@ class DriftMonitor:
         if len(self.residuals) > self.residual_window * 2:
             self.residuals = self.residuals[-self.residual_window * 2:]
 
+        # Handle changing feature dimensions
+        if self.feature_dims is None:
+            self.feature_dims = latest_features.shape[0]
+            
+        # If dimensions changed, reset history
+        if latest_features.shape[0] != self.feature_dims:
+            logger.info(f"Feature dimensions changed from {self.feature_dims} to {latest_features.shape[0]} - resetting drift monitoring")
+            self.feature_history = []
+            self.feature_dims = latest_features.shape[0]
+            
         self.feature_history.append(latest_features.copy())
         if len(self.feature_history) > self.feature_window * 2:
             self.feature_history = self.feature_history[-self.feature_window * 2:]
@@ -720,23 +1055,29 @@ class DriftMonitor:
             p_val = 1.0
             recent_mean = baseline_mean = 0.0
 
-        # Feature drift
+        # Feature drift - only if we have consistent dimensions
         feature_drift_detected = False
         feature_summary: Dict[str, Any] = {}
-        if len(self.feature_history) >= self.feature_window * 2:
-            hist_arr = np.array(self.feature_history)
-            recent_f = hist_arr[-self.feature_window:]
-            baseline_f = hist_arr[-self.feature_window * 2: -self.feature_window]
-            drift_count = 0
-            for i in range(hist_arr.shape[1]):
-                ks_stat, ks_p = stats.ks_2samp(baseline_f[:, i], recent_f[:, i])
-                if ks_p < 0.01:
-                    drift_count += 1
-            feature_drift_detected = drift_count >= max(1, hist_arr.shape[1] // 3)
-            feature_summary = {
-                "drifted_dimensions": drift_count,
-                "total_dimensions": hist_arr.shape[1]
-            }
+        
+        if len(self.feature_history) >= self.feature_window * 2 and self.feature_dims is not None:
+            try:
+                hist_arr = np.array(self.feature_history)
+                recent_f = hist_arr[-self.feature_window:]
+                baseline_f = hist_arr[-self.feature_window * 2: -self.feature_window]
+                
+                drift_count = 0
+                for i in range(hist_arr.shape[1]):
+                    ks_stat, ks_p = stats.ks_2samp(baseline_f[:, i], recent_f[:, i])
+                    if ks_p < 0.01:
+                        drift_count += 1
+                feature_drift_detected = drift_count >= max(1, hist_arr.shape[1] // 3)
+                feature_summary = {
+                    "drifted_dimensions": drift_count,
+                    "total_dimensions": hist_arr.shape[1]
+                }
+            except Exception as e:
+                logger.warning(f"Feature drift analysis failed: {e}")
+                feature_summary = {"error": str(e)}
 
         return DriftReport(
             model_drift_detected=model_drift,
@@ -787,6 +1128,9 @@ class ActiveLearningController:
             return True
         if forecast.risk_level in self.high_risk_levels:
             return True
+        # New criteria - also sample if feature set changed
+        if forecast.features_missing or forecast.retraining_recommended:
+            return True
         return False
 
 
@@ -800,6 +1144,7 @@ class AISystemManager:
         - Anomaly Detection (from Part 1)
         - Prediction Engine
         - Drift Monitoring & Adaptive triggers
+        - Dynamic sensor detection & adaptation
 
     Usage:
         manager = AISystemManager(config)
@@ -838,16 +1183,38 @@ class AISystemManager:
         self.system_status = "initializing"
         self.history: List[UnifiedAIStepResult] = []
         self.max_history = 500
+        
+        # Dynamic sensor tracking
+        self.sensor_update_history: List[Dict[str, Any]] = []
+        self.sensor_set_last_changed: Optional[datetime] = None
+        self.last_full_retraining: Optional[datetime] = None
 
-        logger.info("AISystemManager initialized.")
+        logger.info("AISystemManager initialized with dynamic sensor support.")
 
     # ------------------------------------------------------------------
     # Training Orchestration
     # ------------------------------------------------------------------
 
     def train_all(self, training_records: List[Dict[str, Any]]):
+        """
+        Train all AI models on the provided data records
+        Enhanced to track sensor configuration changes
+        """
         if len(training_records) < 100:
             raise ValueError("Provide at least 100 records for initial training to ensure representativeness.")
+
+        # First check and record all features in the training data
+        all_features = set()
+        for record in training_records:
+            all_features.update(record.keys())
+            
+        # Track original sensor set
+        original_sensors = set(self.config.get("sensors", {}).keys())
+        new_sensors = all_features - original_sensors
+            
+        if new_sensors:
+            logger.info(f"Training includes {len(new_sensors)} features not in config: {', '.join(new_sensors)}")
+            self._record_sensor_update(list(new_sensors), "training")
 
         logger.info("Starting unified AI training pipeline (records=%d)", len(training_records))
         # Anomaly
@@ -866,6 +1233,7 @@ class AISystemManager:
         )
         self.system_status = "trained"
         self.last_retrain = datetime.utcnow()
+        self.last_full_retraining = datetime.utcnow()
         logger.info("Unified AI training complete.")
 
     # ------------------------------------------------------------------
@@ -874,13 +1242,17 @@ class AISystemManager:
 
     def process(self, sensor_sample: Dict[str, Any], recent_history: Optional[List[Dict[str, Any]]] = None) -> UnifiedAIStepResult:
         """
-        sensor_sample: latest observation (dict of sensor -> value)
-        recent_history: required for forecasting; if not supplied, forecast will fallback gracefully
+        Process a new sensor sample, enhanced to handle dynamic sensor sets
         """
         start = datetime.utcnow()
-
+        
+        # Check for new sensors
+        new_sensors = self._check_for_new_sensors(sensor_sample)
+        
+        # Process with anomaly detection (enhanced for dynamic features)
         anomaly_result = self.anomaly_system.detect(sensor_sample)
 
+        # Generate forecast if we have history data
         if recent_history is None:
             forecast_result = self.prediction_engine._insufficient_data_response()
         else:
@@ -888,23 +1260,31 @@ class AISystemManager:
 
         # Adaptive learning / drift
         drift_report = self._update_drift(forecast_result, sensor_sample, recent_history)
+        
+        # Check if we should sample for potential retraining
         sampled = False
         if self.active_learning.should_sample(forecast_result):
             self.feedback_buffer.add(forecast_result, sensor_sample, {"reason": "active_learning_trigger"})
             sampled = True
 
+        # Create adaptive summary with sensor change information
+        sensor_set_changed = len(new_sensors) > 0 or forecast_result.features_missing or forecast_result.retraining_recommended
         adaptive_summary = AdaptiveLearningSummary(
             sampled_for_retrain=sampled,
             feedback_buffer_size=self.feedback_buffer.size(),
             drift_report=drift_report,
-            next_retrain_due=self._next_retrain_time()
+            next_retrain_due=self._next_retrain_time(),
+            sensor_set_changed=sensor_set_changed,
+            new_sensors=new_sensors
         )
 
+        # Risk fusion and recommendations
         overall_risk = self._overall_risk_fusion(anomaly_result, forecast_result)
         combined_recs = self._combine_recommendations(anomaly_result, forecast_result, adaptive_summary)
 
         elapsed = (datetime.utcnow() - start).total_seconds()
 
+        # Create result object
         step = UnifiedAIStepResult(
             anomaly=anomaly_result,
             forecast=forecast_result,
@@ -914,8 +1294,37 @@ class AISystemManager:
             processing_time_s=elapsed
         )
         self._append_history(step)
+        
+        # Check if retraining is needed
         self._conditional_retrain()
         return step
+
+    def _check_for_new_sensors(self, sensor_sample: Dict[str, Any]) -> List[str]:
+        """
+        Check if sensor sample contains new sensors not seen before
+        """
+        # Compare with original config sensors
+        config_sensors = set(self.config.get("sensors", {}).keys())
+        sample_sensors = set(sensor_sample.keys())
+        
+        new_sensors = list(sample_sensors - config_sensors)
+        if new_sensors:
+            self._record_sensor_update(new_sensors, "runtime")
+            self.sensor_set_last_changed = datetime.utcnow()
+            
+        return new_sensors
+    
+    def _record_sensor_update(self, new_sensors: List[str], context: str = "unknown"):
+        """Record sensor set changes for later analysis"""
+        self.sensor_update_history.append({
+            "timestamp": datetime.utcnow().isoformat(),
+            "new_sensors": new_sensors,
+            "context": context
+        })
+        
+        # Keep history bounded
+        if len(self.sensor_update_history) > 50:
+            self.sensor_update_history = self.sensor_update_history[-50:]
 
     # ------------------------------------------------------------------
     # Drift & Adaptive Logic
@@ -932,12 +1341,36 @@ class AISystemManager:
                     recent_error_mean=0.0,
                     baseline_error_mean=0.0
                 )
-            # Use the shortest horizon predicted first-step vs actual as residual vector
+                
+            # Get predictions from shortest horizon
             shortest_key = min(forecast.horizons.keys(), key=lambda k: len(forecast.horizons[k]))
+            
+            if not forecast.horizons[shortest_key]:
+                return DriftReport(
+                    model_drift_detected=False,
+                    feature_drift_detected=False,
+                    model_drift_p_value=1.0,
+                    feature_drift_summary={"error": "No predictions available"},
+                    recent_error_mean=0.0,
+                    baseline_error_mean=0.0
+                )
+                
+            # Get first prediction step and actual values
             first_step_pred = np.array(forecast.horizons[shortest_key][0])  # shape (features,)
-            actual_vec = np.array([sensor_sample.get(f, 0.0) for f in self.prediction_engine.feature_order])
+            
+            # Prepare actual vector - align with prediction engine feature order
+            feature_order = self.prediction_engine.feature_manager.current_features
+            actual_vec = np.array([sensor_sample.get(f, 0.0) for f in feature_order])
+            
+            # Ensure dimensions match (use minimum)
+            min_dim = min(actual_vec.shape[0], first_step_pred.shape[0])
+            actual_vec = actual_vec[:min_dim]
+            first_step_pred = first_step_pred[:min_dim]
+            
+            # Calculate residuals
             residual_vec = actual_vec - first_step_pred
-            # Use last observation features for distribution drift
+            
+            # Update drift monitor
             self.drift_monitor.update(residual_vec, actual_vec)
             return self.drift_monitor.report()
         except Exception as e:
@@ -952,110 +1385,63 @@ class AISystemManager:
             )
 
     def _next_retrain_time(self) -> Optional[datetime]:
+        """Calculate next scheduled retraining time"""
+        # If we have sensor changes, recommend retraining sooner
         if not self.last_retrain:
             return None
+            
+        if self.anomaly_system.needs_retraining or self.prediction_engine.needs_retraining:
+            # Suggest retraining in 1/4 of the normal interval if changes detected
+            return self.last_retrain + (self.retrain_interval / 4)
+            
         return self.last_retrain + self.retrain_interval
 
     def _conditional_retrain(self):
         """
-        Lightweight placeholder:
-        In a production deployment this would:
-            - Evaluate drift significance
-            - Check retrain window alignment (e.g., low-load windows)
-            - Trigger asynchronous job
+        Check if retraining is needed based on:
+        - Scheduled intervals
+        - Feature set changes
+        - Drift detection
         """
         if not self.last_retrain:
             return
-        if datetime.utcnow() >= self.last_retrain + self.retrain_interval:
-            logger.info("Scheduled retraining window reached (placeholder – manual invocation required).")
-            self.last_retrain = datetime.utcnow()
+            
+        now = datetime.utcnow()
+        
+        # Check if either subsystem needs retraining due to feature changes
+        features_changed = (hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining) or \
+                           self.prediction_engine.needs_retraining
+                           
+        # Schedule sooner if features changed
+        interval = self.retrain_interval / 4 if features_changed else self.retrain_interval
+        
+        if now >= self.last_retrain + interval:
+            logger.info(f"Scheduled retraining due: interval={interval}, features_changed={features_changed}")
+            # In real system, would trigger async job here
+            self.last_retrain = now
 
     # ------------------------------------------------------------------
     # Risk Fusion
     # ------------------------------------------------------------------
 
     def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
+        """Combine risk assessments from multiple subsystems"""
         priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
         anomaly_rank = priority_order.get(anomaly.risk_level, 0)
         forecast_rank = priority_order.get(forecast.risk_level, 0)
+        
+        # Bump up risk if features are missing or models need retraining
+        if forecast.features_missing or forecast.retraining_recommended:
+            forecast_rank = max(forecast_rank, 2)  # At least MEDIUM
+            
         composite_rank = max(anomaly_rank, forecast_rank)
         inverse_map = {v: k for k, v in priority_order.items()}
         overall_level = inverse_map.get(composite_rank, "LOW")
+        
         return {
             "overall_level": overall_level,
             "anomaly_level": anomaly.risk_level,
             "forecast_level": forecast.risk_level,
             "anomaly_score": anomaly.anomaly_score,
-            "forecast_confidence": forecast.aggregate_confidence
-        }
-
-    def _combine_recommendations(
-        self,
-        anomaly: AnomalyDetectionResult,
-        forecast: ForecastResult,
-        adaptive: AdaptiveLearningSummary
-    ) -> List[str]:
-        recs = []
-        recs.extend(anomaly.recommendations)
-        recs.extend(forecast.recommendations)
-        if adaptive.drift_report.model_drift_detected:
-            recs.append("Investigate model performance degradation (model drift detected).")
-        if adaptive.drift_report.feature_drift_detected:
-            recs.append("Review sensor calibration / process changes (feature distribution drift).")
-        if adaptive.sampled_for_retrain:
-            recs.append("Sample flagged for potential retraining dataset enrichment.")
-        # Deduplicate
-        seen = set()
-        uniq = []
-        for r in recs:
-            if r not in seen:
-                seen.add(r)
-                uniq.append(r)
-        return uniq[:15]
-
-    # ------------------------------------------------------------------
-    # History & Introspection
-    # ------------------------------------------------------------------
-
-    def _append_history(self, step: UnifiedAIStepResult):
-        self.history.append(step)
-        if len(self.history) > self.max_history:
-            self.history = self.history[-self.max_history:]
-
-    def status(self) -> Dict[str, Any]:
-        return {
-            "system_status": self.system_status,
-            "trained": self.system_status == "trained",
-            "anomaly_status": self.anomaly_system.status(),
-            "prediction_trained": self.prediction_engine.is_trained,
-            "active_prediction_model": self.prediction_engine.active_model_name,
-            "history_count": len(self.history),
-            "last_step": self.history[-1].to_dict() if self.history else None,
-            "next_retrain_due": self._next_retrain_time().isoformat() if self._next_retrain_time() else None
-        }
-
-
-# =====================================================================================
-# Factory
-# =====================================================================================
-
-def create_ai_system_manager(config: Dict[str, Any], **kwargs) -> AISystemManager:
-    return AISystemManager(config, **kwargs)
-
-
-# =====================================================================================
-# __all__
-# =====================================================================================
-
-__all__ = [
-    "ForecastResult",
-    "DriftReport",
-    "AdaptiveLearningSummary",
-    "UnifiedAIStepResult",
-    "PredictionEngine",
-    "DriftMonitor",
-    "FeedbackBuffer",
-    "ActiveLearningController",
-    "AISystemManager",
-    "create_ai_system_manager"
-      ]
+            "forecast_confidence": forecast.aggregate_confidence,
+            "features_missing": forecast.features_
