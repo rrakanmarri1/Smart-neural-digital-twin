@@ -7,8 +7,8 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, List, Set
 
 import streamlit as st
 
@@ -32,7 +32,7 @@ try:
 except Exception as e:
     IMPORT_ERRORS.append(f"config_and_logging: {e}")
 
-APP_VERSION = "2.0.0-ssclass"
+APP_VERSION = "2.1.0-ssclass-dynamic"  # Updated version with dynamic sensor support
 
 # --------------------------------------------------------------------------------------------------
 # Simulation Fallback (Emergency Mode)
@@ -56,11 +56,14 @@ class _EmergencySimulationTwin:
             "system_status": "SIMULATION",
             "sensor_grid_status": {
                 "active_sensors": 6,
-                "simulated_sensors": 2,
+                "simulated_sensors": 6,
                 "failed_sensors": 0,
                 "grid_health": 0.86,
-                "average_confidence": 0.91
+                "average_confidence": 0.91,
+                "last_update": datetime.utcnow().isoformat()
             },
+            "physical_sensor_count": 0,
+            "total_sensor_count": 6,
             "overall_risk": {"overall_level": "LOW"},
             "performance_metrics": {
                 "processed_cycles": 0,
@@ -70,6 +73,7 @@ class _EmergencySimulationTwin:
                 "ai_samples": 0
             },
             "real_time_data_sample": self._sample,
+            "raspberry_pi_active": False,
             "ss_rating": "SIM-CLASS",
             "overall_confidence": 0.85,
             "last_update": datetime.utcnow().isoformat()
@@ -79,12 +83,91 @@ class _EmergencySimulationTwin:
     def sensor_grid_status(self) -> Dict[str, Any]:
         return {
             "active_sensors": 6,
-            "grid_health": 0.86
+            "simulated_sensors": 6,
+            "failed_sensors": 0,
+            "grid_health": 0.86,
+            "last_update": datetime.utcnow().isoformat()
         }
 
     @property
     def real_time_data(self) -> Dict[str, float]:
         return self._sample
+
+
+# --------------------------------------------------------------------------------------------------
+# Sensor Management
+# --------------------------------------------------------------------------------------------------
+
+class SensorRegistry:
+    """
+    Tracks detected sensors, their status, and configuration
+    """
+    def __init__(self):
+        self.known_sensors: Set[str] = set()
+        self.physical_sensors: Set[str] = set()
+        self.simulated_sensors: Set[str] = set()
+        self.sensor_types: Dict[str, str] = {}
+        self.last_scan_time = datetime.utcnow()
+        self.scan_interval = timedelta(minutes=5)  # Check for new sensors every 5 minutes
+        self.new_sensors_detected = False
+        
+    def register_sensor(self, sensor_name: str, is_physical: bool = False, sensor_type: str = "UNKNOWN"):
+        """Register a new sensor in the registry"""
+        self.known_sensors.add(sensor_name)
+        if is_physical:
+            self.physical_sensors.add(sensor_name)
+        else:
+            self.simulated_sensors.add(sensor_name)
+        self.sensor_types[sensor_name] = sensor_type
+        
+    def update_from_twin(self, twin: SmartNeuralDigitalTwin) -> bool:
+        """Update registry from twin and return whether new sensors were detected"""
+        if not twin:
+            return False
+            
+        status = {}
+        try:
+            status = twin.get_enhanced_system_status()
+        except:
+            return False
+            
+        # Get all available sensors from real-time data
+        data = getattr(twin, "real_time_data", {}) or {}
+        
+        # Get physical sensors
+        physical_count = status.get("physical_sensor_count", 0)
+        physical_sensors = set()
+        for sensor, info in status.get("sensors", {}).items():
+            if info.get("is_physical", False):
+                physical_sensors.add(sensor)
+                
+        # Process all sensors
+        new_detected = False
+        for sensor in data.keys():
+            is_physical = sensor in physical_sensors
+            
+            if sensor not in self.known_sensors:
+                sensor_type = "PHYSICAL" if is_physical else "SIMULATED"
+                self.register_sensor(sensor, is_physical, sensor_type)
+                new_detected = True
+                
+        self.last_scan_time = datetime.utcnow()
+        self.new_sensors_detected = new_detected
+        return new_detected
+        
+    def should_scan(self) -> bool:
+        """Check if it's time to scan for new sensors"""
+        return datetime.utcnow() >= self.last_scan_time + self.scan_interval
+        
+    def summary(self) -> Dict[str, Any]:
+        """Get summary information about detected sensors"""
+        return {
+            "total_sensors": len(self.known_sensors),
+            "physical_sensors": len(self.physical_sensors),
+            "simulated_sensors": len(self.simulated_sensors),
+            "last_scan": self.last_scan_time.isoformat(),
+            "new_detected": self.new_sensors_detected
+        }
 
 
 # --------------------------------------------------------------------------------------------------
@@ -95,6 +178,7 @@ class SmartNeuralApp:
     """
     Main application class for the Smart Neural Digital Twin.
     Handles initialization, emergency fallback, and runtime execution.
+    Enhanced with dynamic sensor detection and monitoring.
     """
     def __init__(self):
         self.config: Optional[SmartConfig] = None
@@ -103,6 +187,7 @@ class SmartNeuralApp:
         self.dashboard: Optional[AdvancedDashboard] = None
         self._initialized = False
         self._emergency_mode = False
+        self.sensor_registry = SensorRegistry()
         self._bootstrap()
 
     # ----------------------------------------------------------------------------------
@@ -121,6 +206,9 @@ class SmartNeuralApp:
         try:
             self._render_loading_sequence()
             self.smart_twin = self._create_twin()
+            # Initialize sensor registry from twin
+            if self.smart_twin:
+                self.sensor_registry.update_from_twin(self.smart_twin)
             self.dashboard = self._create_dashboard()
             self._initialized = True
             self._welcome_banner()
@@ -137,7 +225,7 @@ class SmartNeuralApp:
             menu_items={
                 "About": f"""
                 ### 🧠 Smart Neural Digital Twin
-                Advanced Oil Field Disaster Prevention Platform
+                Advanced Oil Field Disaster Prevention Platform with Dynamic Sensor Support
 
                 Version: {APP_VERSION}
                 """
@@ -193,7 +281,8 @@ class SmartNeuralApp:
         progress = st.progress(0)
         steps = [
             ("Loading Configuration", 10),
-            ("Initializing Sensor Grid", 25),
+            ("Initializing Sensor Grid", 20),
+            ("Scanning for Physical Sensors", 30),
             ("Bootstrapping AI Manager", 45),
             ("Warming Prediction Engines", 65),
             ("Establishing Safety Layer", 80),
@@ -215,10 +304,10 @@ class SmartNeuralApp:
         placeholder.empty()
 
     def _create_twin(self) -> SmartNeuralDigitalTwin:
-        """Create the Smart Neural Digital Twin instance."""
+        """Create the Smart Neural Digital Twin instance with dynamic sensor support."""
         if not self.logger:
             raise RuntimeError("Logger unavailable during twin creation.")
-        self.logger.info("Creating Smart Neural Digital Twin...")
+        self.logger.info("Creating Smart Neural Digital Twin with dynamic sensor support...")
         twin = create_smart_neural_twin()
         self.logger.info("Twin created.")
         atexit.register(self._safe_shutdown)
@@ -237,6 +326,10 @@ class SmartNeuralApp:
 
     def _welcome_banner(self):
         """Display a welcome banner when the application successfully initializes."""
+        # Get sensor information for the welcome banner
+        sensor_info = self.sensor_registry.summary()
+        physical_count = sensor_info.get("physical_sensors", 0)
+        
         st.markdown(f"""
         <div style="text-align:center;padding:1.5rem 1rem;
              background:linear-gradient(135deg,#065f46,#047857);
@@ -246,7 +339,9 @@ class SmartNeuralApp:
           <p style="color:#d1fae5;margin:0;font-size:.85rem;">
             Real-time anomaly detection & multi-horizon predictive analytics are active.
           </p>
-          <p style="color:#a7f3d0;margin:.35rem 0 0;font-size:.7rem;">Version {APP_VERSION}</p>
+          <p style="color:#a7f3d0;margin:.35rem 0 0;font-size:.7rem;">
+            Version {APP_VERSION} | {physical_count} physical sensors detected
+          </p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -293,11 +388,15 @@ class SmartNeuralApp:
             self._render_no_dashboard_state()
             return
 
+        # Periodic sensor scan if appropriate
+        self._check_for_new_sensors()
+        
         # Dashboard main rendering
         self.dashboard.run_dashboard()
 
         # Session & Debug
         self._session_management()
+        self._sensor_management_ui()
         self._debug_sidebar()
 
     def _render_no_dashboard_state(self):
@@ -307,6 +406,67 @@ class SmartNeuralApp:
             st.experimental_rerun()
         if self._emergency_mode:
             st.info("Emergency simulation active, but dashboard could not be initialized.")
+
+    def _check_for_new_sensors(self):
+        """Check for new sensors if scan interval has elapsed"""
+        if not self._emergency_mode and self.sensor_registry.should_scan() and self.smart_twin:
+            new_sensors = self.sensor_registry.update_from_twin(self.smart_twin)
+            if new_sensors and self.logger:
+                self.logger.info(f"New sensors detected during periodic scan")
+                # Force refresh to show new sensors
+                st.experimental_rerun()
+
+    # ----------------------------------------------------------------------------------
+    # Sensor Management UI
+    # ----------------------------------------------------------------------------------
+
+    def _sensor_management_ui(self):
+        """Render the sensor management UI section"""
+        if self._emergency_mode:
+            return
+            
+        sensor_summary = self.sensor_registry.summary()
+        
+        with st.sidebar.expander("🔌 Sensor Management", expanded=False):
+            st.markdown("### Sensor Status")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Physical Sensors", sensor_summary.get("physical_sensors", 0))
+            with col2:
+                st.metric("Simulated Sensors", sensor_summary.get("simulated_sensors", 0))
+                
+            st.markdown(f"Last Scan: {datetime.fromisoformat(sensor_summary.get('last_scan', datetime.utcnow().isoformat())).strftime('%H:%M:%S')}")
+            
+            if st.button("Scan for New Sensors"):
+                if self.smart_twin:
+                    with st.spinner("Scanning..."):
+                        new_detected = self.sensor_registry.update_from_twin(self.smart_twin)
+                    if new_detected:
+                        st.success("New sensors detected!")
+                    else:
+                        st.info("No new sensors found.")
+                    time.sleep(1)
+                    st.experimental_rerun()
+                else:
+                    st.error("Twin not available for sensor scan.")
+                    
+            # Show sensors that have been detected
+            with st.expander("Detected Sensors", expanded=False):
+                if self.sensor_registry.known_sensors:
+                    physical = sorted(list(self.sensor_registry.physical_sensors))
+                    simulated = sorted(list(self.sensor_registry.simulated_sensors))
+                    
+                    if physical:
+                        st.markdown("**Physical Sensors:**")
+                        for sensor in physical:
+                            st.markdown(f"- {sensor}")
+                            
+                    if simulated:
+                        st.markdown("**Simulated Sensors:**")
+                        for sensor in simulated:
+                            st.markdown(f"- {sensor}")
+                else:
+                    st.info("No sensors detected yet.")
 
     # ----------------------------------------------------------------------------------
     # Session Management & Debug
@@ -353,12 +513,17 @@ class SmartNeuralApp:
                                            file_name=f"config_snapshot_{datetime.utcnow().strftime('%Y%m%d_%H%M:%S')}.json",
                                            mime="application/json")
 
+            # Add system status with dynamic sensor information
             if st.checkbox("Show System Status JSON", value=False):
                 try:
                     status = self.smart_twin.get_enhanced_system_status()  # type: ignore
                     st.json(status)
                 except Exception as e:
                     st.error(f"Status error: {e}")
+                    
+            # Add sensor registry information
+            if st.checkbox("Show Sensor Registry", value=False):
+                st.json(self.sensor_registry.summary())
 
             if st.checkbox("Show Log Tail", value=False):
                 if self.config:
@@ -369,6 +534,23 @@ class SmartNeuralApp:
             if st.checkbox("Show Environment", value=False):
                 env_preview = {k: v for k, v in os.environ.items() if k.startswith("SMART_TWIN__")}
                 st.json(env_preview)
+                
+            # Add AI model information for dynamic sensors
+            if not self._emergency_mode and st.checkbox("Show AI System Status", value=False):
+                try:
+                    # Get anomaly system status if available
+                    if hasattr(self.smart_twin, "ai_manager") and hasattr(self.smart_twin.ai_manager, "anomaly_system"):
+                        anomaly_status = self.smart_twin.ai_manager.anomaly_system.status()
+                        st.subheader("Anomaly System")
+                        st.json(anomaly_status)
+                        
+                    # Get prediction engine status if available
+                    if hasattr(self.smart_twin, "ai_manager") and hasattr(self.smart_twin.ai_manager, "prediction_engine"):
+                        prediction_status = self.smart_twin.ai_manager.prediction_engine.status()
+                        st.subheader("Prediction Engine")
+                        st.json(prediction_status)
+                except Exception as e:
+                    st.error(f"AI status error: {e}")
 
     # ----------------------------------------------------------------------------------
     # Shutdown
