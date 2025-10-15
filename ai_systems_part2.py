@@ -385,9 +385,18 @@ class PredictionEngine:
         set_all_seeds(seed)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.seq_len = int(safe_config_get(config, "prediction.sequence_length", 50))
+        # Fix for TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'
+        seq_len_config = safe_config_get(config, "prediction.sequence_length")
+        self.seq_len = int(seq_len_config) if seq_len_config is not None else 50
+        
         horizons_cfg = safe_config_get(config, "prediction.horizons", {"short": 6, "medium": 24, "long": 72})
-        self.horizons = {k: int(v) for k, v in horizons_cfg.items()}
+        # Add protection against None values in horizons
+        self.horizons = {}
+        for k, v in horizons_cfg.items():
+            if v is not None:
+                self.horizons[k] = int(v)
+            else:
+                self.horizons[k] = 6  # Default value if None
 
         self.scaler_mean: np.ndarray = None
         self.scaler_std: np.ndarray = None
@@ -929,6 +938,7 @@ class PredictionEngine:
             with open(self.model_dir / "meta.json", "r", encoding="utf-8") as f:
                 meta = json.load(f)
                 
+            # Add safety check for None values
             self.seq_len = meta.get("seq_len", self.seq_len)
             self.active_model_name = meta.get("active_model")
             
@@ -1177,7 +1187,14 @@ class AISystemManager:
 
         # Scheduling
         self.last_retrain: Optional[datetime] = None
-        self.retrain_interval = timedelta(hours=float(safe_config_get(config, "prediction.train.retrain_hours", 12)))
+        
+        # Fix for None value issue - defensive coding
+        retrain_hours = safe_config_get(config, "prediction.train.retrain_hours")
+        if retrain_hours is None:
+            retrain_hours = 12
+        else:
+            retrain_hours = float(retrain_hours)
+        self.retrain_interval = timedelta(hours=retrain_hours)
 
         # State
         self.system_status = "initializing"
@@ -1221,9 +1238,17 @@ class AISystemManager:
         self.anomaly_system.train(training_records)
         # Forecast
         pred_train_cfg = safe_config_get(self.config, "prediction.train", {})
-        epochs = int(pred_train_cfg.get("epochs", 100))
-        patience = int(pred_train_cfg.get("patience", 12))
-        lr = float(pred_train_cfg.get("lr", 1e-3))
+        
+        # Fix for None values in config - defensive coding
+        epochs = pred_train_cfg.get("epochs", 100)
+        epochs = int(epochs) if epochs is not None else 100
+        
+        patience = pred_train_cfg.get("patience", 12)
+        patience = int(patience) if patience is not None else 12
+        
+        lr = pred_train_cfg.get("lr", 1e-3)
+        lr = float(lr) if lr is not None else 1e-3
+        
         self.prediction_engine.train(
             training_records,
             val_split=pred_train_cfg.get("val_split", 0.15),
@@ -1362,77 +1387,4 @@ class AISystemManager:
             feature_order = self.prediction_engine.feature_manager.current_features
             actual_vec = np.array([sensor_sample.get(f, 0.0) for f in feature_order])
             
-            # Ensure dimensions match (use minimum)
-            min_dim = min(actual_vec.shape[0], first_step_pred.shape[0])
-            actual_vec = actual_vec[:min_dim]
-            first_step_pred = first_step_pred[:min_dim]
-            
-            # Calculate residuals
-            residual_vec = actual_vec - first_step_pred
-            
-            # Update drift monitor
-            self.drift_monitor.update(residual_vec, actual_vec)
-            return self.drift_monitor.report()
-        except Exception as e:
-            logger.error(f"Drift update failed: {e}")
-            return DriftReport(
-                model_drift_detected=False,
-                feature_drift_detected=False,
-                model_drift_p_value=1.0,
-                feature_drift_summary={"error": str(e)},
-                recent_error_mean=0.0,
-                baseline_error_mean=0.0
-            )
-
-    def _next_retrain_time(self) -> Optional[datetime]:
-        """Calculate next scheduled retraining time"""
-        # If we have sensor changes, recommend retraining sooner
-        if not self.last_retrain:
-            return None
-            
-        if self.anomaly_system.needs_retraining or self.prediction_engine.needs_retraining:
-            # Suggest retraining in 1/4 of the normal interval if changes detected
-            return self.last_retrain + (self.retrain_interval / 4)
-            
-        return self.last_retrain + self.retrain_interval
-
-    def _conditional_retrain(self):
-        """
-        Check if retraining is needed based on:
-        - Scheduled intervals
-        - Feature set changes
-        - Drift detection
-        """
-        if not self.last_retrain:
-            return
-            
-        now = datetime.utcnow()
-        
-        # Check if either subsystem needs retraining due to feature changes
-        features_changed = (hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining) or \
-                           self.prediction_engine.needs_retraining
-                           
-        # Schedule sooner if features changed
-        interval = self.retrain_interval / 4 if features_changed else self.retrain_interval
-        
-        if now >= self.last_retrain + interval:
-            logger.info(f"Scheduled retraining due: interval={interval}, features_changed={features_changed}")
-            # In real system, would trigger async job here
-            self.last_retrain = now
-
-    # ------------------------------------------------------------------
-    # Risk Fusion
-    # ------------------------------------------------------------------
-
-    def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
-        """Combine risk assessments from multiple subsystems"""
-        priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
-        anomaly_rank = priority_order.get(anomaly.risk_level, 0)
-        forecast_rank = priority_order.get(forecast.risk_level, 0)
-        
-        # Bump up risk if features are missing or models need retraining
-        if forecast.features_missing or forecast.retraining_recommended:
-            forecast_rank = max(forecast_rank, 2)  # At least MEDIUM
-            
-        composite_rank = max(anomaly_rank, forecast_rank)
-        inverse_map = {v: k for k, v in priority_order.items()}
+            # Ensure dimensions match (use
