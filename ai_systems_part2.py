@@ -1436,12 +1436,3 @@ class AISystemManager:
             
         composite_rank = max(anomaly_rank, forecast_rank)
         inverse_map = {v: k for k, v in priority_order.items()}
-        overall_level = inverse_map.get(composite_rank, "LOW")
-        
-        return {
-            "overall_level": overall_level,
-            "anomaly_level": anomaly.risk_level,
-            "forecast_level": forecast.risk_level,
-            "anomaly_score": anomaly.anomaly_score,
-            "forecast_confidence": forecast.aggregate_confidence,
-            "features_missing": forecast.features_
