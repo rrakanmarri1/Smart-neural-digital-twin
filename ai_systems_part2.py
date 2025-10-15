@@ -1449,6 +1449,91 @@ class AISystemManager:
     # Risk Fusion
     # ------------------------------------------------------------------
 
-    def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
+       def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
         """Combine risk assessments from multiple subsystems"""
-        priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4
+        priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
+        anomaly_rank = priority_order.get(anomaly.risk_level, 0)
+        forecast_rank = priority_order.get(forecast.risk_level, 0)
+        
+        # Bump up risk if features are missing or models need retraining
+        if forecast.features_missing or forecast.retraining_recommended:
+            forecast_rank = max(forecast_rank, 2)  # At least MEDIUM
+            
+        composite_rank = max(anomaly_rank, forecast_rank)
+        inverse_map = {v: k for k, v in priority_order.items()}
+        overall_level = inverse_map.get(composite_rank, "LOW")
+        
+        return {
+            "overall_level": overall_level,
+            "anomaly_level": anomaly.risk_level,
+            "forecast_level": forecast.risk_level,
+            "anomaly_score": anomaly.anomaly_score,
+            "forecast_confidence": forecast.aggregate_confidence,
+            "features_missing": forecast.features_missing,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    def _combine_recommendations(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult,
+                                 adaptive: AdaptiveLearningSummary) -> List[str]:
+        """Merge recommendations from multiple AI subsystems with deduplication"""
+        combined = []
+        
+        # First anomaly recs - they have highest priority
+        combined.extend(anomaly.recommendations)
+        
+        # Add forecast recs if not duplicated
+        for rec in forecast.recommendations:
+            # Simple duplication check - exact match only
+            if rec not in combined:
+                combined.append(rec)
+        
+        # Add adaptive recs about retraining
+        if adaptive.sensor_set_changed and not forecast.retraining_recommended:
+            combined.append("Retrain models to incorporate sensor configuration changes.")
+            
+        if adaptive.drift_report.model_drift_detected:
+            combined.append("Significant model drift detected. Schedule model retraining.")
+            
+        # Cap at reasonable limit
+        return combined[:15]
+    
+    def _append_history(self, step: UnifiedAIStepResult):
+        """Add step to history with bounds checking"""
+        self.history.append(step)
+        if len(self.history) > self.max_history:
+            self.history = self.history[-self.max_history:]
+    
+    def status(self) -> Dict[str, Any]:
+        """Return detailed system status information"""
+        now = datetime.utcnow()
+        
+        anomaly_status = {}
+        if hasattr(self.anomaly_system, 'status'):
+            anomaly_status = self.anomaly_system.status()
+        
+        prediction_status = self.prediction_engine.status()
+        
+        # Get most recent adaptive summary if available
+        adaptive_summary = None
+        if self.history:
+            adaptive_summary = self.history[-1].adaptive.to_dict()
+        
+        # Count of new sensors detected since initialization
+        new_sensor_count = 0
+        for update in self.sensor_update_history:
+            new_sensor_count += len(update.get("new_sensors", []))
+            
+        return {
+            "status": self.system_status,
+            "last_retrain": self.last_retrain.isoformat() if self.last_retrain else None,
+            "next_retrain_due": self._next_retrain_time().isoformat() if self._next_retrain_time() else None,
+            "anomaly_system": anomaly_status,
+            "prediction_engine": prediction_status,
+            "dynamic_sensors": {
+                "new_sensors_detected": new_sensor_count,
+                "last_sensor_change": self.sensor_set_last_changed.isoformat() if self.sensor_set_last_changed else None,
+            },
+            "adaptive": adaptive_summary,
+            "history_size": len(self.history),
+            "timestamp": now.isoformat()
+        }
