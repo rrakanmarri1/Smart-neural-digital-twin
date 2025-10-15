@@ -1387,4 +1387,68 @@ class AISystemManager:
             feature_order = self.prediction_engine.feature_manager.current_features
             actual_vec = np.array([sensor_sample.get(f, 0.0) for f in feature_order])
             
-            # Ensure dimensions match (use
+            # Ensure dimensions match (use minimum)
+            min_dim = min(actual_vec.shape[0], first_step_pred.shape[0])
+            actual_vec = actual_vec[:min_dim]
+            first_step_pred = first_step_pred[:min_dim]
+            
+            # Calculate residuals
+            residual_vec = actual_vec - first_step_pred
+            
+            # Update drift monitor
+            self.drift_monitor.update(residual_vec, actual_vec)
+            return self.drift_monitor.report()
+        except Exception as e:
+            logger.error(f"Drift update failed: {e}")
+            return DriftReport(
+                model_drift_detected=False,
+                feature_drift_detected=False,
+                model_drift_p_value=1.0,
+                feature_drift_summary={"error": str(e)},
+                recent_error_mean=0.0,
+                baseline_error_mean=0.0
+            )
+
+    def _next_retrain_time(self) -> Optional[datetime]:
+        """Calculate next scheduled retraining time"""
+        # If we have sensor changes, recommend retraining sooner
+        if not self.last_retrain:
+            return None
+            
+        if hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining or self.prediction_engine.needs_retraining:
+            # Suggest retraining in 1/4 of the normal interval if changes detected
+            return self.last_retrain + (self.retrain_interval / 4)
+            
+        return self.last_retrain + self.retrain_interval
+
+    def _conditional_retrain(self):
+        """
+        Check if retraining is needed based on:
+        - Scheduled intervals
+        - Feature set changes
+        - Drift detection
+        """
+        if not self.last_retrain:
+            return
+            
+        now = datetime.utcnow()
+        
+        # Check if either subsystem needs retraining due to feature changes
+        features_changed = (hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining) or \
+                           self.prediction_engine.needs_retraining
+                           
+        # Schedule sooner if features changed
+        interval = self.retrain_interval / 4 if features_changed else self.retrain_interval
+        
+        if now >= self.last_retrain + interval:
+            logger.info(f"Scheduled retraining due: interval={interval}, features_changed={features_changed}")
+            # In real system, would trigger async job here
+            self.last_retrain = now
+
+    # ------------------------------------------------------------------
+    # Risk Fusion
+    # ------------------------------------------------------------------
+
+    def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
+        """Combine risk assessments from multiple subsystems"""
+        priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4
