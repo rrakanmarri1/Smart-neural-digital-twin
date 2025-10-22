@@ -42,7 +42,7 @@ logger.setLevel(logging.INFO)
 
 @dataclass
 class ForecastResult:
-    horizons: Dict[str, List[float]]
+    horizons: Dict[str, List[List[float]]]
     per_feature_confidence: Dict[str, float]
     aggregate_confidence: float
     risk_level: str
@@ -398,8 +398,8 @@ class PredictionEngine:
             else:
                 self.horizons[k] = 6  # Default value if None
 
-        self.scaler_mean: np.ndarray = None
-        self.scaler_std: np.ndarray = None
+        self.scaler_mean: Optional[np.ndarray] = None
+        self.scaler_std: Optional[np.ndarray] = None
 
         input_dim = len(feature_order)
         self.models: Dict[str, nn.Module] = self._create_models(input_dim)
@@ -477,18 +477,22 @@ class PredictionEngine:
             return array  # Can't scale without fitted scaler
             
         # Handle dimension mismatch
-        if array.shape[1] != len(self.scaler_mean):
-            logger.warning(f"Scale dimension mismatch: expected {len(self.scaler_mean)}, got {array.shape[1]}")
+        if array.shape[-1] != len(self.scaler_mean):
+            logger.warning(f"Scale dimension mismatch: expected {len(self.scaler_mean)}, got {array.shape[-1]}")
             
-            if array.shape[1] > len(self.scaler_mean):
+            if array.shape[-1] > len(self.scaler_mean):
                 # More features than scaler knows about - truncate
-                array = array[:, :len(self.scaler_mean)]
+                array = array[..., :len(self.scaler_mean)]
             else:
                 # Fewer features - use what we have and pad with zeros after scaling
-                result = np.zeros((array.shape[0], len(self.scaler_mean)))
+                result = np.zeros_like(array)
+                pad_shape = list(array.shape)
+                pad_shape[-1] = len(self.scaler_mean) - array.shape[-1]
+                padding = np.zeros(tuple(pad_shape))
+
                 # Scale what we can
-                scaled_part = (array - self.scaler_mean[:array.shape[1]]) / self.scaler_std[:array.shape[1]]
-                result[:, :array.shape[1]] = scaled_part
+                scaled_part = (array - self.scaler_mean[:array.shape[-1]]) / self.scaler_std[:array.shape[-1]]
+                result = np.concatenate([scaled_part, padding], axis=-1)
                 return result
                 
         return (array - self.scaler_mean) / self.scaler_std
@@ -499,16 +503,19 @@ class PredictionEngine:
             return array
             
         # Handle dimension mismatch
-        if array.shape[1] != len(self.scaler_mean):
-            if array.shape[1] > len(self.scaler_mean):
+        if array.shape[-1] != len(self.scaler_mean):
+            if array.shape[-1] > len(self.scaler_mean):
                 # More features than scaler knows about - truncate
-                array = array[:, :len(self.scaler_mean)]
+                array = array[..., :len(self.scaler_mean)]
             else:
                 # Fewer features - pad with zeros after inverse scaling
-                result = np.zeros((array.shape[0], len(self.scaler_mean)))
+                result = np.zeros_like(array)
+                pad_shape = list(array.shape)
+                pad_shape[-1] = len(self.scaler_mean) - array.shape[-1]
+                padding = np.zeros(tuple(pad_shape))
                 # Inverse scale what we can
-                inverse_scaled = array * self.scaler_std[:array.shape[1]] + self.scaler_mean[:array.shape[1]]
-                result[:, :array.shape[1]] = inverse_scaled
+                inverse_scaled = array * self.scaler_std[:array.shape[-1]] + self.scaler_mean[:array.shape[-1]]
+                result = np.concatenate([inverse_scaled, padding], axis=-1)
                 return result
                 
         return array * self.scaler_std + self.scaler_mean
@@ -517,7 +524,7 @@ class PredictionEngine:
         """
         Check if current feature set is compatible with trained models
         """
-        if not hasattr(self.active_model, "input_size"):
+        if not self.active_model or not hasattr(self.active_model, "input_size"):
             return {"compatible": False, "reason": "Model does not expose input size"}
             
         model_input_size = getattr(self.active_model, "input_size")
@@ -717,7 +724,7 @@ class PredictionEngine:
 
         self.active_model.eval()
         with torch.no_grad():
-            horizon_outputs: Dict[str, List[float]] = {}
+            horizon_outputs: Dict[str, List[List[float]]] = {}
             per_feature_conf: Dict[str, float] = {}
             all_conf_factors = []
 
@@ -731,7 +738,7 @@ class PredictionEngine:
                     appended = torch.cat([working_seq[:, 1:, :], pred.unsqueeze(1)], dim=1)
                     working_seq = appended
 
-                preds_scaled_array = np.array(preds_scaled_accum)  # shape (steps, features)
+                preds_scaled_array = np.squeeze(np.array(preds_scaled_accum), axis=1) # Squeeze batch dimension
                 preds_array = self._inverse_scale(preds_scaled_array)
                 
                 # Map predictions back to feature names
@@ -745,7 +752,7 @@ class PredictionEngine:
                 # Map confidence to feature names
                 expected_output_dim = getattr(self.active_model, "output_size", len(self.feature_manager.current_features))
                 for i, f in enumerate(self.feature_manager.current_features[:expected_output_dim]):
-                    if f not in per_feature_conf and i < len(conf):
+                    if f not in per_feature_conf:
                         per_feature_conf[f] = 0.0
                     if i < len(conf):
                         per_feature_conf[f] += conf[i] / len(self.horizons)
@@ -1102,22 +1109,44 @@ class DriftMonitor:
 class FeedbackBuffer:
     """
     Stores user/automatic feedback entries with capped retention.
+    Saves to a persistent file.
     """
-
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000, filepath: str = "data/lifelong_memory.json"):
         self.max_size = max_size
-        self.buffer: List[Dict[str, Any]] = []
+        self.filepath = Path(filepath)
+        self.buffer: List[Dict[str, Any]] = self._load()
 
-    def add(self, prediction: ForecastResult, actual_sample: Dict[str, Any], meta: Dict[str, Any]):
+    def _load(self) -> List[Dict[str, Any]]:
+        if self.filepath.exists():
+            try:
+                with open(self.filepath, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                logger.error(f"Failed to load lifelong memory buffer: {e}")
+        return []
+
+    def _save(self):
+        try:
+            self.filepath.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                json.dump(self.buffer, f, indent=2)
+        except IOError as e:
+            logger.error(f"Failed to save lifelong memory buffer: {e}")
+
+    def add(self, event_type: str, data: Dict[str, Any], meta: Dict[str, Any]):
         entry = {
             "timestamp": datetime.utcnow().isoformat(),
-            "prediction": prediction.to_dict(),
-            "actual": actual_sample,
+            "event_type": event_type,
+            "data": data,
             "meta": meta
         }
         self.buffer.append(entry)
         if len(self.buffer) > self.max_size:
             self.buffer = self.buffer[-self.max_size:]
+        self._save()
+
+    def get_all(self) -> List[Dict[str, Any]]:
+        return self.buffer
 
     def size(self) -> int:
         return len(self.buffer)
@@ -1289,7 +1318,7 @@ class AISystemManager:
         # Check if we should sample for potential retraining
         sampled = False
         if self.active_learning.should_sample(forecast_result):
-            self.feedback_buffer.add(forecast_result, sensor_sample, {"reason": "active_learning_trigger"})
+            self.feedback_buffer.add("active_learning_trigger", forecast_result.to_dict(), {"reason": "Low confidence or high risk"})
             sampled = True
 
         # Create adaptive summary with sensor change information
@@ -1388,152 +1417,3 @@ class AISystemManager:
             actual_vec = np.array([sensor_sample.get(f, 0.0) for f in feature_order])
             
             # Ensure dimensions match (use minimum)
-            min_dim = min(actual_vec.shape[0], first_step_pred.shape[0])
-            actual_vec = actual_vec[:min_dim]
-            first_step_pred = first_step_pred[:min_dim]
-            
-            # Calculate residuals
-            residual_vec = actual_vec - first_step_pred
-            
-            # Update drift monitor
-            self.drift_monitor.update(residual_vec, actual_vec)
-            return self.drift_monitor.report()
-        except Exception as e:
-            logger.error(f"Drift update failed: {e}")
-            return DriftReport(
-                model_drift_detected=False,
-                feature_drift_detected=False,
-                model_drift_p_value=1.0,
-                feature_drift_summary={"error": str(e)},
-                recent_error_mean=0.0,
-                baseline_error_mean=0.0
-            )
-
-    def _next_retrain_time(self) -> Optional[datetime]:
-        """Calculate next scheduled retraining time"""
-        # If we have sensor changes, recommend retraining sooner
-        if not self.last_retrain:
-            return None
-            
-        if hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining or self.prediction_engine.needs_retraining:
-            # Suggest retraining in 1/4 of the normal interval if changes detected
-            return self.last_retrain + (self.retrain_interval / 4)
-            
-        return self.last_retrain + self.retrain_interval
-
-    def _conditional_retrain(self):
-        """
-        Check if retraining is needed based on:
-        - Scheduled intervals
-        - Feature set changes
-        - Drift detection
-        """
-        if not self.last_retrain:
-            return
-            
-        now = datetime.utcnow()
-        
-        # Check if either subsystem needs retraining due to feature changes
-        features_changed = (hasattr(self.anomaly_system, "needs_retraining") and self.anomaly_system.needs_retraining) or \
-                           self.prediction_engine.needs_retraining
-                           
-        # Schedule sooner if features changed
-        interval = self.retrain_interval / 4 if features_changed else self.retrain_interval
-        
-        if now >= self.last_retrain + interval:
-            logger.info(f"Scheduled retraining due: interval={interval}, features_changed={features_changed}")
-            # In real system, would trigger async job here
-            self.last_retrain = now
-
-    # ------------------------------------------------------------------
-    # Risk Fusion
-    # ------------------------------------------------------------------
-
-       def _overall_risk_fusion(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult) -> Dict[str, Any]:
-        """Combine risk assessments from multiple subsystems"""
-        priority_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
-        anomaly_rank = priority_order.get(anomaly.risk_level, 0)
-        forecast_rank = priority_order.get(forecast.risk_level, 0)
-        
-        # Bump up risk if features are missing or models need retraining
-        if forecast.features_missing or forecast.retraining_recommended:
-            forecast_rank = max(forecast_rank, 2)  # At least MEDIUM
-            
-        composite_rank = max(anomaly_rank, forecast_rank)
-        inverse_map = {v: k for k, v in priority_order.items()}
-        overall_level = inverse_map.get(composite_rank, "LOW")
-        
-        return {
-            "overall_level": overall_level,
-            "anomaly_level": anomaly.risk_level,
-            "forecast_level": forecast.risk_level,
-            "anomaly_score": anomaly.anomaly_score,
-            "forecast_confidence": forecast.aggregate_confidence,
-            "features_missing": forecast.features_missing,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-
-    def _combine_recommendations(self, anomaly: AnomalyDetectionResult, forecast: ForecastResult,
-                                 adaptive: AdaptiveLearningSummary) -> List[str]:
-        """Merge recommendations from multiple AI subsystems with deduplication"""
-        combined = []
-        
-        # First anomaly recs - they have highest priority
-        combined.extend(anomaly.recommendations)
-        
-        # Add forecast recs if not duplicated
-        for rec in forecast.recommendations:
-            # Simple duplication check - exact match only
-            if rec not in combined:
-                combined.append(rec)
-        
-        # Add adaptive recs about retraining
-        if adaptive.sensor_set_changed and not forecast.retraining_recommended:
-            combined.append("Retrain models to incorporate sensor configuration changes.")
-            
-        if adaptive.drift_report.model_drift_detected:
-            combined.append("Significant model drift detected. Schedule model retraining.")
-            
-        # Cap at reasonable limit
-        return combined[:15]
-    
-    def _append_history(self, step: UnifiedAIStepResult):
-        """Add step to history with bounds checking"""
-        self.history.append(step)
-        if len(self.history) > self.max_history:
-            self.history = self.history[-self.max_history:]
-    
-    def status(self) -> Dict[str, Any]:
-        """Return detailed system status information"""
-        now = datetime.utcnow()
-        
-        anomaly_status = {}
-        if hasattr(self.anomaly_system, 'status'):
-            anomaly_status = self.anomaly_system.status()
-        
-        prediction_status = self.prediction_engine.status()
-        
-        # Get most recent adaptive summary if available
-        adaptive_summary = None
-        if self.history:
-            adaptive_summary = self.history[-1].adaptive.to_dict()
-        
-        # Count of new sensors detected since initialization
-        new_sensor_count = 0
-        for update in self.sensor_update_history:
-            new_sensor_count += len(update.get("new_sensors", []))
-            
-        return {
-            "status": self.system_status,
-            "last_retrain": self.last_retrain.isoformat() if self.last_retrain else None,
-            "next_retrain_due": self._next_retrain_time().isoformat() if self._next_retrain_time() else None,
-            "anomaly_system": anomaly_status,
-            "prediction_engine": prediction_status,
-            "dynamic_sensors": {
-                "new_sensors_detected": new_sensor_count,
-                "last_sensor_change": self.sensor_set_last_changed.isoformat() if self.sensor_set_last_changed else None,
-            },
-            "adaptive": adaptive_summary,
-            "history_size": len(self.history),
-            "timestamp": now.isoformat()
-        }
