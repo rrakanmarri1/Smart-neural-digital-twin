@@ -246,7 +246,7 @@ class SmartNeuralApp:
 
 def main():
     """Main entry point for the application."""
-    if "app" not in st.session_state:
+    if "final_app" not in st.session_state:
         st.session_state.app = SmartNeuralApp()
     
     st.session_state.app.run()
