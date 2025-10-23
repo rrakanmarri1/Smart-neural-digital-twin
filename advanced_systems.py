@@ -305,7 +305,7 @@ class AdvancedDashboard:
         <div style="text-align:center;padding:.75rem 0 .25rem 0;">
           <div style="font-size:2rem;">🧠</div>
           <h3 style="color:#fff;margin:.25rem 0 .25rem 0;font-weight:600;">Smart Neural Digital Twin</h3>
-          <div style="color:#cbd5e1;font-size:.75rem;letter-spacing:1px;">S-CLASS MONITORING CONSOLE</div>
+          <div style="color:#cbd5e1;font-size:.75rem;letter-spacing:1px;"> MONITORING DASHBOARD</div>
         </div>
         """, unsafe_allow_html=True)
         st.markdown(SECTION_DIVIDER)
@@ -386,7 +386,7 @@ class AdvancedDashboard:
                 )
                 if st.button(f"Ack {alert.level.value}", key=f"ack_{alert.timestamp.timestamp()}"):
                     alert.acknowledged = True
-                    st.experimental_rerun()
+                    st.rerun()
 
         # Mini alert creation (for testing)
         with st.expander("Add Test Alert"):
@@ -396,10 +396,10 @@ class AdvancedDashboard:
             if st.button("Add Alert"):
                 self.add_alert(AlertLevel(new_level), new_title, new_msg, "Operator")
                 st.success("Inserted.")
-                st.experimental_rerun()
+                st.rerun()
 
     # ------------------------------------------------------------------
-    # Section: Physical Sensors (New)
+    # Section: Physical Sensors 
     # ------------------------------------------------------------------
 
     def _section_physical_sensors(self):
@@ -461,7 +461,7 @@ class AdvancedDashboard:
                 # This would trigger a sensor rescan if implemented in the backend
                 self.add_alert(AlertLevel.INFO, "Sensor Rescan", "Initiated manual sensor detection scan", "Operator")
                 st.success("Sensor rescan initiated")
-                st.experimental_rerun()
+                st.rerun()
 
     # ------------------------------------------------------------------
     # Section: Foresight Controls
@@ -502,7 +502,7 @@ class AdvancedDashboard:
         with send_cols[1]:
             if st.button("Clear Chat"):
                 st.session_state.chat_history = []
-                st.experimental_rerun()
+                st.rerun()
 
     def _process_chat(self, user_input: str):
         st.session_state.chat_history.append(f"**👤 You:** {user_input}")
@@ -615,7 +615,7 @@ class AdvancedDashboard:
                 for alert in st.session_state.alerts:
                     alert.acknowledged = True
                 self.add_alert(AlertLevel.INFO, "Alerts Reset", "All active alerts acknowledged", "System")
-                st.experimental_rerun()
+                st.rerun()
 
     # ------------------------------------------------------------------
     # Section: AI Insights
@@ -653,7 +653,7 @@ class AdvancedDashboard:
                   Smart Neural Digital Twin
                 </h1>
                 <div style="color:#94a3b8;font-size:.85rem;margin-top:-4px;">
-                  Oil Field Disaster Prevention Console (S-Class)
+                  Oil Field Disaster Prevention Console 
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -837,7 +837,6 @@ class AdvancedDashboard:
             st.write(f"- Processed Loops: {status.get('performance_metrics',{}).get('processed_cycles',0)}")
             st.write(f"- Emergencies: {status.get('performance_metrics',{}).get('emergency_events',0)}")
             st.write(f"- Avg Proc Time: {status.get('performance_metrics',{}).get('avg_cycle_time',0):.3f}s")
-            st.write(f"- SS Rating: {status.get('ss_rating','N/A')}")
 
     # ------------------------------------------------------------------
     # Plotting Helpers
@@ -1207,14 +1206,14 @@ class AdvancedDashboard:
         with refresh_col3:
             if st.button("Manual Refresh"):
                 st.session_state.last_refresh_ts = time.time()
-                st.experimental_rerun()
+                st.rerun()
 
         if auto:
             desired = AUTO_REFRESH_INTERVALS[interval_label]
             now = time.time()
             if now - st.session_state.last_refresh_ts >= desired:
                 st.session_state.last_refresh_ts = now
-                st.experimental_rerun()
+                st.rerun()
 
 
 # --------------------------------------------------------------------------------------
@@ -1223,7 +1222,7 @@ class AdvancedDashboard:
 
 def create_advanced_dashboard(smart_twin_system: Any) -> AdvancedDashboard:
     """
-    Create and return an S-Class dashboard instance.
+    Create and return a dashboard instance.
     """
     dashboard = AdvancedDashboard(smart_twin_system)
     return dashboard
