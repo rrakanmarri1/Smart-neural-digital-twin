@@ -511,7 +511,7 @@ class AdvancedDashboard:
         else:
             response = self._generate_chat_response(user_input)
         st.session_state.chat_history.append(f"**🤖 AI:** {response}")
-        st.experimental_rerun()
+        st.rerun()
 
     def _handle_command(self, command: str) -> str:
         cmd = command.lower().strip().lstrip("/")
